@@ -33,6 +33,18 @@
     <section class="panel is-active" data-panel="board">
       <div class="main">
         <div class="overview" id="overview"></div>
+        <div class="filters" id="filters">
+          <div class="chip-list" id="statusChips">
+            <button class="fchip active" data-status="all">All</button>
+            <button class="fchip" data-status="todo">To do</button>
+            <button class="fchip" data-status="in_progress">In progress</button>
+            <button class="fchip" data-status="to_validate">To validate</button>
+            <button class="fchip" data-status="to_analyze">To analyze</button>
+            <button class="fchip" data-status="done">Done</button>
+            <button class="fchip" data-status="blocked">Blocked</button>
+          </div>
+          <input type="search" id="search" class="search" placeholder="Filter tasks…" autocomplete="off" />
+        </div>
         <div class="board" id="board"></div>
       </div>
       <aside class="side" id="side">

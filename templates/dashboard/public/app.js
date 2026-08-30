@@ -1,6 +1,7 @@
 'use strict';
 const STATUS = { todo:'To do', in_progress:'In progress', to_validate:'To validate', to_analyze:'To analyze', done:'Done', blocked:'Blocked' };
 let P = null, openTaskId = null;
+let filter = { status: 'all', q: '' }; // board filter state — client-side only, read-only
 
 const $ = (s,r=document)=>r.querySelector(s);
 const $$ = (s,r=document)=>[...r.querySelectorAll(s)];
@@ -223,8 +224,19 @@ function renderOverview(){
   box.append(ocard('Phase progress', bars(rows)));
 }
 
+function taskMatches(t){
+  if(filter.status!=='all' && t.status!==filter.status) return false;
+  const q=filter.q.trim().toLowerCase();
+  if(q && !((t.title+' '+t.id).toLowerCase().includes(q))) return false;
+  return true;
+}
+function updateFilterChips(){
+  $$('#statusChips .fchip').forEach(b=> b.classList.toggle('active', b.dataset.status===filter.status));
+}
+
 function renderBoard(){
-  const tasks = allTasks();
+  const tasks = allTasks(); // unfiltered — used only to tell "no plans" apart from "no matches"
+  updateFilterChips();
 
   const specs=$('#specs'); specs.innerHTML=''; $('#specsCount').textContent=(P.specs||[]).length;
   if(!(P.specs||[]).length) specs.append(li('empty','none yet'));
@@ -236,13 +248,21 @@ function renderBoard(){
   running.forEach(a=>{ const e=li('run-live',''); e.innerHTML=`<b>${a.tool}</b> · ${a.task||'—'}`; rl.append(e); });
 
   const board=$('#board'); board.innerHTML='';
-  (P.plans||[]).forEach(pl=> pl.phases.forEach(ph=> board.append(renderPhase(ph,pl.file))));
+  let shown=0;
+  (P.plans||[]).forEach(pl=> pl.phases.forEach(ph=>{
+    const filtered=ph.tasks.filter(taskMatches);
+    shown+=filtered.length;
+    if(!filtered.length) return; // hide phases with zero matching tasks
+    board.append(renderPhase(ph,pl.file,filtered));
+  }));
   if(!tasks.length) board.append(emptyState());
+  else if(!shown) board.append(noMatchState());
 }
 function li(cls,txt){ const e=el('li',cls); e.textContent=txt; return e; }
 function emptyState(){ const d=el('div','empty'); d.style.padding='40px'; d.textContent='No plans yet. Ask your agent to build something — it will run Intake and write plans/*.md.'; return d; }
+function noMatchState(){ const d=el('div','empty'); d.style.padding='40px'; d.textContent='No tasks match this filter.'; return d; }
 
-function renderPhase(ph,file){
+function renderPhase(ph,file,filteredTasks){
   const sec=el('section','phase');
   const head=el('div','phase-head');
   head.append(el('span','phase-title',ph.title));
@@ -251,7 +271,7 @@ function renderPhase(ph,file){
   head.append(el('span','phase-stat',`${d}/${ph.tasks.length}`));
   sec.append(head);
   const wrap=el('div','tasks');
-  ph.tasks.forEach(t=> wrap.append(renderTask(t)));
+  filteredTasks.forEach(t=> wrap.append(renderTask(t)));
   sec.append(wrap); return sec;
 }
 function renderTask(t){
@@ -356,6 +376,9 @@ $$('#tabs .tab').forEach(tab=> tab.addEventListener('click',()=>{
   $$('.panel').forEach(p=>p.classList.remove('is-active'));
   $(`.panel[data-panel="${tab.dataset.tab}"]`).classList.add('is-active');
 }));
+// filters (status chips + search) — client-side only, does not write anything
+$$('#statusChips .fchip').forEach(b=> b.addEventListener('click', ()=>{ filter.status=b.dataset.status; renderBoard(); }));
+$('#search').addEventListener('input', e=>{ filter.q=e.target.value; renderBoard(); });
 // theme
 (function(){ const s=localStorage.getItem('spf-theme'); if(s)document.documentElement.setAttribute('data-theme',s);
   $('#themeToggle').addEventListener('click',()=>{ const c=document.documentElement.getAttribute('data-theme'); const n=c==='dark'?'light':'dark'; document.documentElement.setAttribute('data-theme',n); localStorage.setItem('spf-theme',n); }); })();
