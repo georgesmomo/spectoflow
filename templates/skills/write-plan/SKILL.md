@@ -28,8 +28,11 @@ defined boundaries/ADRs), or whenever the workflow reaches the Plan step.
    - `T-012` — a stable, sequential task ID (never reused, never renumbered after creation).
    - `Title` — outcome-phrased, short enough to scan.
    - `@owner` — who/what role picks it up (`@dev`, `@qa`, agent name, or a person).
-   - `~level` — size signal (e.g. `~S`/`~M`/`~L`, or points) — keep it Small by this skill's standard.
-   - `%status` — current status (e.g. `%todo`, `%doing`, `%done`, `%blocked`).
+   - `~level` — size signal, one of `~quick` / `~standard` / `~major` — keep it Small by this skill's
+     standard; a task that only fits `~major` is a candidate to split further.
+   - `%status` — current status, one of `%in_progress` / `%to_validate` / `%to_analyze` / `%blocked`.
+     A task not yet started carries **no** `%status` tag at all (todo = absent, not `%todo`). A finished
+     task is marked by checking the box (`- [x]`), never by a `%done` tag.
 4. **Check INVEST before closing the plan.** Re-scan the list: any task not independent, not small, or
    not testable gets split or re-scoped before the plan is handed off.
 
@@ -46,7 +49,11 @@ dashboard tracks each line). Report via the `::spectoflow` sentinel:
 A plan revised after a task reveals a missing dependency is reported again, not silently edited.
 
 ## Quality bar
-- [ ] Every task line matches `- [ ] T-xxx Title @owner ~level %status` exactly.
+- [ ] Every task line matches `- [ ] T-xxx Title @owner ~level %status` exactly, with `~level` from
+      `{quick, standard, major}` and `%status` from `{in_progress, to_validate, to_analyze, blocked}` —
+      never invented tags.
+- [ ] A not-yet-started task carries no `%status` tag (todo = absent); a finished task is `- [x] …` with
+      no `%status` tag, never `%done`.
 - [ ] Every task is Independent, Small, and Testable enough to be picked up and closed on its own
       (INVEST); nothing in the plan is a disguised multi-task epic.
 - [ ] Tasks are grouped into phases and ordered so no task precedes a dependency it needs.
