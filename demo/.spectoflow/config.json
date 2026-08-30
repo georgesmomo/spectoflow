@@ -1,0 +1,10 @@
+{
+  "mode": "semi",
+  "language": "en",
+  "agent": "claude",
+  "projectType": "app",
+  "runners": {
+    "claude": "claude -p --permission-mode acceptEdits",
+    "codex": "codex exec"
+  }
+}

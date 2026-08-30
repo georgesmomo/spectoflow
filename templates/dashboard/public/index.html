@@ -1,0 +1,99 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="dark">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>spectoflow · control</title>
+  <link rel="stylesheet" href="styles.css" />
+</head>
+<body>
+  <header class="topbar">
+    <div class="brand">
+      <span class="brand-mark" aria-hidden="true"></span>
+      <span class="brand-name">spectoflow</span>
+      <span class="brand-sep">/</span>
+      <span class="brand-project" id="projectName">—</span>
+    </div>
+    <nav class="tabs" id="tabs">
+      <button class="tab is-active" data-tab="board">Board</button>
+      <button class="tab" data-tab="workflow">Workflow</button>
+      <button class="tab" data-tab="team">Agents &amp; Skills</button>
+      <button class="tab" data-tab="run">Run</button>
+    </nav>
+    <div class="top-right">
+      <span class="meta-chip" id="agentChip" title="Active agent">claude</span>
+      <span class="meta-chip" id="langChip" title="Output language">en</span>
+      <span class="mode-chip" id="modeChip" title="Autonomy mode">semi</span>
+      <span class="sync" id="sync"><span class="sync-dot"></span><span id="syncLabel">live</span></span>
+      <button class="theme-toggle" id="themeToggle" aria-label="Toggle theme"><span class="theme-ico"></span></button>
+    </div>
+  </header>
+
+  <main class="stage">
+    <!-- BOARD -->
+    <section class="panel is-active" data-panel="board">
+      <aside class="rail">
+        <div class="rail-block">
+          <h2 class="rail-title">Progress</h2>
+          <div class="progress"><div class="progress-fill" id="progressFill"></div></div>
+          <div class="progress-label" id="progressLabel"></div>
+        </div>
+        <div class="rail-block">
+          <h2 class="rail-title">Specs <span class="count" id="specsCount">0</span></h2>
+          <ul class="flatlist" id="specs"></ul>
+        </div>
+        <div class="rail-block">
+          <h2 class="rail-title">Running <span class="count" id="runCount">0</span></h2>
+          <ul class="flatlist" id="running"></ul>
+        </div>
+      </aside>
+      <div class="board" id="board"></div>
+    </section>
+
+    <!-- WORKFLOW -->
+    <section class="panel" data-panel="workflow">
+      <div class="wf-wrap">
+        <h2 class="panel-title">Active workflow</h2>
+        <p class="panel-sub">Click a step to enable or disable it. This edits <code>.spectoflow/workflow.md</code>.</p>
+        <div class="wf-diagram" id="wfDiagram"></div>
+      </div>
+    </section>
+
+    <!-- AGENTS & SKILLS -->
+    <section class="panel" data-panel="team">
+      <div class="team-wrap">
+        <h2 class="panel-title">Agents <span class="count" id="agentsCount">0</span></h2>
+        <p class="panel-sub">Stable team personas — the <em>who</em>.</p>
+        <div class="cards" id="agents"></div>
+        <h2 class="panel-title" style="margin-top:28px">Skills <span class="count" id="skillsCount">0</span></h2>
+        <p class="panel-sub">Evolving procedures — the <em>how</em>.</p>
+        <div class="cards" id="skills"></div>
+      </div>
+    </section>
+  </main>
+
+    <!-- RUN -->
+    <section class="panel" data-panel="run">
+      <div class="run-wrap">
+        <h2 class="panel-title">Run an agent</h2>
+        <p class="panel-sub">Type a request; the agent runs headless in this project with its full memory
+          (<code>CLAUDE.md → AGENTS.md</code>) and updates the plans. The board refreshes live.</p>
+        <div class="run-bar">
+          <select id="runAgent" class="run-select"></select>
+          <textarea id="runPrompt" class="run-input" placeholder="e.g. Add a login feature with email + password"></textarea>
+          <button id="runBtn" class="btn primary">Run</button>
+        </div>
+        <p class="run-warn">⚠ This launches a real agent that can modify files and run commands. It uses
+          the command in <code>.spectoflow/config.json → runners</code>; set permissions there.</p>
+        <div class="run-console" id="runConsole"><span class="run-idle">Output will stream here.</span></div>
+      </div>
+    </section>
+
+  <div class="drawer" id="drawer" aria-hidden="true">
+    <div class="drawer-scrim" id="drawerScrim"></div>
+    <div class="drawer-panel" role="dialog"><button class="drawer-close" id="drawerClose">×</button><div id="drawerBody"></div></div>
+  </div>
+
+  <script src="app.js"></script>
+</body>
+</html>
