@@ -1,4 +1,20 @@
-# spectoflow (v0.12 — provisional name)
+<p align="center">
+  <picture>
+    <source media="(prefers-color-scheme: dark)" srcset="https://raw.githubusercontent.com/georgesmomo/spectoflow/main/logo-spectoflow-white.png">
+    <img src="https://raw.githubusercontent.com/georgesmomo/spectoflow/main/logo-spectoflow.png" alt="spectoflow" width="112">
+  </picture>
+</p>
+
+<h1 align="center">spectoflow</h1>
+
+<p align="center"><em>Agent-agnostic spec-driven development with a real-time local control plane.</em></p>
+
+<p align="center">
+  <a href="https://www.npmjs.com/package/spectoflow"><img src="https://img.shields.io/npm/v/spectoflow.svg?color=e6a54b" alt="npm version"></a>
+  <img src="https://img.shields.io/badge/node-%3E%3D18-5fb2cc" alt="node >= 18">
+  <img src="https://img.shields.io/badge/dependencies-0-4caf72" alt="zero dependencies">
+  <a href="./LICENSE"><img src="https://img.shields.io/badge/license-MIT-blue" alt="MIT license"></a>
+</p>
 
 An **agent-agnostic** spec-driven development framework with a **real-time local control plane**.
 You speak in plain language; the framework classifies your intent and runs the right workflow. No
