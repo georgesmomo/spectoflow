@@ -130,6 +130,22 @@ function writeRuntime(projectRoot, rt) {
   return rt;
 }
 
+// ---- progress history (volatile, kept inside runtime.json) ------------------
+// Pure helper: mutates+returns `runtime.history` — one {date,total,done} point per calendar day,
+// newest last, capped to 60 points. Same-day calls UPDATE the existing point rather than appending
+// (so re-recording the same day never grows history). No filesystem access here; the caller
+// decides whether the result is worth persisting (see readProject's write-guard).
+function recordSnapshot(runtime, counts, date) {
+  runtime.history = runtime.history || [];
+  const d = date || new Date().toISOString().slice(0, 10);
+  const last = runtime.history[runtime.history.length - 1];
+  const snap = { date: d, total: counts.total | 0, done: counts.done | 0 };
+  if (last && last.date === d) runtime.history[runtime.history.length - 1] = snap;
+  else runtime.history.push(snap);
+  if (runtime.history.length > 60) runtime.history = runtime.history.slice(-60);
+  return runtime;
+}
+
 // ---- group-chat message log (volatile) --------------------------------------
 // A running agent identifies itself by printing sentinel lines on stdout:
 //   ::spectoflow role=developer kind=status msg=finished T-023
@@ -188,7 +204,7 @@ function readWorkflow(projectRoot) {
 function readProject(projectRoot) {
   const config = readConfig(projectRoot);
   const plans = readPlans(projectRoot);
-  const runtime = readRuntime(projectRoot);
+  let runtime = readRuntime(projectRoot);
   const workflow = readWorkflow(projectRoot);
   const specs = (() => {
     const d = path.join(projectRoot, 'specs');
@@ -196,6 +212,31 @@ function readProject(projectRoot) {
   })();
   const agents = listMd(path.join(projectRoot, '.spectoflow', 'agents'));
   const skills = listSkills(path.join(projectRoot, '.spectoflow', 'skills'));
+
+  // Write-guarded snapshot: readProject is polled continuously by the dashboard (and reacts to
+  // fs.watch on .spectoflow). Recording unconditionally on every read would rewrite runtime.json
+  // on every poll → fs.watch fires → SSE 'change' → client re-reads → infinite loop / SSE storm.
+  // So we only persist when today's {total,done} actually differs from the last history entry
+  // (or history is empty and needs seeding) — a no-op read never touches the filesystem.
+  const today = new Date().toISOString().slice(0, 10);
+  let total = 0, done = 0;
+  for (const pl of plans) for (const ph of pl.phases) for (const t of ph.tasks) { total++; if (t.status === 'done') done++; }
+  const history = runtime.history || [];
+  const last = history[history.length - 1];
+  const changed = !last || last.date !== today || last.total !== total || last.done !== done;
+  if (changed) {
+    // Concurrency guard: readProject's own initial `readRuntime` above can be stale by the time
+    // we're ready to write — a concurrent writer (e.g. appendMessage, from a running agent) may
+    // have written runtime.json in between. Writing back our stale in-memory copy would silently
+    // clobber whatever that concurrent writer just persisted (messages, agent status, etc).
+    // So we re-read the freshest runtime immediately before writing and mutate ONLY its history
+    // in place; every other field (messages/agents/tests) comes from this fresh read, not from
+    // the possibly-stale `runtime` captured earlier in this function.
+    const cur = readRuntime(projectRoot);
+    recordSnapshot(cur, { total, done }, today);
+    runtime = writeRuntime(projectRoot, cur);
+  }
+
   return { config, plans, specs, workflow, agents, skills, runtime };
 }
 function frontmatter(text) {
@@ -204,11 +245,18 @@ function frontmatter(text) {
   if (m) m[1].split('\n').forEach((l) => { const kv = l.match(/^([\w-]+):\s*(.*)$/); if (kv) out[kv[1]] = kv[2].trim(); });
   return out;
 }
+// Parse a flat inline-list front-matter value, e.g. "[analyze-requirements, write-spec]" →
+// ['analyze-requirements', 'write-spec']. Returns [] for an absent/empty value.
+function parseFlatList(raw) {
+  if (!raw) return [];
+  return String(raw).replace(/[[\]]/g, '').split(',').map((s) => s.trim()).filter(Boolean);
+}
 function listMd(dir) {
   if (!fs.existsSync(dir)) return [];
   return fs.readdirSync(dir).filter((f) => f.endsWith('.md')).map((f) => {
     const fm = frontmatter(fs.readFileSync(path.join(dir, f), 'utf8'));
-    return { file: f, name: fm.name || f.replace(/\.md$/, ''), title: fm.title || fm.name || f, capability: fm.capability || '', description: fm.description || '' };
+    return { file: f, name: fm.name || f.replace(/\.md$/, ''), title: fm.title || fm.name || f, capability: fm.capability || '', description: fm.description || '',
+      standards: parseFlatList(fm.standards), uses: parseFlatList(fm.uses) };
   });
 }
 function listSkills(dir) {
@@ -216,7 +264,8 @@ function listSkills(dir) {
   return fs.readdirSync(dir, { withFileTypes: true }).filter((e) => e.isDirectory()).map((e) => {
     const sk = path.join(dir, e.name, 'SKILL.md');
     const fm = fs.existsSync(sk) ? frontmatter(fs.readFileSync(sk, 'utf8')) : {};
-    return { name: fm.name || e.name, description: fm.description || '' };
+    return { name: fm.name || e.name, description: fm.description || '', capability: fm.capability || '',
+      inputs: fm.inputs || '', outputs: fm.outputs || '', standard: fm.standard || '' };
   });
 }
 function readAgents(projectRoot) {
@@ -225,12 +274,16 @@ function readAgents(projectRoot) {
   return fs.readdirSync(dir).filter((f) => f.endsWith('.md')).map((f) => {
     const fm = frontmatter(fs.readFileSync(path.join(dir, f), 'utf8'));
     return { name: fm.name || f.replace(/\.md$/, ''), capability: fm.capability || null,
-      title: fm.title || '', description: fm.description || '' };
+      title: fm.title || '', description: fm.description || '',
+      standards: parseFlatList(fm.standards), uses: parseFlatList(fm.uses) };
   });
+}
+function readSkills(projectRoot) {
+  return listSkills(path.join(projectRoot, '.spectoflow', 'skills'));
 }
 
 module.exports = {
   parseTaskLine, buildTaskLine, parsePlan, readPlans, updateTaskLine, addTaskComment,
   readRuntime, writeRuntime, parseAgentLine, appendMessage, readConfig, readWorkflow, readProject,
-  readAgents,
+  readAgents, readSkills, recordSnapshot,
 };

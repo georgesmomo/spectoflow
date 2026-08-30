@@ -70,6 +70,23 @@
   workflow engine, and SSE realtime are unchanged. Collapsible phase sections persist in
   `localStorage`; a unified card system now spans Board/Workflow/Agents & Skills. See DECISIONS D22
   and `docs/dashboard-redesign-design.md`.
+- **0.12** — dashboard navigation, chat & dynamism: the header is denser — brand + subtitle + a slim
+  global-progress meter, icon tabs (**Board · Requests · Backlog · Workflow · Agents & Skills · Chat ·
+  Info**), agent/lang/mode chips, a pulsing sync dot, and a **Run** quick-action. The old sidebar's
+  "À demander" block becomes the **Requests** tab, translated to English (UI is English-only); two new
+  tabs — **Info** (project/config summary, client-side) and **Backlog** (a flat sortable/filterable
+  table of every task across all plans). **Agents & Skills** cards now show `capability`/`standards`/
+  `uses` and open a full-body **drawer** rendering the file's markdown via a tiny hand-rolled `mdLite`
+  renderer, fed by the one new read-only endpoint `GET /api/agentfile?path=` (scoped to
+  `.spectoflow/agents/**` + `.spectoflow/skills/**`, path-traversal-safe). A full **Chat tab** joins the
+  redesigned floating widget, both sharing `renderChatLog()` so they never drift. Dynamism returns: the
+  Overview's scope-vs-delivered **area curve** (dropped in 0.11) is back, fed by a real
+  `runtime.history` daily snapshot (`store.recordSnapshot`, write-guarded, re-read-before-write to
+  avoid clobbering concurrent `runtime.messages`); charts move into a tested `dashboard/public/
+  charts.js` module (`donut`/`area`/`bars`/`ring`); icons and reduced-motion-safe animations (card
+  rise-in, staggered arc/bar draw, count-up, gradient progress ring, pulsing sync) are back throughout.
+  Also fixed: the inverted phase-collapse chevron, and a single-source-of-truth `activeTab` so tab
+  selection survives SSE-triggered re-renders. See DECISIONS D23 and `docs/dashboard-nav-design.md`.
 
 ## Next
 

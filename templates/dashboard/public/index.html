@@ -10,20 +10,33 @@
   <header class="topbar">
     <div class="brand">
       <span class="brand-mark" aria-hidden="true"></span>
-      <span class="brand-name">spectoflow</span>
-      <span class="brand-sep">/</span>
-      <span class="brand-project" id="projectName">—</span>
+      <div class="brand-text">
+        <div class="brand-line">
+          <span class="brand-name">spectoflow</span>
+          <span class="brand-sep">/</span>
+          <span class="brand-project" id="projectName">—</span>
+        </div>
+        <div class="brand-sub" id="brandSub">semi · en</div>
+      </div>
+      <div class="progress-meter" id="globalMeter" title="Global progress">
+        <div class="progress-meter-fill" id="globalMeterFill"></div>
+      </div>
     </div>
     <nav class="tabs" id="tabs">
-      <button class="tab is-active" data-tab="board">Board</button>
-      <button class="tab" data-tab="workflow">Workflow</button>
-      <button class="tab" data-tab="team">Agents &amp; Skills</button>
+      <button class="tab is-active" data-tab="board"><span class="tab-ico" data-icon="board"></span><span class="tab-label">Board</span></button>
+      <button class="tab" data-tab="requests"><span class="tab-ico" data-icon="requests"></span><span class="tab-label">Requests</span></button>
+      <button class="tab" data-tab="backlog"><span class="tab-ico" data-icon="backlog"></span><span class="tab-label">Backlog</span></button>
+      <button class="tab" data-tab="workflow"><span class="tab-ico" data-icon="workflow"></span><span class="tab-label">Workflow</span></button>
+      <button class="tab" data-tab="team"><span class="tab-ico" data-icon="agents"></span><span class="tab-label">Agents &amp; Skills</span></button>
+      <button class="tab" data-tab="chat"><span class="tab-ico" data-icon="chat"></span><span class="tab-label">Chat</span></button>
+      <button class="tab" data-tab="info"><span class="tab-ico" data-icon="info"></span><span class="tab-label">Info</span></button>
     </nav>
     <div class="top-right">
       <span class="meta-chip" id="agentChip" title="Active agent">claude</span>
       <span class="meta-chip" id="langChip" title="Output language">en</span>
       <span class="mode-chip" id="modeChip" title="Autonomy mode">semi</span>
       <span class="sync" id="sync"><span class="sync-dot"></span><span id="syncLabel">live</span></span>
+      <button class="btn primary run-btn" id="runQuickBtn" title="Open the run chat"><span class="tab-ico" data-icon="run"></span><span>Run</span></button>
       <button class="theme-toggle" id="themeToggle" aria-label="Toggle theme"><span class="theme-ico"></span></button>
     </div>
   </header>
@@ -48,10 +61,6 @@
         <div class="board" id="board"></div>
       </div>
       <aside class="side" id="side">
-        <div class="rail-block">
-          <h2 class="rail-title">À demander <span class="count" id="toAskCount">0</span></h2>
-          <ul class="flatlist toask-list" id="toAsk"></ul>
-        </div>
         <div class="rail-block rail-block-journal">
           <h2 class="rail-title">Journal <span class="count" id="journalCount">0</span></h2>
           <div class="journal" id="journal"></div>
@@ -65,6 +74,51 @@
           <ul class="flatlist" id="running"></ul>
         </div>
       </aside>
+    </section>
+
+    <!-- REQUESTS (tasks awaiting review: to_validate / to_analyze) -->
+    <section class="panel" data-panel="requests">
+      <div class="requests-wrap">
+        <h2 class="panel-title">Requests <span class="count" id="requestsCount">0</span></h2>
+        <p class="panel-sub">Tasks awaiting your input — status <em>to validate</em> or <em>to analyze</em>.</p>
+        <ul class="flatlist requests-list" id="requestsList"></ul>
+      </div>
+    </section>
+
+    <!-- BACKLOG (flat, sortable, filterable table of every task) -->
+    <section class="panel" data-panel="backlog">
+      <div class="backlog-wrap">
+        <h2 class="panel-title">Backlog <span class="count" id="backlogCount">0</span></h2>
+        <p class="panel-sub">Every task, across every plan, in one flat table.</p>
+        <div class="filters" id="backlogFilters">
+          <div class="chip-list" id="backlogStatusChips">
+            <button class="fchip active" data-status="all">All</button>
+            <button class="fchip" data-status="todo">To do</button>
+            <button class="fchip" data-status="in_progress">In progress</button>
+            <button class="fchip" data-status="to_validate">To validate</button>
+            <button class="fchip" data-status="to_analyze">To analyze</button>
+            <button class="fchip" data-status="done">Done</button>
+            <button class="fchip" data-status="blocked">Blocked</button>
+          </div>
+          <input type="search" id="backlogSearch" class="search" placeholder="Filter by id or title…" autocomplete="off" />
+        </div>
+        <div class="table-scroll">
+          <table class="backlog-table" id="backlogTable">
+            <thead>
+              <tr>
+                <th data-col="id">ID</th>
+                <th data-col="title">Title</th>
+                <th data-col="phase">Phase</th>
+                <th data-col="status">Status</th>
+                <th data-col="owner">Owner</th>
+                <th data-col="level">Level</th>
+                <th data-col="comments">💬</th>
+              </tr>
+            </thead>
+            <tbody id="backlogBody"></tbody>
+          </table>
+        </div>
+      </div>
     </section>
 
     <!-- WORKFLOW -->
@@ -87,13 +141,50 @@
         <div class="cards" id="skills"></div>
       </div>
     </section>
+
+    <!-- CHAT (full-width chat tab — shares renderChatLog + doRun/doOrchestrate/approve with the floating widget) -->
+    <section class="panel" data-panel="chat">
+      <div class="chat-tab-wrap">
+        <div class="chat-tab-head">
+          <div>
+            <h2 class="panel-title">Chat</h2>
+            <p class="panel-sub">Full conversation with the runner — the same run as the widget, more room to read it.</p>
+          </div>
+          <select id="tabRunAgent" class="chat-agent" title="Agent"></select>
+        </div>
+        <div class="chat-tab-log" id="chatTabLog">
+          <div class="chat-idle">Type a request — the agent runs headless in this project with full memory
+            (<code>CLAUDE.md → AGENTS.md</code>) and updates the board live.</div>
+        </div>
+        <div class="chat-tab-input">
+          <textarea id="tabRunPrompt" class="chat-ta" placeholder="e.g. Add a login feature with email + password"></textarea>
+          <div class="chat-tab-actions">
+            <button id="tabRunBtn" class="btn primary chat-send">Send</button>
+            <button id="tabOrchBtn" class="btn chat-send" title="Walk the enabled workflow">Orchestrate</button>
+          </div>
+        </div>
+        <p class="chat-warn">⚠ Launches a real agent (<code>config.json → runners</code>) that can modify files &amp; run commands.</p>
+      </div>
+    </section>
+
+    <!-- INFO (project overview — filled by renderInfo() in app.js) -->
+    <section class="panel" data-panel="info">
+      <div class="info-wrap">
+        <h2 class="panel-title">Info</h2>
+        <p class="panel-sub">Project overview — configuration, counts, specs and active workflow.</p>
+        <div class="info-grid" id="infoGrid"></div>
+      </div>
+    </section>
   </main>
 
   <!-- CHAT WIDGET (floating agent runner; entry point to the group-chat) -->
   <button class="chat-fab" id="chatFab" aria-label="Open run chat" title="Run an agent">💬</button>
   <div class="chat" id="chat" aria-hidden="true" role="dialog" aria-label="Run an agent">
     <div class="chat-head">
-      <span class="chat-title">Run an agent</span>
+      <div class="chat-head-text">
+        <span class="chat-title">Run an agent</span>
+        <span class="chat-sub">Quick access · full view in the Chat tab</span>
+      </div>
       <select id="runAgent" class="chat-agent" title="Agent"></select>
       <button class="chat-close" id="chatClose" aria-label="Close">×</button>
     </div>
@@ -114,7 +205,22 @@
     <div class="drawer-panel" role="dialog"><button class="drawer-close" id="drawerClose">×</button><div id="drawerBody"></div></div>
   </div>
 
+  <!-- floating chart tooltip layer — positioned on mousemove over [data-tip] hit targets -->
+  <div id="tooltip" class="tooltip" hidden></div>
+
+  <!-- shared gradient used by SpectoCharts.ring's foreground arc (stroke="url(#grad)") -->
+  <svg width="0" height="0" style="position:absolute" aria-hidden="true">
+    <defs>
+      <linearGradient id="grad" x1="0%" y1="0%" x2="100%" y2="100%">
+        <stop offset="0%" stop-color="var(--cool)" />
+        <stop offset="100%" stop-color="var(--signal)" />
+      </linearGradient>
+    </defs>
+  </svg>
+
   <script src="stats.js"></script>
+  <script src="charts.js"></script>
+  <script src="icons.js"></script>
   <script src="app.js"></script>
 </body>
 </html>

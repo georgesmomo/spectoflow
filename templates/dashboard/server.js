@@ -37,6 +37,17 @@ const server = http.createServer(async (req,res)=>{
   try{
     if(p==='/api/project') return sendJSON(res,200,project());
 
+    // ---- read-only agent/skill file viewer (scoped to .spectoflow/{agents,skills}/**) ----
+    if (p === '/api/agentfile' && req.method === 'GET') {
+      const rel = new URL(req.url, 'http://x').searchParams.get('path') || '';
+      const base = path.join(ROOT, '.spectoflow');
+      const abs = path.resolve(base, rel);
+      const okDir = abs.startsWith(path.join(base, 'agents') + path.sep) || abs.startsWith(path.join(base, 'skills') + path.sep);
+      if (!okDir || !abs.endsWith('.md') || !fs.existsSync(abs) || fs.statSync(abs).isDirectory())
+        return sendJSON(res, 400, { error: 'not an agent/skill file' });
+      return sendJSON(res, 200, { content: fs.readFileSync(abs, 'utf8') });
+    }
+
     if(p==='/api/events'){
       res.writeHead(200,{'Content-Type':'text/event-stream','Cache-Control':'no-cache',Connection:'keep-alive'});
       res.write('data: '+JSON.stringify({type:'hello'})+'\n\n');
