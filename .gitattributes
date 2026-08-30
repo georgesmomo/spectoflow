@@ -1,0 +1,3 @@
+# Keep text (source + shipped templates) as LF on every platform, so a Windows checkout
+# (git autocrlf) can't hand CRLF to the markdown/front-matter parsers or the npm tarball.
+* text=auto eol=lf

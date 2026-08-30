@@ -163,7 +163,7 @@ function readConfig(projectRoot) {
 }
 function readWorkflow(projectRoot) {
   try {
-    const text = fs.readFileSync(path.join(projectRoot, '.spectoflow', 'workflow.md'), 'utf8');
+    const text = fs.readFileSync(path.join(projectRoot, '.spectoflow', 'workflow.md'), 'utf8').replace(/\r\n?/g, '\n');
     const steps = [];
     text.split('\n').forEach((l) => {
       const m = l.match(/^\s*- \[( |x|X)\]\s+(.*?)\s*$/);
@@ -199,7 +199,7 @@ function readProject(projectRoot) {
   return { config, plans, specs, workflow, agents, skills, runtime };
 }
 function frontmatter(text) {
-  const m = text.match(/^---\n([\s\S]*?)\n---/);
+  const m = String(text).replace(/\r\n?/g, '\n').match(/^---\n([\s\S]*?)\n---/);
   const out = {};
   if (m) m[1].split('\n').forEach((l) => { const kv = l.match(/^([\w-]+):\s*(.*)$/); if (kv) out[kv[1]] = kv[2].trim(); });
   return out;
