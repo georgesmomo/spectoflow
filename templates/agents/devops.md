@@ -1,7 +1,7 @@
 ---
 name: devops
 title: DevOps Engineer
-capability: implementation
+capability: operations
 description: Handles build, deploy and infra concerns (gated by policy).
 uses: []
 ---
