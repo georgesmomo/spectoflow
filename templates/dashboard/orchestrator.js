@@ -24,16 +24,25 @@ function post(root, role, kind, text, emit) {
   emit({ type: 'message', message: m });
 }
 
-async function runOrchestration({ root, request, mode, runStep, confirm }, emit) {
+async function runOrchestration({ root, request, mode, runStep, confirm, resume }, emit) {
   const enabled = store.readWorkflow(root).filter((s) => s.enabled);
-  const o = {
-    id: 'o' + Date.now().toString(36), request, mode, status: 'running', currentStep: 0,
-    startedAt: new Date().toISOString(),
-    steps: enabled.map((s) => ({ name: s.name, cap: s.cap, skill: s.skill, policy: !!s.policy, agent: null, status: 'pending' })),
-  };
+  let o, startAt = 0;
+  if (resume) {
+    const prev = store.readRuntime(root).orchestration;
+    if (!prev || ['done', 'cancelled'].includes(prev.status)) return prev || null;
+    o = prev; o.status = 'running'; mode = o.mode;
+    startAt = o.steps.findIndex((s) => s.status !== 'done');   // first not-done step
+    if (startAt < 0) startAt = enabled.length;
+  } else {
+    o = {
+      id: 'o' + Date.now().toString(36), request, mode, status: 'running', currentStep: 0,
+      startedAt: new Date().toISOString(),
+      steps: enabled.map((s) => ({ name: s.name, cap: s.cap, skill: s.skill, policy: !!s.policy, agent: null, status: 'pending' })),
+    };
+  }
   saveState(root, o, emit);
 
-  for (let i = 0; i < enabled.length; i++) {
+  for (let i = startAt; i < enabled.length; i++) {
     o.currentStep = i; const step = enabled[i], st = o.steps[i];
     const r = resolveStep(root, step);
     if (r.error) { st.status = 'failed'; o.status = 'failed'; saveState(root, o, emit); post(root, 'orchestrator', 'status', '⚠ ' + r.error, emit); return o; }
