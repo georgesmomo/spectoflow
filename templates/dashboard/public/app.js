@@ -93,7 +93,40 @@ function render(){
   $('#modeChip').textContent = c.mode||'semi';
   const sel=$('#runAgent'); const runners=Object.keys((c.runners)||{claude:1});
   if(sel.options.length!==runners.length){ sel.innerHTML=''; runners.forEach(k=>{ const o=document.createElement('option'); o.value=k; o.textContent=k; sel.append(o); }); if(c.agent) sel.value=c.agent; }
-  renderOverview(); renderBoard(); renderWorkflow(); renderTeam(); renderChat();
+  renderOverview(); renderBoard(); renderWorkflow(); renderTeam(); renderChat(); renderSidebar();
+}
+
+// ---- right sidebar: "À demander" (toAsk tasks) + "Journal" (read-only runtime.messages feed) ----
+function renderSidebar(){ renderToAsk(); renderJournal(); }
+function renderToAsk(){
+  const list=$('#toAsk'); if(!list) return;
+  const toAsk=SpectoStats.stats(P).toAsk||[];
+  $('#toAskCount').textContent=toAsk.length;
+  list.innerHTML='';
+  if(!toAsk.length){ list.append(li('empty','Nothing awaiting you.')); return; }
+  toAsk.forEach(t=>{
+    const row=el('li','toask-row'); row.tabIndex=0;
+    row.append(el('span','toask-id',t.id));
+    row.append(el('span','toask-title',t.title));
+    row.append(el('span','chip s-'+t.status,STATUS[t.status]||t.status));
+    const open=()=>openDrawer(t.id);
+    row.addEventListener('click',open);
+    row.addEventListener('keydown',e=>{ if(e.key==='Enter')open(); });
+    list.append(row);
+  });
+}
+function renderJournal(){
+  const box=$('#journal'); if(!box) return;
+  const msgs=((P.runtime&&P.runtime.messages)||[]).slice().reverse(); // reverse-chronological
+  $('#journalCount').textContent=msgs.length;
+  box.innerHTML='';
+  if(!msgs.length){ box.append(el('div','empty','No activity yet.')); return; }
+  msgs.forEach(m=>{
+    const row=el('div','journal-row'+(m.role==='user'?' j-you':' k-'+(m.kind||'message')));
+    row.append(el('div','journal-head', m.role + (m.agent&&m.agent!==m.role?(' · '+m.agent):'')));
+    row.append(el('div','journal-text', m.text));
+    box.append(row);
+  });
 }
 
 // ---- inline-SVG helpers (zero-dep charts) --------------------------------

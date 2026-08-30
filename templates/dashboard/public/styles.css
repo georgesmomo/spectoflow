@@ -55,6 +55,24 @@ body { background:var(--bg); color:var(--ink); font-family:var(--sans); font-siz
 .flatlist .empty { border-style:dashed; font-style:italic; color:var(--faint); }
 .run-live { border-left:2px solid var(--signal)!important; }
 
+/* À demander (toAsk tasks) */
+.toask-row { cursor:pointer; display:flex; align-items:center; gap:8px; }
+.toask-row:hover,.toask-row:focus-visible { border-color:color-mix(in srgb,var(--signal) 40%,var(--line)); }
+.toask-id { font-family:var(--mono); font-size:11px; color:var(--faint); flex-shrink:0; }
+.toask-title { flex:1; min-width:0; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; color:var(--ink); }
+
+/* Journal (read-only feed of runtime.messages, scrolls independently) */
+.journal { max-height:340px; overflow-y:auto; display:flex; flex-direction:column; gap:7px; padding-right:2px; }
+.journal-row { background:var(--surface); border:1px solid var(--line); border-radius:8px; padding:7px 9px; }
+.journal-head { font-family:var(--mono); font-size:10px; text-transform:uppercase; letter-spacing:.06em; color:var(--cool); margin-bottom:3px; }
+.journal-text { color:var(--ink); font-size:12.5px; line-height:1.4; white-space:pre-wrap; word-break:break-word; overflow-wrap:anywhere; }
+.journal-row.j-you { border-left:2px solid var(--signal); }
+.journal-row.j-you .journal-head { color:var(--signal); }
+.journal-row.k-status .journal-head { color:var(--s-done); }
+.journal-row.k-status { border-color:color-mix(in srgb,var(--s-done) 35%,var(--line)); }
+.journal-row.k-question .journal-head { color:var(--signal); }
+.journal-row.k-handoff .journal-head { color:var(--s-to_analyze); }
+
 /* overview: KPI cards + status donut + workflow strip + phase bars */
 .overview { padding:22px 24px 6px; display:flex; flex-direction:column; gap:14px; }
 .kpi-row { display:grid; grid-template-columns:repeat(4,1fr); gap:12px; }
