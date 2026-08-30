@@ -51,6 +51,9 @@ function startRun(root, { prompt, agent }, emit) {
     emit({ type: 'run-end', runId, code: 1 }); emit({ type: 'change' });
     return { runId };
   }
+  // End the child's stdin immediately: a child that reads stdin (or a Windows pipe that
+  // otherwise keeps 'close' from firing) can't stall the run waiting on input that never comes.
+  try { child.stdin && child.stdin.end(); } catch {}
 
   const onLine = (line) => {
     const m = store.parseAgentLine(line);

@@ -36,6 +36,7 @@ templates/                canonical framework → copied to <project>/.spectoflo
   lib/store.js            markdown parse + granular write + runtime + config/workflow readers
   dashboard/server.js     zero-dep HTTP + SSE(+fs.watch); /api/run delegates to runner.js
   dashboard/runner.js     agent run pipeline: spawn → parse sentinels → group-chat message log
+  dashboard/orchestrator.js  workflow sequencer: resolve → gate (mode+policy) → run → collect
   dashboard/public/       UI (Board / Workflow / Agents&Skills / Run)
 ```
 
@@ -64,6 +65,19 @@ SSE `{type:'message'}`), and streams any other output as raw `run-line` events (
 it appends a `kind:status` "finished" message. The widget renders `runtime.messages` as identified
 bubbles (persisted across reloads); the raw block is ephemeral. As the agent edits `plans/*.md`, the
 watch fires and the board refreshes live. MCP is the planned upgrade, writing to the same log (D6/D19).
+
+## Orchestrator (v0.9)
+
+`POST /api/orchestrate {request}` delegates to `dashboard/orchestrator.js:runOrchestration`, a thin
+deterministic sequencer over the **enabled** `workflow.md` steps: for each step it **resolves**
+`step → agent` (via `workflow.md`'s `{cap:… skill:…}` annotation and the agent's front-matter
+`capability`) and `step → skill` file, **gates** on mode + policy (a policy-sensitive step always
+confirms; `manual` confirms every step; `semi`/`autopilot` confirm only policy-sensitive steps), then
+calls `runner.startRun` per step and collects its exit code before advancing. Non-zero exit or an
+unresolvable step stops the run. Like `runner.js`, `runStep`/`confirm` are injectable so the loop is
+unit-testable without agents or HTTP. State persists to `runtime.orchestration` for reload/resume; the
+widget's group-chat gets an **Orchestrate** trigger and **Approve/Cancel** on pending steps. See
+DECISIONS D20.
 
 ## The router (in AGENTS.md)
 

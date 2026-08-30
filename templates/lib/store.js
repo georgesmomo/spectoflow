@@ -162,14 +162,23 @@ function readConfig(projectRoot) {
   catch { return { mode: 'semi', language: 'en', agent: 'claude' }; }
 }
 function readWorkflow(projectRoot) {
-  // workflow.md: each "- [x]/[ ] Step name" line = a step (checked = enabled)
   try {
     const text = fs.readFileSync(path.join(projectRoot, '.spectoflow', 'workflow.md'), 'utf8');
     const steps = [];
     text.split('\n').forEach((l) => {
       const m = l.match(/^\s*- \[( |x|X)\]\s+(.*?)\s*$/);
-      if (m) steps.push({ name: m[2].replace(/\s*\(optional\)\s*$/i, '').trim(),
-        enabled: m[1].toLowerCase() === 'x', optional: /\(optional\)/i.test(m[2]) });
+      if (!m) return;
+      let rest = m[2], cap = null, skill = null, policy = false;
+      const ann = rest.match(/\{([^}]*)\}\s*$/);
+      if (ann) {
+        rest = rest.slice(0, ann.index).trim();
+        cap = (ann[1].match(/\bcap:(\S+)/) || [])[1] || null;
+        skill = (ann[1].match(/\bskill:(\S+)/) || [])[1] || null;
+        policy = /\bpolicy\b/.test(ann[1]);
+      }
+      const optional = /\(optional\)/i.test(rest);
+      const name = rest.replace(/\s*\(optional\)\s*$/i, '').trim();
+      steps.push({ name, enabled: m[1].toLowerCase() === 'x', optional, cap, skill, policy });
     });
     return steps;
   } catch { return []; }
@@ -210,8 +219,18 @@ function listSkills(dir) {
     return { name: fm.name || e.name, description: fm.description || '' };
   });
 }
+function readAgents(projectRoot) {
+  const dir = path.join(projectRoot, '.spectoflow', 'agents');
+  if (!fs.existsSync(dir)) return [];
+  return fs.readdirSync(dir).filter((f) => f.endsWith('.md')).map((f) => {
+    const fm = frontmatter(fs.readFileSync(path.join(dir, f), 'utf8'));
+    return { name: fm.name || f.replace(/\.md$/, ''), capability: fm.capability || null,
+      title: fm.title || '', description: fm.description || '' };
+  });
+}
 
 module.exports = {
   parseTaskLine, buildTaskLine, parsePlan, readPlans, updateTaskLine, addTaskComment,
   readRuntime, writeRuntime, parseAgentLine, appendMessage, readConfig, readWorkflow, readProject,
+  readAgents,
 };

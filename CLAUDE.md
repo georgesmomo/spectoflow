@@ -5,7 +5,7 @@ framework with a real-time local control plane. This file orients you to **build
 (it is not a spectoflow-managed project). Read `docs/` before making changes:
 `docs/ARCHITECTURE.md`, `docs/DECISIONS.md` (the full rationale, D1–D15), `docs/ROADMAP.md` (what's next).
 
-## What exists (v0.8.0)
+## What exists (v0.9.0)
 
 - `bin/spectoflow.js` — CLI: `init` (scaffold a project; auto-detects installed agents), `update
   [--dry-run]` (refresh framework files to this kit version, preserving user edits), `dashboard`,
@@ -20,8 +20,10 @@ framework with a real-time local control plane. This file orients you to **build
     `capabilities.md` · `policy.md` · `config.json` (mode, language, agent, runners) ·
     `agents/` (stable team personas) · `skills/` (evolving procedures) ·
     `lib/store.js` (markdown storage engine + group-chat message log: `parseAgentLine`,
-    `appendMessage`) · `dashboard/` (SSE server + `runner.js` run pipeline + UI: Board / Workflow /
-    Agents & Skills + a floating 💬 group-chat where running agents post identified messages).
+    `appendMessage`) · `dashboard/` (SSE server + `runner.js` run pipeline + `orchestrator.js` workflow
+    sequencer (resolve → gate by mode/policy → run → collect, injectable for tests) + UI: Board /
+    Workflow / Agents & Skills + a floating 💬 group-chat where running agents post identified messages
+    and an **Orchestrate** button drives the whole enabled workflow).
 - `demo/` — a real inited project used to preview the dashboard (spectoflow tracking itself).
 
 ## Core invariants (do not break — see DECISIONS.md)

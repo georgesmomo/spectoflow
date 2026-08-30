@@ -10,6 +10,7 @@ const fs = require('fs');
 const path = require('path');
 const store = require('../lib/store');
 const { startRun } = require('./runner');
+const orchestrator = require('./orchestrator');
 
 const PORT = process.env.SPECTOFLOW_PORT ? Number(process.env.SPECTOFLOW_PORT) : 4319;
 const PUBLIC = path.join(__dirname, 'public');
@@ -25,6 +26,11 @@ function findPlanFileForTask(id){ for(const pl of store.readPlans(ROOT)) for(con
 
 function watch(dir){ try{ fs.watch(dir,{recursive:false},()=>emit({type:'change'})); }catch(_){} }
 ['plans','specs','.spectoflow'].forEach(d=>{ const p=path.join(ROOT,d); if(fs.existsSync(p)) watch(p); });
+
+// A process restart loses any in-flight orchestration; without this, a stale 'running' or
+// 'awaiting_approval' status wedges the /api/orchestrate 409 guard forever. Not a real
+// resume — just clears the wedge so a fresh orchestration can start.
+try { orchestrator.reconcileOnBoot(ROOT); } catch {}
 
 const server = http.createServer(async (req,res)=>{
   const u=new URL(req.url,`http://localhost:${PORT}`); const p=u.pathname;
@@ -65,6 +71,27 @@ const server = http.createServer(async (req,res)=>{
       const r=startRun(ROOT,{prompt,agent},emit);
       if(r.error) return sendJSON(res,400,{error:r.error});
       return sendJSON(res,200,{runId:r.runId});
+    }
+
+    // ---- orchestrator ----
+    if (p === '/api/orchestrate' && req.method === 'POST') {
+      const { request } = await body(req);
+      if (!request || !String(request).trim()) return sendJSON(res, 400, { error: 'Empty request.' });
+      const active = store.readRuntime(ROOT).orchestration;
+      if (active && ['running', 'awaiting_approval'].includes(active.status))
+        return sendJSON(res, 409, { error: 'An orchestration is already active.' });
+      const mode = store.readConfig(ROOT).mode || 'semi';
+      // fire and forget; state + messages stream over SSE
+      orchestrator.runOrchestration({ root: ROOT, request: String(request).trim(), mode,
+        runStep: orchestrator.defaultRunStep, confirm: orchestrator.defaultConfirm }, emit)
+        .catch((e) => emit({ type: 'message', message: { role: 'orchestrator', kind: 'status', text: 'orchestration error: ' + e.message } }));
+      const o = store.readRuntime(ROOT).orchestration;
+      return sendJSON(res, 200, { orchestrationId: o && o.id });
+    }
+    if (p === '/api/orchestrate/approve' && req.method === 'POST') {
+      const { decision, note } = await body(req);
+      const ok = orchestrator.submitDecision(decision, note);
+      return sendJSON(res, ok ? 200 : 409, ok ? { ok: true } : { error: 'No pending approval.' });
     }
 
     let file=p==='/'?'/index.html':p;
