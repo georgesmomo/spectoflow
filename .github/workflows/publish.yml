@@ -30,7 +30,10 @@ jobs:
 
       # OIDC trusted publishing needs npm >= 11.5.1 (newer than the one Node ships)
       - name: Upgrade npm (OIDC-capable)
-        run: npm install -g npm@latest
+        run: |
+          npm install -g npm@latest
+          hash -r
+          echo "node=$(node -v)  npm=$(npm -v)"
 
       - name: Verify tag matches package.json version
         run: |
