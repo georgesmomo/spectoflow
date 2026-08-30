@@ -4,12 +4,16 @@
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
   <title>spectoflow · control</title>
+  <link rel="icon" type="image/png" href="logo-white.png" />
   <link rel="stylesheet" href="styles.css" />
 </head>
 <body>
   <header class="topbar">
     <div class="brand">
-      <span class="brand-mark" aria-hidden="true"></span>
+      <a class="brand-logo" href="/board" data-route="board" aria-label="spectoflow home">
+        <img class="brand-logo-img is-dark" src="logo-white.png" alt="spectoflow" />
+        <img class="brand-logo-img is-light" src="logo-dark.png" alt="spectoflow" />
+      </a>
       <div class="brand-text">
         <div class="brand-line">
           <span class="brand-name">spectoflow</span>
@@ -25,6 +29,7 @@
     <nav class="tabs" id="tabs">
       <button class="tab is-active" data-tab="board"><span class="tab-ico" data-icon="board"></span><span class="tab-label">Board</span></button>
       <button class="tab" data-tab="requests"><span class="tab-ico" data-icon="requests"></span><span class="tab-label">Requests</span></button>
+      <button class="tab" data-tab="attention"><span class="tab-ico" data-icon="attention"></span><span class="tab-label">Attention</span><span class="tab-badge" id="attnBadge" hidden>0</span></button>
       <button class="tab" data-tab="backlog"><span class="tab-ico" data-icon="backlog"></span><span class="tab-label">Backlog</span></button>
       <button class="tab" data-tab="workflow"><span class="tab-ico" data-icon="workflow"></span><span class="tab-label">Workflow</span></button>
       <button class="tab" data-tab="team"><span class="tab-ico" data-icon="agents"></span><span class="tab-label">Agents &amp; Skills</span></button>
@@ -37,7 +42,31 @@
       <span class="mode-chip" id="modeChip" title="Autonomy mode">semi</span>
       <span class="sync" id="sync"><span class="sync-dot"></span><span id="syncLabel">live</span></span>
       <button class="btn primary run-btn" id="runQuickBtn" title="Open the run chat"><span class="tab-ico" data-icon="run"></span><span>Run</span></button>
+      <button class="icon-btn" id="settingsBtn" aria-label="Settings" title="Settings"><span class="tab-ico" data-icon="settings"></span></button>
       <button class="theme-toggle" id="themeToggle" aria-label="Toggle theme"><span class="theme-ico"></span></button>
+    </div>
+
+    <!-- settings popover (mode + language) -->
+    <div class="settings-pop" id="settingsPop" hidden role="dialog" aria-label="Settings">
+      <div class="settings-head">Settings</div>
+      <label class="settings-row"><span>Autonomy mode</span>
+        <select id="setMode">
+          <option value="autopilot">autopilot</option>
+          <option value="semi">semi</option>
+          <option value="manual">manual</option>
+        </select>
+      </label>
+      <label class="settings-row"><span>Output language</span>
+        <select id="setLang">
+          <option value="en">en · English</option>
+          <option value="fr">fr · Français</option>
+          <option value="es">es · Español</option>
+          <option value="de">de · Deutsch</option>
+          <option value="pt">pt · Português</option>
+          <option value="it">it · Italiano</option>
+        </select>
+      </label>
+      <p class="settings-note">Writes <code>.spectoflow/config.json</code> — the agent picks it up on its next run.</p>
     </div>
   </header>
 
@@ -85,6 +114,24 @@
       </div>
     </section>
 
+    <!-- ATTENTION (points raised by the agent or by you; validate → task) -->
+    <section class="panel" data-panel="attention">
+      <div class="attn-wrap">
+        <h2 class="panel-title">Points of attention <span class="count" id="attnCount">0</span></h2>
+        <p class="panel-sub">Things the agent flagged during work — or you noted — that deserve a look. <em>Validate</em> one to turn it into a task.</p>
+        <div class="attn-add">
+          <textarea id="attnInput" class="chat-ta" placeholder="Note something to keep an eye on…"></textarea>
+          <button id="attnAddBtn" class="btn primary">Add note</button>
+        </div>
+        <div class="attn-filters">
+          <button class="fchip active" data-attn="open">Open</button>
+          <button class="fchip" data-attn="all">All</button>
+          <button class="fchip" data-attn="resolved">Resolved</button>
+        </div>
+        <div class="attn-list" id="attnList"></div>
+      </div>
+    </section>
+
     <!-- BACKLOG (flat, sortable, filterable table of every task) -->
     <section class="panel" data-panel="backlog">
       <div class="backlog-wrap">
@@ -92,7 +139,8 @@
         <p class="panel-sub">Every task, across every plan, in one flat table.</p>
         <div class="filters" id="backlogFilters">
           <div class="chip-list" id="backlogStatusChips">
-            <button class="fchip active" data-status="all">All</button>
+            <button class="fchip active" data-status="open">Open</button>
+            <button class="fchip" data-status="all">All</button>
             <button class="fchip" data-status="todo">To do</button>
             <button class="fchip" data-status="in_progress">In progress</button>
             <button class="fchip" data-status="to_validate">To validate</button>
@@ -118,6 +166,7 @@
             <tbody id="backlogBody"></tbody>
           </table>
         </div>
+        <div class="pager" id="backlogPager"></div>
       </div>
     </section>
 

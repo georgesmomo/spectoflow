@@ -2,8 +2,10 @@
 const STATUS = { todo:'To do', in_progress:'In progress', to_validate:'To validate', to_analyze:'To analyze', done:'Done', blocked:'Blocked' };
 let P = null, openTaskId = null;
 let filter = { status: 'all', q: '' }; // board filter state — client-side only, read-only
-let backlogFilter = { status: 'all', q: '' }; // backlog filter state — independent from the board's
+let backlogFilter = { status: 'open', q: '' }; // backlog defaults to open (not-done) tasks
 let backlogSort = { col: 'id', dir: 'asc' };   // backlog sort state — client-side only
+let backlogPage = 1; const BACKLOG_PAGE = 25;   // backlog pagination — client-side only
+let attnFilter = 'open';                          // attention tab filter — client-side only
 
 const $ = (s,r=document)=>r.querySelector(s);
 const $$ = (s,r=document)=>[...r.querySelectorAll(s)];
@@ -15,12 +17,16 @@ async function load(){
   const r = await fetch('/api/project'); P = await r.json(); render();
   if(openTaskId) openDrawer(openTaskId,true);
 }
+// Coalesce bursts of SSE 'change'/'message' events into one reload so the board doesn't
+// re-render (and flash) several times for a single agent action.
+let loadTimer=null;
+function scheduleLoad(){ clearTimeout(loadTimer); loadTimer=setTimeout(load,180); }
 function connect(){
   const es = new EventSource('/api/events');
   es.onopen = ()=>{ $('#sync').classList.remove('offline'); $('#syncLabel').textContent='live'; };
   es.onmessage = (ev)=>{
     let m; try{ m=JSON.parse(ev.data); }catch{ return; }
-    if(m.type==='change'||m.type==='message') return load();   // messages live from runtime.messages
+    if(m.type==='change'||m.type==='message') return scheduleLoad(); // messages live from runtime.messages
     if(m.type==='run-start'||m.type==='run-end') { chatState.forEach(st=>{ st.rawBlock=null; }); return; }
     if(m.type==='run-line') return appendRaw(m.chunk);          // raw output is ephemeral (not logged)
   };
@@ -127,7 +133,7 @@ function render(){
   if(meter) meter.title=`Global progress: ${s.pct}% (${s.done}/${s.total} tasks)`;
   renderOverview(); renderBoard(); renderBacklog(); renderWorkflow(); renderTeam();
   renderChatLog($('#chatLog')); renderChatLog($('#chatTabLog'));
-  renderSidebar(); renderRequests(); renderInfo();
+  renderSidebar(); renderRequests(); renderAttention(); renderInfo();
   applyActiveTab(); // re-apply the current tab so an SSE-driven re-render never resets to Board
 }
 
@@ -332,7 +338,8 @@ function backlogRows(){
   return rows;
 }
 function backlogMatches(r){
-  if(backlogFilter.status!=='all' && r.status!==backlogFilter.status) return false;
+  if(backlogFilter.status==='open'){ if(r.status==='done') return false; }       // "open" = every not-done task
+  else if(backlogFilter.status!=='all' && r.status!==backlogFilter.status) return false;
   const q=backlogFilter.q.trim().toLowerCase();
   if(q && !((r.id+' '+r.title).toLowerCase().includes(q))) return false;
   return true;
@@ -365,10 +372,25 @@ function renderBacklog(){
   const all=backlogRows();
   const cnt=$('#backlogCount'); if(cnt) cnt.textContent=all.length;
   const filtered=sortBacklogRows(all.filter(backlogMatches));
+  const pages=Math.max(1,Math.ceil(filtered.length/BACKLOG_PAGE));
+  if(backlogPage>pages) backlogPage=pages;
+  if(backlogPage<1) backlogPage=1;
   body.innerHTML='';
-  if(!all.length){ body.append(backlogEmptyRow('No plans yet. Ask your agent to build something — it will run Intake and write plans/*.md.')); return; }
-  if(!filtered.length){ body.append(backlogEmptyRow('No tasks match this filter.')); return; }
-  filtered.forEach(r=> body.append(backlogRow(r)));
+  if(!all.length){ body.append(backlogEmptyRow('No plans yet. Ask your agent to build something — it will run Intake and write plans/*.md.')); return renderBacklogPager(0,1); }
+  if(!filtered.length){ body.append(backlogEmptyRow('No tasks match this filter.')); return renderBacklogPager(0,1); }
+  const start=(backlogPage-1)*BACKLOG_PAGE;
+  filtered.slice(start,start+BACKLOG_PAGE).forEach(r=> body.append(backlogRow(r)));
+  renderBacklogPager(filtered.length,pages);
+}
+function renderBacklogPager(total,pages){
+  const pager=$('#backlogPager'); if(!pager) return; pager.innerHTML='';
+  if(total<=BACKLOG_PAGE){ if(total) pager.append(el('span','pager-info',`${total} task${total>1?'s':''}`)); return; }
+  const prev=el('button','pager-btn','‹ Prev'); prev.disabled=backlogPage<=1;
+  prev.addEventListener('click',()=>{ backlogPage--; renderBacklog(); });
+  const next=el('button','pager-btn','Next ›'); next.disabled=backlogPage>=pages;
+  next.addEventListener('click',()=>{ backlogPage++; renderBacklog(); });
+  const from=(backlogPage-1)*BACKLOG_PAGE+1, to=Math.min(total,backlogPage*BACKLOG_PAGE);
+  pager.append(prev, el('span','pager-info',`${from}–${to} of ${total} · page ${backlogPage}/${pages}`), next);
 }
 function backlogEmptyRow(txt){
   const tr=el('tr','backlog-empty-row'); const td=el('td',null,txt); td.colSpan=7; tr.append(td); return tr;
@@ -450,18 +472,108 @@ function renderTask(t){
 function renderWorkflow(){
   const box=$('#wfDiagram'); box.innerHTML='';
   const steps=P.workflow||[];
+  if(!steps.length){ box.append(el('div','empty','No workflow defined.')); return; }
+  const enabledCount=steps.filter(s=>s.enabled).length;
+  const legend=el('div','wf-legend');
+  legend.append(el('span','wf-legend-txt',`${enabledCount}/${steps.length} steps enabled`));
+  box.append(legend);
+  const track=el('div','wf-track');
   steps.forEach((s,i)=>{
-    const step=el('div','wf-step');
-    const node=el('div','wf-node'+(s.enabled?'':' off'));
-    node.append(el('span','dot'));
-    node.append(el('span','nm',s.name));
-    if(s.optional) node.append(el('span','opt','opt'));
-    node.addEventListener('click',()=>toggleStep(s.name));
-    step.append(node);
-    if(i<steps.length-1){ const a=el('div','wf-arrow'+(s.enabled&&steps[i+1].enabled?'':' off')); step.append(a); }
-    box.append(step);
+    const node=el('div','wf-card'+(s.enabled?'':' off')); node.tabIndex=0; node.setAttribute('role','button');
+    node.setAttribute('aria-pressed',String(!!s.enabled));
+    const head=el('div','wf-card-head');
+    head.append(el('span','wf-num',String(i+1)));
+    head.append(el('span','wf-card-name',s.name));
+    if(s.optional) head.append(el('span','wf-opt','optional'));
+    node.append(head);
+    if(s.cap||s.skill){
+      const meta=el('div','wf-card-meta');
+      if(s.cap) meta.append(el('span','wf-cap',s.cap));
+      if(s.skill) meta.append(el('span','wf-skill',s.skill));
+      node.append(meta);
+    }
+    const toggle=el('div','wf-toggle');
+    toggle.append(el('span','wf-toggle-dot'));
+    toggle.append(el('span','wf-toggle-label',s.enabled?'enabled':'disabled'));
+    node.append(toggle);
+    const act=()=>toggleStep(s.name);
+    node.addEventListener('click',act);
+    node.addEventListener('keydown',e=>{ if(e.key==='Enter'||e.key===' '){ e.preventDefault(); act(); } });
+    track.append(node);
+    if(i<steps.length-1) track.append(el('div','wf-conn'+(s.enabled&&steps[i+1].enabled?'':' off')));
   });
-  if(!steps.length) box.append(el('div','empty','No workflow defined.'));
+  box.append(track);
+}
+
+// ---- Attention tab: agent/user-raised points; validate → real task ----------
+function attnItems(){ return (P.runtime&&P.runtime.attention)||[]; }
+function renderAttention(){
+  const list=$('#attnList'); if(!list) return;
+  const items=attnItems();
+  const openN=items.filter(i=>i.status!=='resolved').length;
+  const badge=$('#attnBadge'); if(badge){ badge.textContent=openN; badge.hidden=openN===0; }
+  const count=$('#attnCount'); if(count) count.textContent=items.length;
+  $$('.attn-filters .fchip').forEach(b=> b.classList.toggle('active', b.dataset.attn===attnFilter));
+  const shown=items.filter(i=> attnFilter==='all' ? true : attnFilter==='resolved' ? i.status==='resolved' : i.status!=='resolved');
+  list.innerHTML='';
+  if(!shown.length){ list.append(el('div','empty', attnFilter==='resolved'?'Nothing resolved yet.':'No points of attention. The agent surfaces them here as it works — or add your own note above.')); return; }
+  shown.forEach(it=> list.append(attnRow(it)));
+}
+function attnRow(it){
+  const row=el('div','attn-row'+(it.status==='resolved'?' is-resolved':'')+(it.source==='agent'?' from-agent':''));
+  const head=el('div','attn-head');
+  head.append(el('span','attn-src '+(it.source==='agent'?'is-agent':'is-user'), it.source==='agent'?('⚑ '+(it.by||'agent')):'✎ you'));
+  if(it.at) head.append(el('span','attn-time',(String(it.at).replace('T',' ')).slice(0,16)));
+  if(it.status==='resolved') head.append(el('span','chip s-done', it.promotedTo?('→ '+it.promotedTo):'resolved'));
+  row.append(head);
+  const txt=el('div','attn-text', it.text); row.append(txt);
+  const acts=el('div','attn-actions');
+  if(it.status!=='resolved'){
+    const val=el('button','btn primary','Validate → task'); val.addEventListener('click',()=>promoteAttn(it.id));
+    const res=el('button','btn','Resolve'); res.addEventListener('click',()=>patchAttn(it.id,{status:'resolved'}));
+    const edit=el('button','btn','Edit'); edit.addEventListener('click',()=>editAttn(it,txt));
+    acts.append(val,res,edit);
+  }else{
+    const re=el('button','btn','Reopen'); re.addEventListener('click',()=>patchAttn(it.id,{status:'open'})); acts.append(re);
+  }
+  const del=el('button','btn danger','Delete'); del.addEventListener('click',()=>deleteAttn(it.id));
+  acts.append(del); row.append(acts);
+  return row;
+}
+function editAttn(it,txtNode){
+  const ta=el('textarea','attn-edit'); ta.value=it.text; txtNode.replaceWith(ta); ta.focus();
+  let done=false;
+  const save=()=>{ if(done) return; done=true; const v=ta.value.trim(); if(v&&v!==it.text) patchAttn(it.id,{text:v}); else renderAttention(); };
+  ta.addEventListener('blur',save);
+  ta.addEventListener('keydown',e=>{ if((e.metaKey||e.ctrlKey)&&e.key==='Enter'){ e.preventDefault(); save(); } if(e.key==='Escape'){ done=true; renderAttention(); } });
+}
+async function addAttn(text){ flash(); await fetch('/api/attention',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({text})}); }
+async function patchAttn(id,patch){ flash(); await fetch('/api/attention/'+encodeURIComponent(id),{method:'PATCH',headers:{'Content-Type':'application/json'},body:JSON.stringify(patch)}); }
+async function deleteAttn(id){ flash(); await fetch('/api/attention/'+encodeURIComponent(id),{method:'DELETE'}); }
+async function promoteAttn(id){ flash(); await fetch('/api/attention/'+encodeURIComponent(id)+'/promote',{method:'POST'}); }
+
+// ---- Settings popover: change autonomy mode + output language (writes config.json) ----
+function openSettings(open){
+  const pop=$('#settingsPop'); if(!pop) return;
+  if(open){ const c=P&&P.config||{}; if($('#setMode')) $('#setMode').value=c.mode||'semi'; setLangSelect(c.language||'en'); }
+  pop.hidden=!open;
+}
+function setLangSelect(lang){
+  const sel=$('#setLang'); if(!sel) return;
+  if(![...sel.options].some(o=>o.value===lang)){ const o=document.createElement('option'); o.value=lang; o.textContent=lang; sel.append(o); }
+  sel.value=lang;
+}
+async function saveSettings(){ flash(); const mode=$('#setMode').value, language=$('#setLang').value;
+  await fetch('/api/settings',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({mode,language})}); }
+
+// ---- client-side routing: /<tab>[/<taskId>] via the History API ------------
+const ROUTES=['board','requests','attention','backlog','workflow','team','chat','info'];
+function tabFromPath(){ const s=location.pathname.split('/').filter(Boolean); return ROUTES.includes(s[0])?s[0]:null; }
+function taskFromPath(){ const s=location.pathname.split('/').filter(Boolean); return (ROUTES.includes(s[0])&&s[1])?decodeURIComponent(s[1]):null; }
+function navigateTab(t,push){
+  activeTab=t; try{ localStorage.setItem('spf-tab',t); }catch{}
+  if(push!==false) history.pushState(null,'','/'+t);
+  applyActiveTab();
 }
 
 // chip row: a small uppercase kicker label followed by one chip per item — used for
@@ -643,6 +755,7 @@ function renderInfo(){
 function openDrawer(id,keep){
   const t=allTasks().find(x=>x.id===id); if(!t) return;
   openTaskId=id;
+  if(!keep && taskFromPath()!==id) history.pushState(null,'','/'+activeTab+'/'+encodeURIComponent(id));
   const b=$('#drawerBody'); const prev=keep?$('.drawer-panel').scrollTop:0; b.innerHTML='';
   b.append(el('div','d-id',t.id+' · '+(t.level||'standard')+' · '+t.file));
   b.append(el('div','d-title',t.title));
@@ -676,36 +789,50 @@ function openDrawer(id,keep){
   $('#drawer').setAttribute('aria-hidden','false');
   if(keep) $('.drawer-panel').scrollTop=prev;
 }
-function closeDrawer(){ openTaskId=null; $('#drawer').setAttribute('aria-hidden','true'); }
+function closeDrawer(){ if(taskFromPath()) history.pushState(null,'','/'+activeTab); openTaskId=null; $('#drawer').setAttribute('aria-hidden','true'); }
 const cssv=(v)=> getComputedStyle(document.documentElement).getPropertyValue(v).trim()||'#888';
 
 // tabs — activeTab is the single source of truth (persisted), so a click sets it and applies it,
 // and render()'s SSE-driven re-render (triggered by the snapshot write / polling) re-applies it
 // too instead of ever resetting to Board; this is what keeps a tab selected across a race with a
 // 'change'/'message' event that lands right after a click.
-let activeTab = (()=>{ try{ return localStorage.getItem('spf-tab')||'board'; }catch{ return 'board'; } })();
+// initial tab: the URL path wins (deep-link / refresh), else the persisted tab, else board
+let activeTab = tabFromPath() || (()=>{ try{ return localStorage.getItem('spf-tab')||'board'; }catch{ return 'board'; } })();
+openTaskId = taskFromPath(); // deep-link straight to a task drawer
 function applyActiveTab(){
   $$('#tabs .tab').forEach(t=> t.classList.toggle('is-active', t.dataset.tab===activeTab));
   $$('.panel').forEach(p=> p.classList.toggle('is-active', p.dataset.panel===activeTab));
 }
-$$('#tabs .tab').forEach(tab=> tab.addEventListener('click',()=>{
-  activeTab=tab.dataset.tab;
-  try{ localStorage.setItem('spf-tab',activeTab); }catch{}
-  applyActiveTab();
-}));
-applyActiveTab(); // sync to any persisted tab before the first render
+$$('#tabs .tab').forEach(tab=> tab.addEventListener('click',()=> navigateTab(tab.dataset.tab)));
+// keep the URL and the path in sync when the user uses the browser back/forward buttons
+window.addEventListener('popstate',()=>{
+  activeTab = tabFromPath() || 'board'; applyActiveTab();
+  const id=taskFromPath(); if(id) openDrawer(id); else closeDrawer();
+});
+// brand logo → Board (SPA nav, no full reload)
+const brandLogo=$('.brand-logo'); if(brandLogo) brandLogo.addEventListener('click',e=>{ e.preventDefault(); navigateTab('board'); });
+applyActiveTab(); // sync to the resolved tab before the first render
 // filters (status chips + search) — client-side only, does not write anything
 $$('#statusChips .fchip').forEach(b=> b.addEventListener('click', ()=>{ filter.status=b.dataset.status; renderBoard(); }));
 $('#search').addEventListener('input', e=>{ filter.q=e.target.value; renderBoard(); });
-// backlog: independent filters + sortable column headers — client-side only
-$$('#backlogStatusChips .fchip').forEach(b=> b.addEventListener('click', ()=>{ backlogFilter.status=b.dataset.status; renderBacklog(); }));
-$('#backlogSearch').addEventListener('input', e=>{ backlogFilter.q=e.target.value; renderBacklog(); });
+// backlog: independent filters + sortable column headers — client-side only (reset to page 1 on change)
+$$('#backlogStatusChips .fchip').forEach(b=> b.addEventListener('click', ()=>{ backlogFilter.status=b.dataset.status; backlogPage=1; renderBacklog(); }));
+$('#backlogSearch').addEventListener('input', e=>{ backlogFilter.q=e.target.value; backlogPage=1; renderBacklog(); });
 $$('#backlogTable thead th').forEach(th=> th.addEventListener('click', ()=>{
   const col=th.dataset.col;
   if(backlogSort.col===col) backlogSort.dir = backlogSort.dir==='asc'?'desc':'asc';
   else { backlogSort.col=col; backlogSort.dir='asc'; }
-  renderBacklog();
+  backlogPage=1; renderBacklog();
 }));
+// attention tab: add a note + filter chips
+$('#attnAddBtn').addEventListener('click',()=>{ const t=$('#attnInput'); const v=t.value.trim(); if(v){ addAttn(v); t.value=''; } });
+$('#attnInput').addEventListener('keydown',e=>{ if((e.metaKey||e.ctrlKey)&&e.key==='Enter'){ const v=e.target.value.trim(); if(v){ addAttn(v); e.target.value=''; } } });
+$$('.attn-filters .fchip').forEach(b=> b.addEventListener('click',()=>{ attnFilter=b.dataset.attn; renderAttention(); }));
+// settings popover
+$('#settingsBtn').addEventListener('click',e=>{ e.stopPropagation(); openSettings($('#settingsPop').hidden); });
+$('#setMode').addEventListener('change',saveSettings);
+$('#setLang').addEventListener('change',saveSettings);
+document.addEventListener('click',e=>{ const pop=$('#settingsPop'); if(!pop||pop.hidden) return; if(!pop.contains(e.target) && !e.target.closest('#settingsBtn')) openSettings(false); });
 // theme
 (function(){ const s=localStorage.getItem('spf-theme'); if(s)document.documentElement.setAttribute('data-theme',s);
   $('#themeToggle').addEventListener('click',()=>{ const c=document.documentElement.getAttribute('data-theme'); const n=c==='dark'?'light':'dark'; document.documentElement.setAttribute('data-theme',n); localStorage.setItem('spf-theme',n); }); })();
@@ -744,4 +871,8 @@ $('#tabRunPrompt').addEventListener('keydown',e=>{ if((e.metaKey||e.ctrlKey)&&e.
 $('#drawerClose').addEventListener('click',closeDrawer);
 $('#drawerScrim').addEventListener('click',closeDrawer);
 document.addEventListener('keydown',e=>{ if(e.key==='Escape')closeDrawer(); });
+// entry animations play only during the initial boot window; after that, live SSE re-renders
+// don't replay them (kills the flicker). CSS scopes @keyframes to body.booting.
+document.body.classList.add('booting');
+setTimeout(()=>document.body.classList.remove('booting'),1400);
 load(); connect();

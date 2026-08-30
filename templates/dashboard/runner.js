@@ -27,8 +27,27 @@ function makeFeeder(onLine) {
   };
 }
 
+// Detect an attention sentinel: `::spectoflow attention msg=<text>` (kind=… optional).
+// Agents raise points that deserve the user's eye; they surface in the Attention tab.
+function parseAttentionLine(line) {
+  const m = /^::spectoflow\s+attention\b(.*)$/.exec(String(line).trim());
+  if (!m) return null;
+  const rest = m[1];
+  const msg = (/\bmsg=([\s\S]+)$/.exec(rest) || [])[1];
+  if (!msg || !msg.trim()) return null;
+  return msg.trim();
+}
+function pushAttention(root, text, by) {
+  const rt = store.readRuntime(root); rt.attention = rt.attention || [];
+  const item = { id: 'att' + Date.now().toString(36) + Math.floor(Math.random() * 1e3).toString(36), at: new Date().toISOString(), by: by || 'agent', source: 'agent', status: 'open', text };
+  rt.attention.unshift(item); store.writeRuntime(root, rt);
+  return item;
+}
+
 // Start an agent run. Returns { runId, child } or { error } if no runner is configured.
-function startRun(root, { prompt, agent }, emit) {
+// logPrompt:false suppresses echoing the prompt as a user bubble — used by the orchestrator,
+// whose priming prompt ("You are the …") is machinery the user shouldn't have to read.
+function startRun(root, { prompt, agent, logPrompt = true }, emit) {
   const cfg = store.readConfig(root);
   const which = agent || cfg.agent || 'claude';
   const cmdStr = cfg.runners && cfg.runners[which];
@@ -37,8 +56,10 @@ function startRun(root, { prompt, agent }, emit) {
   const runId = 'r' + Date.now().toString(36);
   const p = String(prompt).trim();
 
-  const um = store.appendMessage(root, { role: 'user', kind: 'message', text: p, agent: which, runId });
-  emit({ type: 'message', message: um });
+  if (logPrompt) {
+    const um = store.appendMessage(root, { role: 'user', kind: 'message', text: p, agent: which, runId });
+    emit({ type: 'message', message: um });
+  }
 
   const run = { id: runId, tool: which, prompt: p, status: 'running', startedAt: new Date().toISOString() };
   runStart(root, run); emit({ type: 'run-start', run }); emit({ type: 'change' });
@@ -56,6 +77,8 @@ function startRun(root, { prompt, agent }, emit) {
   try { child.stdin && child.stdin.end(); } catch {}
 
   const onLine = (line) => {
+    const att = parseAttentionLine(line);
+    if (att) { pushAttention(root, att, which); emit({ type: 'change' }); return; }
     const m = store.parseAgentLine(line);
     if (m) { const full = store.appendMessage(root, { ...m, agent: which, runId }); emit({ type: 'message', message: full }); }
     else emit({ type: 'run-line', runId, chunk: line + '\n' });

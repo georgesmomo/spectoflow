@@ -17,6 +17,12 @@ specs, plans, comments, and **code comments**. English is the default standard.
 
 - **Artifacts (markdown, versioned, source of truth):** `specs/*.md` (specifications), `plans/*.md`
   (plans whose tasks are checkbox lines). These are what humans read and git tracks.
+- **Broaden the search before concluding "no plans exist".** The plans/specs folder name is
+  configurable: check `.spectoflow/config.json` → `plansDir`/`specsDir` first (if set, that folder
+  is authoritative); otherwise look for `plans/` then the singular `plan/` (same for `specs/`/`spec/`).
+  If you find tasks sitting in a differently-named folder (e.g. `plan/`), use them — and tell the
+  user they can pin it permanently by setting `plansDir` (or `specsDir`) in `.spectoflow/config.json`,
+  or by just telling you the folder name. Only treat the project as empty once you've checked both.
 - **Task line convention** in `plans/*.md`:
   `- [ ] T-012 Add login form @owner ~level %status`
   `[x]` = done · `~level` = quick|standard|major · `%status` = in_progress|to_validate|to_analyze|blocked
@@ -43,9 +49,14 @@ whole file. This lets the dashboard and you co-edit without clobbering. Reflect 
 
 ## New / empty project → Intake
 
-If `plans/` and `specs/` are empty: greet the user, state the mode, and **ask what they want to build**.
-Then run **brainstorm → analysis → spec → plan** (write `specs/*.md`, then `plans/*.md` with tasks)
-before any implementation.
+If `plans/` and `specs/` are empty (after broadening the search above): greet the user, state the
+mode, and **ask what they want to build**. Then run **brainstorm → analysis → spec → plan** (write
+`specs/*.md`, then `plans/*.md` with tasks) before any implementation.
+
+**Right after `init`, or on your very first reply in a fresh project, give a short next-steps hint —
+don't leave the user unsure what to do.** Keep it to a few lines:
+1. Say what you want to build (plain language — no ceremonial command needed).
+2. The dashboard: tell them it's at its URL (see Dashboard below), and whether it's already running.
 
 ## Workflow, capabilities, agents, skills
 
@@ -63,4 +74,12 @@ destructive migration, security). Mode sets routine friction; policy is non-nego
 
 ## Dashboard
 
-`node .spectoflow/dashboard/server.js` → http://localhost:4319 (zero deps, live via SSE).
+Launch it with `spectoflow dashboard` (default http://localhost:4319, or `SPECTOFLOW_PORT` /
+`--port=NNNN`; falls back to `node .spectoflow/dashboard/server.js` if the CLI isn't on PATH). Zero
+deps, live via SSE.
+
+**At the end of `init`, and on the first request in a session,** check whether the dashboard is
+running — UNLESS the user said they don't want it, or `.spectoflow/config.json` →
+`dashboard.autostart` is `false`. If it's not running, start it **detached** (spawn `spectoflow
+dashboard`, or `node .spectoflow/dashboard/server.js`, unref'd/backgrounded so it doesn't block you),
+then share the URL. Always be able to answer "is the dashboard running?" — check, don't assume.

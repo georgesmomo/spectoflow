@@ -390,29 +390,32 @@ body { background:var(--bg); color:var(--ink); font-family:var(--sans); font-siz
 @media (max-width:640px){ .chat-tab-input { flex-direction:column; } .chat-tab-actions { flex-direction:row; } }
 
 /* ---- chart & panel motion --------------------------------------------- */
+/* Entry animations are scoped to body.booting so they play once on initial load; live SSE
+   re-renders (which rebuild these nodes) then don't replay them — this is what stops the
+   dashboard from flickering on every agent action. */
 /* cards/panels rise in on render */
 @keyframes rise { from{ opacity:0; transform:translateY(8px);} to{ opacity:1; transform:translateY(0);} }
-.kpi,.ocard,.card { animation:rise .4s cubic-bezier(.2,.8,.2,1) both; }
-.kpi-row .kpi:nth-child(1){ animation-delay:.02s; } .kpi-row .kpi:nth-child(2){ animation-delay:.06s; }
-.kpi-row .kpi:nth-child(3){ animation-delay:.1s; } .kpi-row .kpi:nth-child(4){ animation-delay:.14s; }
+body.booting .kpi, body.booting .ocard, body.booting .card { animation:rise .4s cubic-bezier(.2,.8,.2,1) both; }
+body.booting .kpi-row .kpi:nth-child(1){ animation-delay:.02s; } body.booting .kpi-row .kpi:nth-child(2){ animation-delay:.06s; }
+body.booting .kpi-row .kpi:nth-child(3){ animation-delay:.1s; } body.booting .kpi-row .kpi:nth-child(4){ animation-delay:.14s; }
 
 /* area curve draws itself — pathLength="1" makes stroke-dash* fraction-based */
 @keyframes draw { to{ stroke-dashoffset:0; } }
-.area-line { stroke-dasharray:1; stroke-dashoffset:1; animation:draw 1.1s cubic-bezier(.2,.8,.2,1) forwards; animation-delay:calc(var(--i,0)*.12s); }
-.area-fill { opacity:0; animation:fadein .6s ease forwards; animation-delay:calc(.4s + var(--i,0)*.12s); }
-.area-dot,.area-value { opacity:0; animation:fadein .3s ease forwards; animation-delay:calc(1s + var(--i,0)*.12s); }
+body.booting .area-line { stroke-dasharray:1; stroke-dashoffset:1; animation:draw 1.1s cubic-bezier(.2,.8,.2,1) forwards; animation-delay:calc(var(--i,0)*.12s); }
+body.booting .area-fill { opacity:0; animation:fadein .6s ease forwards; animation-delay:calc(.4s + var(--i,0)*.12s); }
+body.booting .area-dot, body.booting .area-value { opacity:0; animation:fadein .3s ease forwards; animation-delay:calc(1s + var(--i,0)*.12s); }
 @keyframes fadein { to{ opacity:1; } }
 
 /* donut arcs pop in, staggered by --i */
 @keyframes pop { from{ opacity:0; transform:scale(.85); } to{ opacity:1; transform:scale(1); } }
-.seg-anim { transform-origin:center; transform-box:fill-box; opacity:0; animation:pop .45s cubic-bezier(.2,.8,.2,1) forwards; animation-delay:calc(var(--i,0)*.08s); }
+body.booting .seg-anim { transform-origin:center; transform-box:fill-box; opacity:0; animation:pop .45s cubic-bezier(.2,.8,.2,1) forwards; animation-delay:calc(var(--i,0)*.08s); }
 
 /* phase bars grow + the count-up badge is driven from JS (countUp in app.js) */
-.bar-fill { animation:grow .6s cubic-bezier(.2,.8,.2,1) both; animation-delay:calc(var(--i,0)*.07s); }
+body.booting .bar-fill { animation:grow .6s cubic-bezier(.2,.8,.2,1) both; animation-delay:calc(var(--i,0)*.07s); }
 @keyframes grow { from{ width:0; } }
 
 /* gradient ring (stroke="url(#grad)") fades/scales in */
-.ring-svg circle:last-of-type { transform-origin:center; animation:pop .5s cubic-bezier(.2,.8,.2,1) both; }
+body.booting .ring-svg circle:last-of-type { transform-origin:center; animation:pop .5s cubic-bezier(.2,.8,.2,1) both; }
 
 @media (prefers-reduced-motion: reduce){
   *{ animation:none!important; transition:none!important; }
@@ -424,3 +427,82 @@ body { background:var(--bg); color:var(--ink); font-family:var(--sans); font-siz
 .tooltip { position:fixed; z-index:30; pointer-events:none; background:var(--surface); border:1px solid var(--line); border-radius:8px; padding:6px 10px; font-size:11.5px; line-height:1.4; color:var(--ink); box-shadow:var(--shadow); max-width:220px; }
 .tooltip[hidden] { display:none; }
 .tooltip b { color:var(--ink); }
+
+/* ================= v0.13 additions ================= */
+.topbar { position:relative; }
+
+/* brand logo (replaces the conic mark) — theme-swapped image */
+.brand-logo { display:inline-flex; align-items:center; height:26px; flex-shrink:0; text-decoration:none; }
+.brand-logo-img { height:26px; width:auto; display:block; }
+.brand-logo-img.is-light { display:none; }
+.brand-logo-img.is-dark { display:block; }
+:root[data-theme="light"] .brand-logo-img.is-dark { display:none; }
+:root[data-theme="light"] .brand-logo-img.is-light { display:block; }
+
+/* header icon button (settings gear) */
+.icon-btn { width:30px; height:30px; border:1px solid var(--line); border-radius:8px; background:var(--surface-2); color:var(--muted); cursor:pointer; display:grid; place-items:center; flex-shrink:0; }
+.icon-btn:hover { color:var(--ink); border-color:var(--cool); }
+
+/* settings popover */
+.settings-pop { position:absolute; top:58px; right:16px; z-index:60; width:250px; background:var(--surface); border:1px solid var(--line); border-radius:var(--radius); box-shadow:var(--shadow); padding:14px; display:flex; flex-direction:column; gap:12px; }
+.settings-pop[hidden] { display:none; }
+.settings-head { font-weight:700; font-size:13px; }
+.settings-row { display:flex; flex-direction:column; gap:5px; font-size:10.5px; text-transform:uppercase; letter-spacing:.05em; color:var(--muted); }
+.settings-row select { font-family:inherit; font-size:13px; text-transform:none; letter-spacing:0; padding:6px 8px; border:1px solid var(--line); border-radius:8px; background:var(--surface-2); color:var(--ink); cursor:pointer; }
+.settings-note { font-size:10.5px; color:var(--faint); margin:0; line-height:1.4; }
+
+/* tab badge (open attention count) */
+.tab-badge { display:inline-grid; place-items:center; min-width:16px; height:16px; padding:0 4px; margin-left:5px; border-radius:999px; background:var(--signal); color:#241705; font-size:10px; font-weight:700; }
+.tab-badge[hidden] { display:none; }
+
+/* attention tab */
+.attn-wrap { max-width:860px; margin:0 auto; padding:20px 22px; }
+.attn-add { display:flex; gap:8px; margin:14px 0 10px; align-items:flex-start; }
+.attn-add textarea { flex:1; min-height:44px; resize:vertical; }
+.attn-filters { display:flex; gap:8px; margin-bottom:16px; }
+.attn-list { display:flex; flex-direction:column; gap:10px; }
+.attn-row { border:1px solid var(--line); border-left:3px solid var(--faint); border-radius:var(--radius); background:var(--surface); padding:12px 14px; }
+.attn-row.from-agent { border-left-color:var(--signal); }
+.attn-row.is-resolved { opacity:.62; }
+.attn-head { display:flex; align-items:center; gap:10px; margin-bottom:6px; }
+.attn-src { font-family:var(--mono); font-size:10.5px; text-transform:uppercase; letter-spacing:.05em; }
+.attn-src.is-agent { color:var(--signal); }
+.attn-src.is-user { color:var(--cool); }
+.attn-time { font-family:var(--mono); font-size:10.5px; color:var(--faint); }
+.attn-text { font-size:14px; line-height:1.5; white-space:pre-wrap; }
+.attn-edit { width:100%; min-height:64px; font-family:inherit; font-size:14px; padding:8px; border:1px solid var(--cool); border-radius:8px; background:var(--surface-2); color:var(--ink); box-sizing:border-box; }
+.attn-actions { display:flex; flex-wrap:wrap; gap:8px; margin-top:11px; }
+.btn.danger { color:var(--s-blocked); border-color:color-mix(in srgb,var(--s-blocked) 40%,var(--line)); }
+.btn.danger:hover { border-color:var(--s-blocked); }
+
+/* backlog pager */
+.pager { display:flex; align-items:center; justify-content:center; gap:12px; padding:14px 0 4px; }
+.pager-info { font-family:var(--mono); font-size:11.5px; color:var(--muted); }
+.pager-btn { font-family:var(--mono); font-size:12px; padding:5px 12px; border:1px solid var(--line); border-radius:8px; background:var(--surface); color:var(--ink); cursor:pointer; }
+.pager-btn:hover:not(:disabled) { border-color:var(--cool); }
+.pager-btn:disabled { opacity:.4; cursor:default; }
+
+/* workflow redesign — a wrapping pipeline of step cards with connectors */
+.wf-legend { margin-bottom:14px; }
+.wf-legend-txt { font-family:var(--mono); font-size:11.5px; color:var(--muted); }
+.wf-track { display:flex; flex-wrap:wrap; align-items:stretch; gap:0; }
+.wf-card { position:relative; min-width:152px; flex:0 0 auto; border:1px solid var(--line); border-radius:var(--radius); background:var(--surface); padding:12px 14px; cursor:pointer; transition:border-color .15s, transform .15s, box-shadow .15s; display:flex; flex-direction:column; gap:9px; }
+.wf-card:hover { border-color:var(--cool); transform:translateY(-1px); box-shadow:var(--shadow); }
+.wf-card:focus-visible { outline:2px solid var(--cool); outline-offset:2px; }
+.wf-card.off { opacity:.5; }
+.wf-card-head { display:flex; align-items:center; gap:8px; }
+.wf-num { display:grid; place-items:center; width:20px; height:20px; border-radius:999px; background:var(--surface-2); color:var(--muted); font-family:var(--mono); font-size:11px; flex-shrink:0; }
+.wf-card:not(.off) .wf-num { background:var(--signal); color:#241705; }
+.wf-card-name { font-weight:600; font-size:13.5px; }
+.wf-opt { font-family:var(--mono); font-size:9px; text-transform:uppercase; letter-spacing:.05em; color:var(--faint); border:1px solid var(--line); border-radius:4px; padding:1px 4px; }
+.wf-card-meta { display:flex; flex-wrap:wrap; gap:6px; }
+.wf-cap,.wf-skill { font-family:var(--mono); font-size:10px; border-radius:999px; padding:2px 8px; }
+.wf-cap { color:var(--cool); border:1px solid color-mix(in srgb,var(--cool) 40%,var(--line)); }
+.wf-skill { color:var(--muted); border:1px solid var(--line); }
+.wf-toggle { display:flex; align-items:center; gap:6px; }
+.wf-toggle-dot { width:8px; height:8px; border-radius:50%; background:var(--faint); }
+.wf-card:not(.off) .wf-toggle-dot { background:var(--s-done); }
+.wf-toggle-label { font-family:var(--mono); font-size:10px; text-transform:uppercase; letter-spacing:.05em; color:var(--muted); }
+.wf-conn { flex:0 0 auto; align-self:center; width:26px; height:2px; background:linear-gradient(90deg,var(--cool),var(--signal)); margin:0 2px; border-radius:2px; }
+.wf-conn.off { background:var(--line); }
+@media (max-width:720px){ .wf-track { flex-direction:column; align-items:stretch; } .wf-conn { width:2px; height:18px; margin:2px 0 2px 19px; } }

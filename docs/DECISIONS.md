@@ -359,3 +359,29 @@
   SSE (auparavant le re-rendu pouvait faire retomber l'UI sur l'onglet Board).
 - **Aucun changement de surface serveur au-delà de `/api/agentfile`.** `/api/run`, `/api/orchestrate`,
   les mutations granulaires de tâche/workflow, et le flux SSE restent inchangés.
+
+### D24 — Passe « usage réel » 0.13 : dossier de plans configurable, onboarding, onglet Attention, settings, routing
+- **ACTÉ.** Issu d'un premier usage réel de spectoflow sur un projet tiers. Onze correctifs regroupés en 0.13 :
+  - **Dossier de plans/specs élargi et configurable.** `config.plansDir`/`specsDir` (défaut `null` → auto‑détection
+    `plans`→`plan`, `specs`→`spec`). L'ancien comportement (un projet gardant ses plans dans `plan/` au singulier
+    n'était pas vu) est corrigé. Le routeur d'intention (AGENTS.md) signale à l'utilisateur qu'il peut pointer le
+    dossier. Résolveurs purs `resolvePlansDir`/`resolveSpecsDir` dans `store.js`, unit-testés.
+  - **Onboarding.** Sortie de `init` guidée et concise ; l'agent affiche les prochaines étapes après init.
+  - **Dashboard plus simple à lancer.** `spectoflow dashboard` promue comme commande unique (avec `--port`),
+    **détection de l'état « en cours d'exécution »** (sonde HTTP `/api/project`), `status` l'affiche, et l'agent
+    l'auto‑démarre (détaché) en fin d'init / à la première demande sauf opt‑out (`config.dashboard.autostart`).
+  - **Prompt système masqué.** Les runs orchestrés ne réaffichent plus le prompt d'amorçage « You are the … »
+    comme bulle (`startRun({logPrompt:false})`) ; l'orchestrateur poste déjà une ligne propre « → étape (agent) ».
+  - **Settings.** `POST /api/settings` écrit `config.json` (mode + langue) ; popover engrenage dans le header.
+  - **Onglet Attention.** Points d'attention dans `runtime.attention` : l'agent en remonte via la sentinelle
+    `::spectoflow attention msg=…`, l'utilisateur peut en ajouter ; CRUD (`/api/attention*`) + **valider → tâche**
+    (`/promote` crée une checkbox `T-###` sous une phase `## Attention`). Badge d'onglet = points ouverts.
+  - **Backlog.** Filtre **Open** (non‑done) par défaut + **pagination** (25/page).
+  - **Anti‑scintillement.** SSE `load()` **debounced** (180 ms) et animations d'entrée cadrées sous `body.booting`
+    (jouent une fois au chargement, pas à chaque re‑rendu live).
+  - **Logo.** Le vrai logo spectoflow (image, swap clair/sombre) remplace le carré à dégradé conique dans le header.
+  - **Workflow redesigné.** Cartes d'étape numérotées (capability + skill + état enabled/disabled), connecteurs, wrap responsive.
+  - **URLs.** Routing client `History API` `/<onglet>[/<taskId>]` + **fallback SPA** côté serveur (une route sans
+    extension sert `index.html`) — fini l'URL unique.
+- **Contrainte respectée :** zéro dépendance runtime, tout en anglais côté UI, SSE/écritures granulaires/orchestrateur inchangés.
+- **Non publié tel quel :** 0.13.0 est poussée sur `main` mais **pas taguée** — à valider en usage réel avant `git tag v0.13.0`.

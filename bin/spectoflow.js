@@ -2,6 +2,7 @@
 'use strict';
 const fs = require('fs');
 const path = require('path');
+const http = require('http');
 const { spawn } = require('child_process');
 const store = require('../templates/lib/store');
 const adapters = require('../lib/adapters');
@@ -15,6 +16,25 @@ const VERSION = require('../package.json').version;
 const argv = process.argv.slice(2);
 const cmd = argv[0] || 'help';
 
+// ---- dashboard port + running-state probe ------------------------------------
+// Precedence: --port=NNNN > SPECTOFLOW_PORT env > 4319 (matches templates/dashboard/server.js).
+function resolvePort(args) {
+  const arg = (args.find((a) => a.startsWith('--port=')) || '').split('=')[1];
+  return Number(arg || process.env.SPECTOFLOW_PORT || 4319);
+}
+
+// Native http probe, ~500ms timeout, never throws — resolves true/false.
+function probeDashboard(port, timeoutMs = 500) {
+  return new Promise((resolve) => {
+    const req = http.get({ host: 'localhost', port, path: '/api/project', timeout: timeoutMs }, (res) => {
+      res.resume();
+      resolve(res.statusCode < 500);
+    });
+    req.on('timeout', () => { req.destroy(); resolve(false); });
+    req.on('error', () => resolve(false));
+  });
+}
+
 function copyDir(src, dst) {
   fs.mkdirSync(dst, { recursive: true });
   for (const e of fs.readdirSync(src, { withFileTypes: true })) {
@@ -26,8 +46,9 @@ function copyDir(src, dst) {
 
 // Existing project: give id-less checkbox tasks a stable id, in place.
 const ID_RE = /^[A-Za-z]{1,5}-?\d+[A-Za-z]?$/;
-function normalizePlans(root) {
-  const dir = path.join(root, 'plans');
+function normalizePlans(root, config) {
+  const dirName = store.resolvePlansDir(root, config || store.readConfig(root));
+  const dir = path.join(root, dirName);
   if (!fs.existsSync(dir)) return 0;
   let added = 0, seq = 1;
   for (const f of fs.readdirSync(dir).filter((x) => x.endsWith('.md'))) {
@@ -90,12 +111,18 @@ function init() {
   cfg.runners = { ...cfg.runners, ...adapters.defaultRunners(agents) };
   fs.writeFileSync(cfgPath, JSON.stringify(cfg, null, 2) + '\n');
 
-  // artifact folders
-  fs.mkdirSync(path.join(target, 'specs'), { recursive: true });
-  fs.mkdirSync(path.join(target, 'plans'), { recursive: true });
+  // artifact folders — reuse an existing differently-named folder (e.g. a project that already
+  // keeps its plans in `plan/`, singular) instead of always forcing the plans/specs convention;
+  // mkdir is a no-op when the resolved folder already exists.
+  const plansDirName = store.resolvePlansDir(target, cfg);
+  const specsDirName = store.resolveSpecsDir(target, cfg);
+  fs.mkdirSync(path.join(target, specsDirName), { recursive: true });
+  fs.mkdirSync(path.join(target, plansDirName), { recursive: true });
+  if (plansDirName !== 'plans') notes.push(`Using existing '${plansDirName}/' as the plans folder (set plansDir in config.json to override).`);
+  if (specsDirName !== 'specs') notes.push(`Using existing '${specsDirName}/' as the specs folder (set specsDir in config.json to override).`);
 
   // existing project: id-normalize any plans already there
-  const added = normalizePlans(target);
+  const added = normalizePlans(target, cfg);
   if (added) notes.push(`Normalized ${added} existing task(s) with stable ids.`);
 
   // per-agent shims
@@ -113,10 +140,11 @@ function init() {
   console.log('  specs/ plans/  markdown artifacts (your source of truth)');
   written.forEach((w) => console.log('  + ' + w));
   notes.forEach((n) => console.log('  ! ' + n));
+  const port = resolvePort(argv);
   console.log('\nNext:');
-  console.log('  1) Open your agent here (Claude Code loads CLAUDE.md; Codex loads AGENTS.md).');
-  console.log('  2) Run /spectoflow init — or just say what you want to build.');
-  console.log('  3) Watch: node .spectoflow/dashboard/server.js → http://localhost:4319');
+  console.log('  1) Open your agent here — or just say what you want to build.');
+  console.log('  2) spectoflow dashboard');
+  console.log(`     → http://localhost:${port}`);
 }
 
 function update() {
@@ -142,15 +170,27 @@ function update() {
   if (dryRun) console.log('\n(dry-run — nothing was written)');
 }
 
-function dashboard() {
+// THE launch command — prints the URL clearly and won't crash on EADDRINUSE: it probes first
+// and, if a dashboard is already up on that port, just reports it instead of spawning a second one.
+async function dashboard() {
+  const port = resolvePort(argv);
+  const url = `http://localhost:${port}`;
+  if (await probeDashboard(port)) {
+    console.log(`spectoflow dashboard already running → ${url}`);
+    return;
+  }
   const local = path.resolve('.spectoflow', 'dashboard', 'server.js');
   const bundled = path.join(TPL, 'dashboard', 'server.js');
-  spawn('node', [fs.existsSync(local) ? local : bundled], { stdio: 'inherit' });
+  const env = Object.assign({}, process.env, { SPECTOFLOW_PORT: String(port) });
+  spawn('node', [fs.existsSync(local) ? local : bundled], { stdio: 'inherit', env });
+  console.log(`spectoflow dashboard → ${url}`);
 }
 
-function status() {
+async function status() {
   const root = process.cwd();
-  if (!fs.existsSync(path.join(root, 'plans')) && !fs.existsSync(path.join(root, '.spectoflow'))) {
+  const cfg = store.readConfig(root);
+  const plansDirName = store.resolvePlansDir(root, cfg);
+  if (!fs.existsSync(path.join(root, plansDirName)) && !fs.existsSync(path.join(root, '.spectoflow'))) {
     return console.log('No spectoflow project here. Run: spectoflow init');
   }
   const p = store.readProject(root);
@@ -159,12 +199,16 @@ function status() {
   console.log(`${(p.config && p.config.projectType) || 'project'} — mode ${p.config.mode} · lang ${p.config.language}`);
   console.log(`${done}/${tasks.length} tasks done · ${p.specs.length} spec(s) · ${p.agents.length} agents · ${p.skills.length} skills`);
   tasks.filter((t) => t.status === 'in_progress').forEach((t) => console.log(`  > in progress: ${t.id} ${t.title}`));
+  const port = resolvePort(argv);
+  const running = await probeDashboard(port);
+  console.log(`dashboard: ${running ? `running → http://localhost:${port}` : 'not running'}`);
 }
 
 const help = () => console.log(`spectoflow — commands:
   init [dir] [--agent=claude,codex]   install into a project
   update [--dry-run]                  refresh framework files to this kit version
-  dashboard                           run the local control plane
+  dashboard [--port=NNNN]             run the local control plane (default 4319, or $SPECTOFLOW_PORT)
   status                              print progress`);
 
-({ init, update, dashboard, status, help })[cmd] ? ({ init, update, dashboard, status, help })[cmd]() : help();
+const fns = { init, update, dashboard, status, help };
+fns[cmd] ? fns[cmd]() : help();

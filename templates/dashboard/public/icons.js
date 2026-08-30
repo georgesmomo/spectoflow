@@ -21,6 +21,10 @@
     info: wrap('<circle cx="9" cy="9" r="6.4"/><line x1="9" y1="8.3" x2="9" y2="12.2"/><circle cx="9" cy="5.7" r="0.9" fill="currentColor" stroke="none"/>'),
     // play triangle — run
     run: wrap('<path d="M5.4 3.6v10.8l9-5.4z" fill="currentColor" stroke="none"/>'),
+    // flag — points needing attention
+    attention: wrap('<line x1="4.5" y1="2.4" x2="4.5" y2="15.6"/><path d="M4.5 3.4h8.2l-1.7 2.6 1.7 2.6H4.5z"/>'),
+    // gear — settings
+    settings: wrap('<circle cx="9" cy="9" r="2.3"/><path d="M9 1.8v2M9 14.2v2M16.2 9h-2M3.8 9h-2M14.1 3.9l-1.4 1.4M5.3 12.7l-1.4 1.4M14.1 14.1l-1.4-1.4M5.3 5.3 3.9 3.9"/>'),
   };
 
   if (typeof module !== 'undefined' && module.exports) module.exports = ICON;

@@ -87,7 +87,9 @@ function defaultRunStep({ root, step, agent, skill, request }, emit) {
   return new Promise((resolve) => {
     const prompt = buildPrompt({ step, agent, skill, request });
     const tool = store.readConfig(root).agent;
-    const r = startRun(root, { prompt, agent: tool }, (e) => { emit(e); if (e.type === 'run-end') resolve(e.code); });
+    // logPrompt:false — the orchestrator already posts a clean "→ step (agent)" line; the raw
+    // priming prompt would otherwise show as a noisy user bubble.
+    const r = startRun(root, { prompt, agent: tool, logPrompt: false }, (e) => { emit(e); if (e.type === 'run-end') resolve(e.code); });
     if (r.error) { emit({ type: 'message', message: { role: 'orchestrator', kind: 'status', text: r.error } }); resolve(1); }
   });
 }

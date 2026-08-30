@@ -130,3 +130,81 @@ test('GET /api/agentfile 400s on a symlink escaping the agents/skills scope', as
     assert.strictEqual(res.status, 400, 'must reject a symlink resolving outside agents/skills');
   } finally { srv.kill(); }
 });
+
+function reqJSON(port, method, p, bodyObj) {
+  return new Promise((resolve) => {
+    const data = bodyObj ? JSON.stringify(bodyObj) : null;
+    const r = http.request({ host: '127.0.0.1', port, path: p, method,
+      headers: data ? { 'Content-Type': 'application/json', 'Content-Length': Buffer.byteLength(data) } : {} },
+      (res) => { let b = ''; res.on('data', (c) => b += c); res.on('end', () => resolve({ status: res.statusCode, body: JSON.parse(b || '{}') })); });
+    if (data) r.write(data); r.end();
+  });
+}
+
+test('POST /api/settings changes autonomy mode + language in config.json', async () => {
+  const d = project();
+  const port = 4970 + Math.floor(Math.random() * 100);
+  const srv = await startServer(d, port);
+  try {
+    const res = await reqJSON(port, 'POST', '/api/settings', { mode: 'manual', language: 'fr' });
+    assert.strictEqual(res.status, 200);
+    assert.strictEqual(res.body.config.mode, 'manual');
+    assert.strictEqual(res.body.config.language, 'fr');
+    const proj = await get(port, '/api/project');
+    assert.strictEqual(proj.body.config.mode, 'manual');
+    assert.strictEqual(proj.body.config.language, 'fr');
+    // an invalid mode is ignored, not applied
+    const res2 = await reqJSON(port, 'POST', '/api/settings', { mode: 'bogus' });
+    assert.strictEqual(res2.body.config.mode, 'manual');
+  } finally { srv.kill(); }
+});
+
+test('attention points: add, edit, resolve, promote → task, delete', async () => {
+  const d = project();
+  const port = 4640 + Math.floor(Math.random() * 100);
+  const srv = await startServer(d, port);
+  try {
+    // add
+    const add = await reqJSON(port, 'POST', '/api/attention', { text: 'watch the token refresh path' });
+    assert.strictEqual(add.status, 200);
+    const id = add.body.item.id;
+    assert.strictEqual(add.body.item.source, 'user');
+    assert.strictEqual(add.body.item.status, 'open');
+    // empty note rejected
+    const bad = await reqJSON(port, 'POST', '/api/attention', { text: '   ' });
+    assert.strictEqual(bad.status, 400);
+    // edit
+    const patch = await reqJSON(port, 'PATCH', '/api/attention/' + id, { text: 'watch token refresh + expiry' });
+    assert.strictEqual(patch.body.item.text, 'watch token refresh + expiry');
+    // promote → creates a task in a plan file and resolves the note
+    const prom = await reqJSON(port, 'POST', '/api/attention/' + id + '/promote', {});
+    assert.strictEqual(prom.status, 200);
+    assert.match(prom.body.task.id, /^T-\d+$/);
+    const planText = fs.readFileSync(prom.body.task.file, 'utf8');
+    assert.ok(planText.includes(prom.body.task.id), 'plan file got the promoted task');
+    const proj = await get(port, '/api/project');
+    const it = (proj.body.runtime.attention || []).find((x) => x.id === id);
+    assert.strictEqual(it.status, 'resolved');
+    assert.strictEqual(it.promotedTo, prom.body.task.id);
+    // delete
+    const del = await reqJSON(port, 'DELETE', '/api/attention/' + id, null);
+    assert.strictEqual(del.status, 200);
+    const proj2 = await get(port, '/api/project');
+    assert.ok(!(proj2.body.runtime.attention || []).some((x) => x.id === id), 'note removed');
+  } finally { srv.kill(); }
+});
+
+test('SPA fallback: an extensionless route serves index.html', async () => {
+  const d = project();
+  const port = 4740 + Math.floor(Math.random() * 100);
+  const srv = await startServer(d, port);
+  try {
+    const html = await new Promise((resolve) => {
+      http.get({ host: '127.0.0.1', port, path: '/backlog' }, (res) => {
+        let b = ''; res.on('data', (c) => b += c); res.on('end', () => resolve({ status: res.statusCode, body: b }));
+      });
+    });
+    assert.strictEqual(html.status, 200);
+    assert.ok(/<title>spectoflow/.test(html.body), 'serves the SPA shell for a client route');
+  } finally { srv.kill(); }
+});

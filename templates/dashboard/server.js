@@ -15,7 +15,7 @@ const orchestrator = require('./orchestrator');
 const PORT = process.env.SPECTOFLOW_PORT ? Number(process.env.SPECTOFLOW_PORT) : 4319;
 const PUBLIC = path.join(__dirname, 'public');
 const ROOT = process.env.SPECTOFLOW_ROOT || path.resolve(__dirname, '..', '..');
-const MIME = { '.html':'text/html; charset=utf-8', '.css':'text/css; charset=utf-8', '.js':'application/javascript; charset=utf-8' };
+const MIME = { '.html':'text/html; charset=utf-8', '.css':'text/css; charset=utf-8', '.js':'application/javascript; charset=utf-8', '.png':'image/png', '.svg':'image/svg+xml', '.ico':'image/x-icon' };
 const clients = new Set();
 
 function project(){ return store.readProject(ROOT); }
@@ -23,6 +23,37 @@ function sendJSON(res,code,obj){ res.writeHead(code,{'Content-Type':'application
 function body(req){ return new Promise(r=>{ let b=''; req.on('data',c=>b+=c); req.on('end',()=>{ try{r(JSON.parse(b||'{}'));}catch{r({});} }); }); }
 function emit(obj){ const line='data: '+JSON.stringify(obj)+'\n\n'; for(const res of clients) res.write(line); }
 function findPlanFileForTask(id){ for(const pl of store.readPlans(ROOT)) for(const ph of pl.phases) if(ph.tasks.find(t=>t.id===id)) return pl.file; return null; }
+
+// ---- helpers for settings + attention points -----------------------------
+const configPath = () => path.join(ROOT, '.spectoflow', 'config.json');
+function writeConfig(patch){
+  const cp = configPath(); const cfg = JSON.parse(fs.readFileSync(cp, 'utf8'));
+  if (patch.mode && ['autopilot','semi','manual'].includes(patch.mode)) cfg.mode = patch.mode;
+  if (typeof patch.language === 'string' && patch.language.trim()) cfg.language = patch.language.trim();
+  fs.writeFileSync(cp, JSON.stringify(cfg, null, 2) + '\n');
+  return cfg;
+}
+// Next free T-### id across every plan file (absolute paths from store.readPlans).
+function nextTaskId(){
+  let max = 0;
+  for (const pl of store.readPlans(ROOT)) {
+    try { const t = fs.readFileSync(pl.file, 'utf8'); const re = /\bT-(\d+)/g; let m; while ((m = re.exec(t))) max = Math.max(max, Number(m[1])); } catch {}
+  }
+  return 'T-' + String(max + 1).padStart(3, '0');
+}
+// Promote an attention item into a real checkbox task under an `## Attention` phase.
+function promoteAttention(item){
+  const plans = store.readPlans(ROOT);
+  let file = plans[0] && plans[0].file;
+  if (!file) { file = path.join(ROOT, 'plans', 'inbox.md'); fs.mkdirSync(path.dirname(file), { recursive: true }); if (!fs.existsSync(file)) fs.writeFileSync(file, '# Inbox\n'); }
+  const id = nextTaskId();
+  let text = fs.readFileSync(file, 'utf8');
+  const line = `- [ ] ${id} ${String(item.text).replace(/\s+/g, ' ').trim()} @user ~standard`;
+  if (/^##\s+Attention\s*$/m.test(text)) text = text.replace(/^(##\s+Attention\s*)$/m, `$1\n${line}`);
+  else { if (!text.endsWith('\n')) text += '\n'; text += `\n## Attention\n${line}\n`; }
+  fs.writeFileSync(file, text);
+  return { id, file };
+}
 
 function watch(dir){ try{ fs.watch(dir,{recursive:false},()=>emit({type:'change'})); }catch(_){} }
 ['plans','specs','.spectoflow'].forEach(d=>{ const p=path.join(ROOT,d); if(fs.existsSync(p)) watch(p); });
@@ -113,11 +144,64 @@ const server = http.createServer(async (req,res)=>{
       return sendJSON(res, ok ? 200 : 409, ok ? { ok: true } : { error: 'No pending approval.' });
     }
 
+    // ---- settings: change autonomy mode + output language (writes config.json) ----
+    if (p === '/api/settings' && req.method === 'POST') {
+      const patch = await body(req);
+      try { const cfg = writeConfig(patch); emit({ type: 'change' }); return sendJSON(res, 200, { config: cfg }); }
+      catch (e) { return sendJSON(res, 400, { error: String(e && e.message || e) }); }
+    }
+
+    // ---- attention points: agent- or user-raised notes; validate → real task ----
+    if (p === '/api/attention' && req.method === 'POST') {
+      const { text } = await body(req);
+      if (!text || !String(text).trim()) return sendJSON(res, 400, { error: 'Empty note.' });
+      const rt = store.readRuntime(ROOT); rt.attention = rt.attention || [];
+      const item = { id: 'att' + Date.now().toString(36), at: new Date().toISOString(), by: 'me', source: 'user', status: 'open', text: String(text).trim() };
+      rt.attention.unshift(item); store.writeRuntime(ROOT, rt); emit({ type: 'change' });
+      return sendJSON(res, 200, { item });
+    }
+    if (/^\/api\/attention\/[^/]+\/promote$/.test(p) && req.method === 'POST') {
+      const id = decodeURIComponent(p.split('/')[3] || '');
+      const rt = store.readRuntime(ROOT); const it = (rt.attention || []).find((x) => x.id === id);
+      if (!it) return sendJSON(res, 404, { error: 'Note not found.' });
+      const t = promoteAttention(it); it.status = 'resolved'; it.promotedTo = t.id;
+      store.writeRuntime(ROOT, rt); emit({ type: 'change' });
+      return sendJSON(res, 200, { task: t });
+    }
+    if (/^\/api\/attention\/[^/]+$/.test(p) && req.method === 'PATCH') {
+      const id = decodeURIComponent(p.split('/')[3] || '');
+      const patch = await body(req);
+      const rt = store.readRuntime(ROOT); const it = (rt.attention || []).find((x) => x.id === id);
+      if (!it) return sendJSON(res, 404, { error: 'Note not found.' });
+      if (typeof patch.text === 'string' && patch.text.trim()) it.text = patch.text.trim();
+      if (patch.status && ['open', 'resolved'].includes(patch.status)) it.status = patch.status;
+      store.writeRuntime(ROOT, rt); emit({ type: 'change' });
+      return sendJSON(res, 200, { item: it });
+    }
+    if (/^\/api\/attention\/[^/]+$/.test(p) && req.method === 'DELETE') {
+      const id = decodeURIComponent(p.split('/')[3] || '');
+      const rt = store.readRuntime(ROOT); rt.attention = (rt.attention || []).filter((x) => x.id !== id);
+      store.writeRuntime(ROOT, rt); emit({ type: 'change' });
+      return sendJSON(res, 200, { ok: true });
+    }
+
+    // ---- static files, with SPA fallback: a route like /backlog (no file extension)
+    //      that isn't a real asset serves index.html so client-side routing can take over ----
     let file=p==='/'?'/index.html':p;
     const full=path.join(PUBLIC,path.normalize(file).replace(/^(\.\.[/\\])+/,''));
     if(!full.startsWith(PUBLIC)){ res.writeHead(403); return res.end('Forbidden'); }
-    fs.readFile(full,(err,data)=>{ if(err){res.writeHead(404); return res.end('Not found');}
-      res.writeHead(200,{'Content-Type':MIME[path.extname(full)]||'application/octet-stream'}); res.end(data); });
+    fs.readFile(full,(err,data)=>{
+      if(err){
+        if(req.method==='GET' && !path.extname(p) && !p.startsWith('/api/')){
+          return fs.readFile(path.join(PUBLIC,'index.html'),(e2,d2)=>{
+            if(e2){ res.writeHead(404); return res.end('Not found'); }
+            res.writeHead(200,{'Content-Type':MIME['.html']}); res.end(d2);
+          });
+        }
+        res.writeHead(404); return res.end('Not found');
+      }
+      res.writeHead(200,{'Content-Type':MIME[path.extname(full)]||'application/octet-stream'}); res.end(data);
+    });
   }catch(e){ sendJSON(res,500,{error:String(e&&e.message||e)}); }
 });
 server.listen(PORT,()=>{ console.log(`spectoflow · dashboard → http://localhost:${PORT}`); console.log(`project root: ${ROOT}`); });

@@ -63,8 +63,26 @@ function parsePlan(text) {
   return phases;
 }
 
+// ---- directory resolution (plans/specs may live under a differently-named folder) --------------
+// Pure: no writes, cheap fs.existsSync probes only. Returns a directory NAME (not a full path):
+// an explicit config override wins if that folder actually exists under root; otherwise the first
+// existing candidate wins (so a project using the singular `plan/` just works); otherwise the
+// conventional default (candidates[0]) is returned even if it doesn't exist yet — callers that
+// need existence keep checking it themselves, same as before.
+function resolveDir(root, config, key, candidates) {
+  const override = config && config[key];
+  if (override && fs.existsSync(path.join(root, override))) return override;
+  for (const c of candidates) {
+    if (fs.existsSync(path.join(root, c))) return c;
+  }
+  return candidates[0];
+}
+function resolvePlansDir(root, config) { return resolveDir(root, config || {}, 'plansDir', ['plans', 'plan']); }
+function resolveSpecsDir(root, config) { return resolveDir(root, config || {}, 'specsDir', ['specs', 'spec']); }
+
 function readPlans(projectRoot) {
-  const dir = path.join(projectRoot, 'plans');
+  const dirName = resolvePlansDir(projectRoot, readConfig(projectRoot));
+  const dir = path.join(projectRoot, dirName);
   if (!fs.existsSync(dir)) return [];
   const out = [];
   for (const f of fs.readdirSync(dir).filter((x) => x.endsWith('.md')).sort()) {
@@ -74,10 +92,17 @@ function readPlans(projectRoot) {
   return out;
 }
 
+function readSpecs(projectRoot) {
+  const dirName = resolveSpecsDir(projectRoot, readConfig(projectRoot));
+  const d = path.join(projectRoot, dirName);
+  return fs.existsSync(d) ? fs.readdirSync(d).filter((x) => x.endsWith('.md')) : [];
+}
+
 // ---- granular writes ---------------------------------------------------------
 // Rewrite only the line whose task id matches, preserving everything else.
 function updateTaskLine(projectRoot, file, id, patch) {
-  const fp = path.join(projectRoot, 'plans', file);
+  const dirName = resolvePlansDir(projectRoot, readConfig(projectRoot));
+  const fp = path.join(projectRoot, dirName, file);
   const lines = fs.readFileSync(fp, 'utf8').split('\n');
   let changed = false;
   for (let i = 0; i < lines.length; i++) {
@@ -94,7 +119,8 @@ function updateTaskLine(projectRoot, file, id, patch) {
 }
 
 function addTaskComment(projectRoot, file, id, text, author) {
-  const fp = path.join(projectRoot, 'plans', file);
+  const dirName = resolvePlansDir(projectRoot, readConfig(projectRoot));
+  const fp = path.join(projectRoot, dirName, file);
   const lines = fs.readFileSync(fp, 'utf8').split('\n');
   for (let i = 0; i < lines.length; i++) {
     const t = parseTaskLine(lines[i]);
@@ -206,10 +232,7 @@ function readProject(projectRoot) {
   const plans = readPlans(projectRoot);
   let runtime = readRuntime(projectRoot);
   const workflow = readWorkflow(projectRoot);
-  const specs = (() => {
-    const d = path.join(projectRoot, 'specs');
-    return fs.existsSync(d) ? fs.readdirSync(d).filter((x) => x.endsWith('.md')) : [];
-  })();
+  const specs = readSpecs(projectRoot);
   const agents = listMd(path.join(projectRoot, '.spectoflow', 'agents'));
   const skills = listSkills(path.join(projectRoot, '.spectoflow', 'skills'));
 
@@ -283,7 +306,7 @@ function readSkills(projectRoot) {
 }
 
 module.exports = {
-  parseTaskLine, buildTaskLine, parsePlan, readPlans, updateTaskLine, addTaskComment,
+  parseTaskLine, buildTaskLine, parsePlan, readPlans, readSpecs, updateTaskLine, addTaskComment,
   readRuntime, writeRuntime, parseAgentLine, appendMessage, readConfig, readWorkflow, readProject,
-  readAgents, readSkills, recordSnapshot,
+  readAgents, readSkills, recordSnapshot, resolvePlansDir, resolveSpecsDir,
 };

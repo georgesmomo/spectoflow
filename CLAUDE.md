@@ -5,6 +5,19 @@ framework with a real-time local control plane. This file orients you to **build
 (it is not a spectoflow-managed project). Read `docs/` before making changes:
 `docs/ARCHITECTURE.md`, `docs/DECISIONS.md` (the full rationale, D1–D23), `docs/ROADMAP.md` (what's next).
 
+## What exists (v0.13.0)
+
+**v0.13 — "real-use" pass (see DECISIONS D24):** configurable/auto-detected plans & specs dir
+(`config.plansDir`/`specsDir`, resolvers in `store.js`); clearer post-init onboarding; `spectoflow
+dashboard` as the single launch command with running-state probe + agent auto-start; the orchestrator
+no longer echoes its "You are the …" priming prompt as a chat bubble (`startRun({logPrompt:false})`);
+a **settings** popover (`POST /api/settings` → `config.json`, mode + language); an **Attention** tab
+(agent raises points via the `::spectoflow attention msg=…` sentinel, or the user adds notes — CRUD via
+`/api/attention*`, **validate → task** via `/promote`); Backlog defaults to **Open** + **pagination**;
+flicker fix (debounced SSE reload + entry animations scoped to `body.booting`); the real **logo** in the
+header (theme-swapped); a redesigned **Workflow** (numbered step cards + connectors); and client-side
+**routing** (`/<tab>[/<taskId>]` via the History API + a server SPA fallback).
+
 ## What exists (v0.12.0)
 
 - `bin/spectoflow.js` — CLI: `init` (scaffold a project; auto-detects installed agents), `update
