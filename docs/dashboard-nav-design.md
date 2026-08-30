@@ -1,6 +1,6 @@
 # Dashboard navigation & chat — design (0.12)
 
-> Status: **proposed** (awaiting review). Target: spectoflow **0.12**. A follow-up to the 0.11
+> Status: **approved** (O1–O5 resolved at their proposed defaults, 2026-08-30). Target: spectoflow **0.12**. A follow-up to the 0.11
 > control-room redesign: a better header, new **Infos** and **Backlog** tabs, an enriched **Agents &
 > Skills** tab (with a full-body drawer), and a full **Chat** tab beside a redesigned floating widget.
 > Graduates to `DECISIONS.md` (D23).
@@ -146,16 +146,14 @@ tasks (delivered)** over time from a lightweight history (below).
 The reference's remaining tabs (Planning quotidien, Points de vigilance, Fichiers, Déploiement,
 Settings). A full markdown renderer (a tiny subset suffices). Editing agents/skills from the UI.
 
-## Open questions
+## Resolved decisions (from review)
 
-- **O1 — Header left content:** subtitle (mode · language) vs an inline global-progress meter.
-  Proposed: both — subtitle line + a slim progress meter under the brand.
-- **O2 — Agent/skill body rendering:** a tiny inline markdown renderer vs a monospace `pre`. Proposed:
-  the tiny renderer (headings/lists/inline-code) for readability; fall back to `pre` if it balloons.
-- **O3 — Endpoint name/shape:** `GET /api/agentfile?path=` returning `{content}`, scoped to
-  `.spectoflow/agents` + `.spectoflow/skills`. Proposed as-is.
-- **O4 — Curve data source:** a `runtime.history` daily snapshot (proposed — a genuine scope-vs-
-  delivered burn-up) vs synthesizing a curve from current task counts (fake, no real trend). Proposed:
-  the real snapshot history, seeded with one point if empty so the panel is never blank.
-- **O5 — Icon set:** a small hand-inlined SVG line-icon set matching the reference (no icon font/lib).
-  Proposed as-is.
+- **O1 → RESOLVED:** header left = brand + `/ projectType` + a subtitle (mode · language) AND a slim
+  global-progress meter under the brand.
+- **O2 → RESOLVED:** the agent/skill body drawer uses a **tiny inline markdown renderer**
+  (headings / lists / inline-code / paragraphs); fall back to a `pre` only if a file breaks it.
+- **O3 → RESOLVED:** `GET /api/agentfile?path=` → `{ content }`, scoped to `.spectoflow/agents/**` +
+  `.spectoflow/skills/**`, path-traversal-safe.
+- **O4 → RESOLVED:** the area curve is fed by a real `runtime.history` daily snapshot (scope = total,
+  delivered = done), seeded with one point when empty so the panel is never blank.
+- **O5 → RESOLVED:** a small hand-inlined SVG line-icon set (no icon font/library).
