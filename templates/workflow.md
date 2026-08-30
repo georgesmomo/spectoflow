@@ -8,8 +8,8 @@ source of truth for the workflow.
 - [x] Analysis {cap:analysis skill:analyze-requirements}
 - [x] Spec {cap:analysis skill:write-spec}
 - [x] Plan {cap:planning skill:write-plan}
-- [x] Develop {cap:implementation}
+- [x] Develop {cap:implementation skill:implement}
 - [x] Unit tests {cap:testing skill:write-tests}
-- [ ] Integration tests (optional) {cap:testing skill:write-tests}
-- [ ] End-to-end tests (optional) {cap:testing skill:write-tests}
+- [ ] Integration tests (optional) {cap:testing skill:write-e2e-tests}
+- [ ] End-to-end tests (optional) {cap:testing skill:write-e2e-tests}
 - [x] Review {cap:quality skill:code-review}

@@ -3,9 +3,9 @@
 This repository is the **source of spectoflow**, an agent-agnostic spec-driven development (SDD)
 framework with a real-time local control plane. This file orients you to **build spectoflow itself**
 (it is not a spectoflow-managed project). Read `docs/` before making changes:
-`docs/ARCHITECTURE.md`, `docs/DECISIONS.md` (the full rationale, D1–D15), `docs/ROADMAP.md` (what's next).
+`docs/ARCHITECTURE.md`, `docs/DECISIONS.md` (the full rationale, D1–D21), `docs/ROADMAP.md` (what's next).
 
-## What exists (v0.9.0)
+## What exists (v0.10.0)
 
 - `bin/spectoflow.js` — CLI: `init` (scaffold a project; auto-detects installed agents), `update
   [--dry-run]` (refresh framework files to this kit version, preserving user edits), `dashboard`,
@@ -24,6 +24,9 @@ framework with a real-time local control plane. This file orients you to **build
     sequencer (resolve → gate by mode/policy → run → collect, injectable for tests) + UI: Board /
     Workflow / Agents & Skills + a floating 💬 group-chat where running agents post identified messages
     and an **Orchestrate** button drives the whole enabled workflow).
+  - `agents/` and `skills/` are now sourced, domain-standard playbooks (TDD, OWASP ASVS/Top 10, C4/ADR,
+    INVEST, Playwright E2E, Conventional Commits, …), not one-line stubs — the gold-standard shape for
+    both is pinned in `docs/agents-skills-standard.md`.
 - `demo/` — a real inited project used to preview the dashboard (spectoflow tracking itself).
 
 ## Core invariants (do not break — see DECISIONS.md)

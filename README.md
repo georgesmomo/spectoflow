@@ -1,4 +1,4 @@
-# spectoflow (v0.9 — provisional name)
+# spectoflow (v0.10 — provisional name)
 
 An **agent-agnostic** spec-driven development framework with a **real-time local control plane**.
 You speak in plain language; the framework classifies your intent and runs the right workflow. No
@@ -91,6 +91,9 @@ gated by mode + policy.
 Agents (`.spectoflow/agents/`) are **stable team personas** (Product Manager, Developer, QA Engineer…).
 Skills (`.spectoflow/skills/`) are **evolving procedures**. A workflow step → a capability → its agent →
 runs a skill. Improve a skill without touching the agent.
+
+Agents and skills follow real domain standards, cited in-file — TDD, OWASP ASVS/Top 10, C4/ADR,
+INVEST, Playwright E2E, Conventional Commits, and more — not generic one-liners.
 
 ## Language
 
