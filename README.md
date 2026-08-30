@@ -1,4 +1,4 @@
-# spectoflow (v0.5 — provisional name)
+# spectoflow (v0.6 — provisional name)
 
 An **agent-agnostic** spec-driven development framework with a **real-time local control plane**.
 You speak in plain language; the framework classifies your intent and runs the right workflow. No
@@ -14,8 +14,14 @@ spectoflow init /path/to/project # or: node bin/spectoflow.js init .
 `init` scaffolds:
 - `.spectoflow/` — the framework (brain, `workflow.md`, `agents/`, `skills/`, `policy.md`, `config.json`, dashboard, engine).
 - `specs/` and `plans/` — **markdown artifacts**, your versioned source of truth.
-- per-agent shims: `CLAUDE.md` (Claude Code), `AGENTS.md` (Codex/Cursor), `.claude/commands/spectoflow.md`.
+- per-agent shims: `CLAUDE.md` (Claude Code), `AGENTS.md` (Codex/Cursor), `GEMINI.md` (Gemini),
+  `.claude/commands/spectoflow.md`.
 - `.spectoflow/runtime.json` is gitignored (volatile execution state).
+
+`init` **auto-detects your installed agent(s)** (probes PATH for `claude`, `codex`, `cursor-agent`,
+`gemini`, and existing `.claude`/`.codex`/… dirs): it writes shims for each, sets the active agent in
+`config.json`, and seeds the runner commands. Override with `--agent=claude,codex`; if nothing is
+detected it falls back to claude + codex.
 
 **Empty project** → your agent asks what to build and runs Intake (brainstorm → analysis → spec → plan).
 **Existing project** → an existing `CLAUDE.md` is preserved as `CLAUDE.md.tomerge` (merged on first run);
