@@ -154,3 +154,6 @@ body { background:var(--bg); color:var(--ink); font-family:var(--sans); font-siz
 .chat-ta { flex:1; min-height:40px; max-height:120px; resize:vertical; font:inherit; background:var(--bg); color:var(--ink); border:1px solid var(--line); border-radius:9px; padding:9px 11px; }
 .chat-send { align-self:stretch; }
 .chat-warn { font-size:10.5px; color:var(--signal); margin:6px 12px 10px; }
+.approval { display:flex; flex-direction:column; gap:6px; padding:8px 10px; border:1px solid color-mix(in srgb,var(--signal) 40%,var(--line)); border-radius:10px; }
+.approval .c-actions { display:flex; gap:8px; }
+#orchBtn { background:var(--cool); color:#04202a; border-color:transparent; font-weight:600; }

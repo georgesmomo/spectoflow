@@ -42,6 +42,18 @@ function renderChat(){
   let added=false;
   for(const m of msgs){ if(rendered.has(m.id)) continue; rendered.add(m.id); log.append(bubble(m)); added=true; }
   if(added) scrollChat();
+  renderApproval();
+}
+function renderApproval(){
+  const o=(P.runtime&&P.runtime.orchestration)||null;
+  let row=$('#approvalRow'); if(row) row.remove();
+  if(!o || o.status!=='awaiting_approval') return;
+  row=el('div','approval'); row.id='approvalRow';
+  row.append(el('div','msg-role','orchestrator · awaiting approval'));
+  const a=el('button','btn primary','Approve'); a.addEventListener('click',()=>approve('approve'));
+  const c=el('button','btn','Cancel'); c.addEventListener('click',()=>approve('cancel'));
+  const acts=el('div','c-actions'); acts.append(a,c); row.append(acts);
+  $('#chatLog').append(row); scrollChat();
 }
 function appendRaw(chunk){
   clearIdle();
@@ -61,6 +73,12 @@ async function doRun(){
   await fetch('/api/run',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({prompt,agent})});
   $('#runPrompt').value=''; // the prompt renders as a bubble from the message log
 }
+async function doOrchestrate(){
+  const prompt=$('#runPrompt').value.trim(); if(!prompt) return;
+  await fetch('/api/orchestrate',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({request:prompt})});
+  $('#runPrompt').value='';
+}
+async function approve(decision){ await fetch('/api/orchestrate/approve',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({decision})}); }
 async function patchTask(id,patch){ flash(); await fetch('/api/task/'+encodeURIComponent(id),{method:'PATCH',headers:{'Content-Type':'application/json'},body:JSON.stringify(patch)}); }
 async function addComment(id,text,action){ flash(); await fetch('/api/task/'+encodeURIComponent(id)+'/comment',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({text,action})}); }
 async function toggleStep(name){ flash(); await fetch('/api/workflow/toggle',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({name})}); }
@@ -222,6 +240,7 @@ $('#chatFab').addEventListener('click',()=> setChat($('#chat').getAttribute('ari
 $('#chatClose').addEventListener('click',()=> setChat(false));
 try{ if(localStorage.getItem('spf-chat')==='1') setChat(true); }catch{}
 $('#runBtn').addEventListener('click',doRun);
+$('#orchBtn').addEventListener('click',doOrchestrate);
 $('#runPrompt').addEventListener('keydown',e=>{ if((e.metaKey||e.ctrlKey)&&e.key==='Enter')doRun(); });
 $('#drawerClose').addEventListener('click',closeDrawer);
 $('#drawerScrim').addEventListener('click',closeDrawer);
