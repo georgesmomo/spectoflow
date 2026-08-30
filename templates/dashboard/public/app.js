@@ -92,15 +92,139 @@ function render(){
   $('#modeChip').textContent = c.mode||'semi';
   const sel=$('#runAgent'); const runners=Object.keys((c.runners)||{claude:1});
   if(sel.options.length!==runners.length){ sel.innerHTML=''; runners.forEach(k=>{ const o=document.createElement('option'); o.value=k; o.textContent=k; sel.append(o); }); if(c.agent) sel.value=c.agent; }
-  renderBoard(); renderWorkflow(); renderTeam(); renderChat();
+  renderOverview(); renderBoard(); renderWorkflow(); renderTeam(); renderChat();
+}
+
+// ---- inline-SVG helpers (zero-dep charts) --------------------------------
+const SVGNS='http://www.w3.org/2000/svg';
+function svgEl(tag,attrs){ const e=document.createElementNS(SVGNS,tag); for(const k in attrs) e.setAttribute(k,attrs[k]); return e; }
+
+// A single-value progress ring: track + amber arc, % centred.
+function ring(pct,size){
+  size=size||72; pct=Math.max(0,Math.min(100,pct||0));
+  const stroke=7, r=(size-stroke)/2, c=2*Math.PI*r;
+  const svg=svgEl('svg',{viewBox:`0 0 ${size} ${size}`,width:size,height:size,class:'ring-svg'});
+  svg.append(svgEl('circle',{cx:size/2,cy:size/2,r,fill:'none',stroke:'var(--line)','stroke-width':stroke}));
+  svg.append(svgEl('circle',{cx:size/2,cy:size/2,r,fill:'none','stroke-width':stroke,'stroke-linecap':'round',
+    'stroke-dasharray':`${c}`,'stroke-dashoffset':`${c*(1-pct/100)}`,
+    transform:`rotate(-90 ${size/2} ${size/2})`,style:'stroke:var(--signal)'}));
+  const wrap=el('div','ring-wrap'); wrap.style.width=size+'px'; wrap.style.height=size+'px';
+  wrap.append(svg); wrap.append(el('div','ring-label',pct+'%'));
+  return wrap;
+}
+
+// A donut from [{value,color}]: track + stacked arcs. Returns {wrap, center} so
+// the caller can drop a total/label into the empty centre.
+function donut(segments,size){
+  size=size||140; segments=segments||[];
+  const stroke=16, r=(size-stroke)/2, c=2*Math.PI*r;
+  const total=segments.reduce((a,s)=>a+(s.value||0),0);
+  const svg=svgEl('svg',{viewBox:`0 0 ${size} ${size}`,width:size,height:size,class:'donut-svg'});
+  svg.append(svgEl('circle',{cx:size/2,cy:size/2,r,fill:'none',stroke:'var(--line)','stroke-width':stroke}));
+  let offset=0;
+  segments.forEach(s=>{
+    const v=s.value||0; if(!v) return;
+    const len=total? (v/total)*c : 0;
+    svg.append(svgEl('circle',{cx:size/2,cy:size/2,r,fill:'none','stroke-width':stroke,
+      'stroke-dasharray':`${len} ${Math.max(c-len,0)}`,'stroke-dashoffset':`${-offset}`,
+      transform:`rotate(-90 ${size/2} ${size/2})`,style:`stroke:${s.color}`}));
+    offset+=len;
+  });
+  const wrap=el('div','donut-wrap'); wrap.style.width=size+'px'; wrap.style.height=size+'px';
+  wrap.append(svg);
+  const center=el('div','donut-center'); wrap.append(center);
+  return {wrap,center};
+}
+
+// Horizontal progress bars from [{label,pct,sub}].
+function bars(rows){
+  const wrap=el('div','bars');
+  (rows||[]).forEach(r=>{
+    const row=el('div','bar-row');
+    const head=el('div','bar-head');
+    head.append(el('span','bar-label',r.label));
+    head.append(el('span','bar-sub',r.sub||''));
+    row.append(head);
+    const track=el('div','bar-track');
+    const fill=el('div','bar-fill'); fill.style.width=Math.max(0,Math.min(100,r.pct||0))+'%';
+    track.append(fill); row.append(track);
+    wrap.append(row);
+  });
+  if(!(rows||[]).length) wrap.append(el('div','empty','No phases yet.'));
+  return wrap;
+}
+
+function kpiCard(label,visual,sub){
+  const c=el('div','kpi');
+  c.append(el('div','kpi-label',label));
+  const body=el('div','kpi-body'); body.append(visual); c.append(body);
+  if(sub) c.append(el('div','kpi-sub',sub));
+  return c;
+}
+function numBlock(val,color,isText){
+  const d=el('div','kpi-num'+(isText?' is-text':''),String(val));
+  if(color) d.style.color=color;
+  return d;
+}
+function ocard(title,content){
+  const c=el('div','ocard');
+  c.append(el('div','ocard-title',title));
+  c.append(content);
+  return c;
+}
+
+function renderOverview(){
+  const box=$('#overview'); if(!box) return;
+  const s=SpectoStats.stats(P);
+  box.innerHTML='';
+
+  // KPI row
+  const kpis=el('div','kpi-row');
+  kpis.append(kpiCard('Global progress', ring(s.pct,72), `${s.done}/${s.total} tasks`));
+  kpis.append(kpiCard('In progress', numBlock(s.byStatus.in_progress||0,'var(--s-in_progress)'), 'tasks'));
+  kpis.append(kpiCard('To validate', numBlock(s.byStatus.to_validate||0,'var(--s-to_validate)'), 'awaiting review'));
+  const r=s.running||{};
+  let runVal='—', runSub='no runs yet';
+  if(r.agents>0){ runVal=`${r.agents} running`; runSub='agents active'; }
+  else if(r.orchestration&&r.orchestration.status){ runVal=r.orchestration.status; runSub='orchestration'; }
+  else if(r.lastRun){ runVal=r.lastRun.status||'—'; runSub='last: '+(r.lastRun.tool||'—'); }
+  kpis.append(kpiCard('Running', numBlock(runVal, r.agents>0?'var(--signal)':'var(--muted)', true), runSub));
+  box.append(kpis);
+
+  // Status donut + legend
+  const segments=s.statuses.map(k=>({key:k,value:s.byStatus[k]||0,color:cssv('--s-'+k)}));
+  const d=donut(segments,140);
+  d.center.append(el('div','donut-total',String(s.total)));
+  d.center.append(el('div','donut-sub','tasks'));
+  const legend=el('div','legend');
+  segments.forEach(seg=>{
+    const item=el('div','legend-item');
+    const sw=el('span','legend-swatch'); sw.style.background=seg.color;
+    item.append(sw, el('span','legend-label',STATUS[seg.key]||seg.key), el('span','legend-count',String(seg.value)));
+    legend.append(item);
+  });
+  const donutRow=el('div','donut-row'); donutRow.append(d.wrap,legend);
+  box.append(ocard('Status distribution', donutRow));
+
+  // Workflow-at-a-glance strip (reuses the wf-arrow flow animation)
+  const strip=el('div','wf-strip');
+  const steps=P.workflow||[];
+  steps.forEach((st,i)=>{
+    const node=el('div','wf-mini'+(st.enabled?'':' off'));
+    node.append(el('span','dot')); node.append(el('span','nm',st.name));
+    strip.append(node);
+    if(i<steps.length-1){ const a=el('div','wf-arrow'+(st.enabled&&steps[i+1].enabled?'':' off')); strip.append(a); }
+  });
+  if(!steps.length) strip.append(el('div','empty','No workflow defined.'));
+  box.append(ocard('Workflow at a glance', strip));
+
+  // Per-phase progress bars
+  const rows=s.phases.map(ph=>({label:ph.title,pct:ph.pct,sub:`${ph.done}/${ph.total}`}));
+  box.append(ocard('Phase progress', bars(rows)));
 }
 
 function renderBoard(){
   const tasks = allTasks();
-  const done = tasks.filter(t=>t.status==='done').length;
-  const pct = tasks.length?Math.round(done/tasks.length*100):0;
-  $('#progressFill').style.width = pct+'%';
-  $('#progressLabel').textContent = `${done}/${tasks.length} tasks · ${pct}%`;
 
   const specs=$('#specs'); specs.innerHTML=''; $('#specsCount').textContent=(P.specs||[]).length;
   if(!(P.specs||[]).length) specs.append(li('empty','none yet'));

@@ -31,12 +31,11 @@
   <main class="stage">
     <!-- BOARD -->
     <section class="panel is-active" data-panel="board">
-      <aside class="rail">
-        <div class="rail-block">
-          <h2 class="rail-title">Progress</h2>
-          <div class="progress"><div class="progress-fill" id="progressFill"></div></div>
-          <div class="progress-label" id="progressLabel"></div>
-        </div>
+      <div class="main">
+        <div class="overview" id="overview"></div>
+        <div class="board" id="board"></div>
+      </div>
+      <aside class="side" id="side">
         <div class="rail-block">
           <h2 class="rail-title">Specs <span class="count" id="specsCount">0</span></h2>
           <ul class="flatlist" id="specs"></ul>
@@ -46,7 +45,6 @@
           <ul class="flatlist" id="running"></ul>
         </div>
       </aside>
-      <div class="board" id="board"></div>
     </section>
 
     <!-- WORKFLOW -->
@@ -96,6 +94,7 @@
     <div class="drawer-panel" role="dialog"><button class="drawer-close" id="drawerClose">×</button><div id="drawerBody"></div></div>
   </div>
 
+  <script src="stats.js"></script>
   <script src="app.js"></script>
 </body>
 </html>
