@@ -50,6 +50,30 @@ test('recordSnapshot is CRLF-safe / does not mutate on identical same-day counts
   assert.strictEqual(JSON.stringify(rt.history), before);
 });
 
+test('readProject snapshot recording preserves runtime.messages and appends (not resets) history', () => {
+  // Regression: the snapshot-record path must mutate the SAME runtime object read from disk
+  // (only appending/updating `history`) and write that same object back — never construct a
+  // fresh/partial runtime that drops messages/agents/tests or truncates existing history.
+  const d = fs.mkdtempSync(path.join(os.tmpdir(), 'stf-preserve-'));
+  fs.mkdirSync(path.join(d, '.spectoflow'), { recursive: true });
+  fs.mkdirSync(path.join(d, 'plans'), { recursive: true });
+  fs.writeFileSync(path.join(d, '.spectoflow', 'runtime.json'), JSON.stringify({
+    agents: [], tests: {},
+    messages: [{ id: 'm1', role: 'user', text: 'hi' }],
+    history: [{ date: '2026-08-01', total: 1, done: 0 }],
+  }, null, 2) + '\n');
+  fs.writeFileSync(path.join(d, 'plans', 'p.md'),
+    '## Phase 1\n- [x] T-001 done task\n- [ ] T-002 pending task\n');
+
+  store.readProject(d);
+
+  const rt = JSON.parse(fs.readFileSync(path.join(d, '.spectoflow', 'runtime.json'), 'utf8'));
+  assert.deepStrictEqual(rt.messages, [{ id: 'm1', role: 'user', text: 'hi' }]);
+  assert.strictEqual(rt.history.length, 2);
+  assert.ok(rt.history.find((h) => h.date === '2026-08-01' && h.total === 1 && h.done === 0), 'old history entry preserved');
+  assert.ok(rt.history.find((h) => h.total === 2 && h.done === 1), 'today snapshot appended');
+});
+
 function project() {
   const d = fs.mkdtempSync(path.join(os.tmpdir(), 'stf-srv-'));
   execFileSync('node', [BIN, 'init', d], { stdio: 'pipe' });
