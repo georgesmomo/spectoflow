@@ -100,7 +100,7 @@ function render(){
   const meter=$('#globalMeter');
   if(meter) meter.title=`Global progress: ${s.pct}% (${s.done}/${s.total} tasks)`;
   renderOverview(); renderBoard(); renderWorkflow(); renderTeam(); renderChat(); renderSidebar();
-  renderRequests();
+  renderRequests(); renderInfo();
 }
 
 // ---- Requests tab: tasks awaiting review/input (to_validate / to_analyze) ----
@@ -386,6 +386,82 @@ function renderTeam(){
     if(s.description) c.append(el('div','cd',s.description));
     sk.append(c);
   });
+}
+
+// ---- Info tab: read-only project overview (config, runners, counts, specs, active workflow) ----
+function infoSection(title,iconKey,content){
+  const sec=el('div','info-section');
+  const head=el('div','info-section-head');
+  const ico=el('span','info-section-ico');
+  ico.innerHTML=(typeof ICON!=='undefined'&&ICON[iconKey])||'';
+  head.append(ico, el('span','info-section-title',title));
+  sec.append(head, content);
+  return sec;
+}
+function infoRow(label,value){
+  const row=el('div','info-row');
+  row.append(el('span','info-row-label',label));
+  row.append(el('span','info-row-value',String(value)));
+  return row;
+}
+function statTile(value,label,sub){
+  const t=el('div','stat-tile');
+  t.append(el('div','stat-tile-val',String(value)));
+  t.append(el('div','stat-tile-label',label));
+  if(sub) t.append(el('div','stat-tile-sub',sub));
+  return t;
+}
+function renderInfo(){
+  const box=$('#infoGrid'); if(!box) return;
+  box.innerHTML='';
+  const c=P.config||{};
+  const s=SpectoStats.stats(P);
+  const steps=P.workflow||[];
+  const enabledSteps=steps.filter(st=>st.enabled);
+
+  // Project: mode/language/agent/type from config
+  const projRows=el('div','info-rows');
+  projRows.append(infoRow('Project type', c.projectType||'—'));
+  projRows.append(infoRow('Mode', c.mode||'—'));
+  projRows.append(infoRow('Language', c.language||'—'));
+  projRows.append(infoRow('Active agent', c.agent||'—'));
+  box.append(infoSection('Project','info',projRows));
+
+  // Runners: agent → command, monospace
+  const runners=c.runners||{};
+  const runnerKeys=Object.keys(runners);
+  const runnerRows=el('div','info-rows info-rows-mono');
+  if(!runnerKeys.length) runnerRows.append(el('div','empty','No runners configured.'));
+  runnerKeys.forEach(k=> runnerRows.append(infoRow(k, runners[k])));
+  box.append(infoSection('Runners','run',runnerRows));
+
+  // Counts: tasks/specs/agents/skills/enabled workflow steps
+  const tiles=el('div','stat-tiles');
+  tiles.append(statTile(`${s.done}/${s.total}`,'Tasks',`${s.pct}% done`));
+  tiles.append(statTile(String((P.specs||[]).length),'Specs','files'));
+  tiles.append(statTile(String((P.agents||[]).length),'Agents','personas'));
+  tiles.append(statTile(String((P.skills||[]).length),'Skills','procedures'));
+  tiles.append(statTile(`${enabledSteps.length}/${steps.length}`,'Workflow','steps enabled'));
+  box.append(infoSection('Counts','board',tiles));
+
+  // Specs: the P.specs filename list
+  const specsList=el('ul','flatlist');
+  const specs=P.specs||[];
+  if(!specs.length) specsList.append(li('empty','none yet'));
+  specs.forEach(sp=> specsList.append(li(null,sp)));
+  box.append(infoSection('Specs','backlog',specsList));
+
+  // Workflow: compact list of enabled steps (name + cap/skill)
+  const wfList=el('div','info-wf-list');
+  if(!enabledSteps.length) wfList.append(el('div','empty','No enabled workflow steps.'));
+  enabledSteps.forEach(st=>{
+    const row=el('div','info-wf-row');
+    row.append(el('span','info-wf-name',st.name));
+    const meta=[st.cap,st.skill].filter(Boolean).join(' · ');
+    if(meta) row.append(el('span','info-wf-meta',meta));
+    wfList.append(row);
+  });
+  box.append(infoSection('Workflow','workflow',wfList));
 }
 
 function openDrawer(id,keep){

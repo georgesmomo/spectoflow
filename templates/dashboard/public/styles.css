@@ -198,6 +198,36 @@ body { background:var(--bg); color:var(--ink); font-family:var(--sans); font-siz
 .placeholder-wrap { padding:26px 28px 60px; max-width:1000px; }
 .placeholder-empty { margin-top:8px; padding:40px; border:1px dashed var(--line); border-radius:var(--radius); text-align:center; color:var(--faint); font-style:italic; }
 
+/* Info tab (project overview — config, runners, counts, specs, active workflow) */
+.info-wrap { padding:26px 28px 60px; max-width:1000px; }
+.info-grid { display:grid; grid-template-columns:repeat(2,1fr); gap:14px; margin-top:8px; }
+.info-section { background:var(--surface); border:1px solid var(--line); border-radius:var(--radius); padding:16px 18px; }
+.info-section-head { display:flex; align-items:center; gap:8px; margin:0 0 12px; }
+.info-section-ico { width:16px; height:16px; flex-shrink:0; display:inline-flex; align-items:center; justify-content:center; color:var(--cool); }
+.info-section-ico svg { width:100%; height:100%; display:block; }
+.info-section-title { font-size:11px; text-transform:uppercase; letter-spacing:.08em; color:var(--faint); font-weight:700; }
+.info-section:nth-child(3) { grid-column:1 / -1; }
+@media (max-width:760px){ .info-grid { grid-template-columns:1fr; } .info-section:nth-child(3) { grid-column:auto; } }
+
+.info-rows { display:flex; flex-direction:column; gap:2px; }
+.info-row { display:flex; align-items:baseline; justify-content:space-between; gap:10px; padding:7px 0; border-bottom:1px solid var(--line); font-size:12.5px; }
+.info-row:last-child { border-bottom:0; }
+.info-row-label { color:var(--muted); }
+.info-row-value { color:var(--ink); font-weight:600; text-align:right; }
+.info-rows-mono .info-row-value { font-family:var(--mono); font-size:11.5px; font-weight:500; overflow-wrap:anywhere; }
+.info-rows-mono .info-row-label { font-family:var(--mono); font-size:11.5px; color:var(--cool); flex-shrink:0; }
+
+.stat-tiles { display:grid; grid-template-columns:repeat(auto-fit,minmax(110px,1fr)); gap:10px; }
+.stat-tile { background:var(--surface-2); border:1px solid var(--line); border-radius:10px; padding:11px 12px; display:flex; flex-direction:column; gap:2px; }
+.stat-tile-val { font-family:var(--mono); font-size:20px; font-weight:700; color:var(--ink); line-height:1.1; }
+.stat-tile-label { font-size:11px; text-transform:uppercase; letter-spacing:.06em; color:var(--faint); font-weight:700; }
+.stat-tile-sub { font-size:11px; color:var(--muted); }
+
+.info-wf-list { display:flex; flex-direction:column; gap:6px; }
+.info-wf-row { display:flex; align-items:center; gap:10px; background:var(--surface-2); border:1px solid var(--line); border-radius:8px; padding:7px 10px; font-size:12.5px; }
+.info-wf-name { font-weight:600; color:var(--ink); }
+.info-wf-meta { margin-left:auto; font-family:var(--mono); font-size:11px; color:var(--muted); text-align:right; }
+
 /* workflow diagram */
 .wf-wrap,.team-wrap { padding:26px 28px 60px; max-width:1000px; }
 .wf-diagram { display:flex; flex-wrap:wrap; align-items:center; gap:0; margin-top:8px; }
