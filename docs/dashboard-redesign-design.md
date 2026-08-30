@@ -1,8 +1,9 @@
 # Dashboard redesign — design
 
-> Status: **proposed** (awaiting review). Target: spectoflow **0.11**. The last roadmap item
-> ("Design pass"). Brings the dashboard to a polished control-room standard, inspired by a reference
-> dashboard the user supplied, adapted to spectoflow's data model. Graduates to `DECISIONS.md` (D22).
+> Status: **approved** (O1–O3 resolved by review, 2026-08-30). Target: spectoflow **0.11**. The last
+> roadmap item ("Design pass"). Brings the dashboard to a polished control-room standard, inspired by a
+> reference dashboard the user supplied, adapted to spectoflow's data model. Graduates to
+> `DECISIONS.md` (D22).
 
 ## Purpose
 
@@ -109,11 +110,12 @@ The reference's extra tabs that don't fit spectoflow's model — Planning quotid
 vigilance, Fichiers, Déploiement, Settings — are **not** added. A Files/Settings tab could come later.
 No new data model; no time-series snapshots.
 
-## Open questions
+## Resolved decisions (from review)
 
-- **O1 — Overview's 4th KPI.** Proposed: *Running / last orchestration* (agents running + last run
-  status). Alternative: a *Tests* card (pass/fail from `runtime.tests`). Proposed: Running/orchestration.
-- **O2 — Workflow strip vs a Tests panel** as the area-chart replacement. Proposed: the workflow strip
-  (reuses existing flow animation, always relevant). Flag if you'd rather show tests.
-- **O3 — `stats.js` as a shared browser+Node module** for testability. Proposed: yes (guarded
-  `module.exports`), so `app.js` imports it in the browser and `node --test` imports it in tests.
+- **O1 → RESOLVED:** the 4th KPI card is *Running / last orchestration* (agents running + last run
+  status). A Tests card is deferred.
+- **O2 → RESOLVED:** the area-chart slot is the **workflow-at-a-glance strip** (reuses the existing
+  flow animation), not a Tests panel.
+- **O3 → RESOLVED:** aggregation math lives in a shared browser+Node module
+  `templates/dashboard/public/stats.js` (guarded `module.exports`), imported by `app.js` in the
+  browser and by `test/dashboard-stats.test.js` under `node --test`.
