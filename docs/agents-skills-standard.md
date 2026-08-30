@@ -67,3 +67,10 @@ Body, in this order, with these exact `##` headings:
 - Zero runtime dependencies — content is markdown only. Any tool a skill names is a dependency of the
   USER's project, invoked when that step runs; never added to spectoflow itself.
 - English content and comments. (Output language stays `config.language`.)
+
+## Conventions
+
+- **Sentinel ownership.** The SKILL owns the exact `::spectoflow role=… kind=… msg=…` reporting syntax,
+  written out in its Output contract. An AGENT file only *references* it (e.g. "reports via `::spectoflow`"
+  in Handoff) — it never restates the full syntax. This keeps one source for the sentinel format and
+  prevents drift across files.
