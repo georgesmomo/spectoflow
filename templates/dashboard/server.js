@@ -27,6 +27,11 @@ function findPlanFileForTask(id){ for(const pl of store.readPlans(ROOT)) for(con
 function watch(dir){ try{ fs.watch(dir,{recursive:false},()=>emit({type:'change'})); }catch(_){} }
 ['plans','specs','.spectoflow'].forEach(d=>{ const p=path.join(ROOT,d); if(fs.existsSync(p)) watch(p); });
 
+// A process restart loses any in-flight orchestration; without this, a stale 'running' or
+// 'awaiting_approval' status wedges the /api/orchestrate 409 guard forever. Not a real
+// resume — just clears the wedge so a fresh orchestration can start.
+try { orchestrator.reconcileOnBoot(ROOT); } catch {}
+
 const server = http.createServer(async (req,res)=>{
   const u=new URL(req.url,`http://localhost:${PORT}`); const p=u.pathname;
   try{

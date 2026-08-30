@@ -99,4 +99,19 @@ function submitDecision(decision, note) {
   const p = pending; pending = null; p.resolve({ decision, note }); return true;
 }
 
-module.exports = { resolveStep, runOrchestration, defaultRunStep, defaultConfirm, submitDecision };
+// Boot-time reconcile: a process restart loses any in-flight orchestration (the runOrchestration
+// call stack, and the in-memory `pending` approval) even though runtime.json still records it as
+// 'running' or 'awaiting_approval'. That stale non-terminal status wedges the /api/orchestrate 409
+// guard forever. This does NOT resume execution — it just marks the stale run (and any of its
+// in-flight steps) 'failed' so the dashboard is unwedged and the user can start a fresh run.
+function reconcileOnBoot(root) {
+  const rt = store.readRuntime(root);
+  const o = rt.orchestration;
+  if (!o || !['running', 'awaiting_approval'].includes(o.status)) return false;
+  o.status = 'failed';
+  (o.steps || []).forEach((s) => { if (['running', 'awaiting_approval'].includes(s.status)) s.status = 'failed'; });
+  store.writeRuntime(root, rt);
+  return true;
+}
+
+module.exports = { resolveStep, runOrchestration, defaultRunStep, defaultConfirm, submitDecision, reconcileOnBoot };
