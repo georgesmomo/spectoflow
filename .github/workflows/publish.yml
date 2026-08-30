@@ -1,0 +1,44 @@
+name: Publish to npm
+
+# Publishes the package when you push a semver tag (e.g. v0.13.0).
+# Auth uses npm Trusted Publishing (OIDC) — no NPM_TOKEN secret needed.
+# One-time setup on npmjs.com is required (see README / repo docs):
+#   Package → Settings → Trusted Publisher → GitHub Actions
+#   Repository: georgesmomo/spectoflow   Workflow: publish.yml
+
+on:
+  push:
+    tags:
+      - 'v*.*.*'
+
+permissions:
+  contents: read
+  id-token: write   # required for OIDC trusted publishing + provenance
+
+jobs:
+  publish:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          registry-url: https://registry.npmjs.org
+
+      # OIDC trusted publishing needs npm >= 11.5.1 (newer than the one Node ships)
+      - name: Upgrade npm (OIDC-capable)
+        run: npm install -g npm@latest
+
+      - name: Verify tag matches package.json version
+        run: |
+          TAG="${GITHUB_REF_NAME#v}"
+          PKG="$(node -p "require('./package.json').version")"
+          echo "tag=$TAG  package.json=$PKG"
+          test "$TAG" = "$PKG" || { echo "::error::Tag v$TAG does not match package.json $PKG"; exit 1; }
+
+      - name: Test
+        run: npm test
+
+      - name: Publish
+        run: npm publish --provenance --access public
