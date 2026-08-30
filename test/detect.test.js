@@ -22,7 +22,9 @@ test('binOnPath finds a bin present in a PATH directory', () => {
 });
 
 test('binOnPath honours PATHEXT on win32', () => {
-  const d = bindir('gemini.cmd');
+  // Fixture ext casing must match a PATHEXT entry so the test is FS-case-insensitivity-agnostic
+  // (passes on both case-insensitive Windows and case-sensitive Linux CI).
+  const d = bindir('gemini.CMD');
   assert.ok(detect.binOnPath('gemini', { env: { PATH: d, PATHEXT: '.CMD;.EXE' }, platform: 'win32' }));
 });
 
