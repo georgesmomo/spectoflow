@@ -10,6 +10,7 @@ const fs = require('fs');
 const path = require('path');
 const store = require('../lib/store');
 const { startRun } = require('./runner');
+const orchestrator = require('./orchestrator');
 
 const PORT = process.env.SPECTOFLOW_PORT ? Number(process.env.SPECTOFLOW_PORT) : 4319;
 const PUBLIC = path.join(__dirname, 'public');
@@ -65,6 +66,27 @@ const server = http.createServer(async (req,res)=>{
       const r=startRun(ROOT,{prompt,agent},emit);
       if(r.error) return sendJSON(res,400,{error:r.error});
       return sendJSON(res,200,{runId:r.runId});
+    }
+
+    // ---- orchestrator ----
+    if (p === '/api/orchestrate' && req.method === 'POST') {
+      const { request } = await body(req);
+      if (!request || !String(request).trim()) return sendJSON(res, 400, { error: 'Empty request.' });
+      const active = store.readRuntime(ROOT).orchestration;
+      if (active && ['running', 'awaiting_approval'].includes(active.status))
+        return sendJSON(res, 409, { error: 'An orchestration is already active.' });
+      const mode = store.readConfig(ROOT).mode || 'semi';
+      // fire and forget; state + messages stream over SSE
+      orchestrator.runOrchestration({ root: ROOT, request: String(request).trim(), mode,
+        runStep: orchestrator.defaultRunStep, confirm: orchestrator.defaultConfirm }, emit)
+        .catch((e) => emit({ type: 'message', message: { role: 'orchestrator', kind: 'status', text: 'orchestration error: ' + e.message } }));
+      const o = store.readRuntime(ROOT).orchestration;
+      return sendJSON(res, 200, { orchestrationId: o && o.id });
+    }
+    if (p === '/api/orchestrate/approve' && req.method === 'POST') {
+      const { decision, note } = await body(req);
+      const ok = orchestrator.submitDecision(decision, note);
+      return sendJSON(res, ok ? 200 : 409, ok ? { ok: true } : { error: 'No pending approval.' });
     }
 
     let file=p==='/'?'/index.html':p;
