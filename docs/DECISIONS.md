@@ -122,3 +122,16 @@
 ### D15 — v0.4: agent launcher in the dashboard
 - **ACTÉ.** Onglet "Run" : l'utilisateur tape une demande, le serveur lance l'agent en headless (`claude -p` / `codex exec`) dans la racine projet, **avec la mémoire projet** (CLAUDE.md → AGENTS.md), streame la sortie, et enregistre le run dans runtime.json. L'agent met à jour les `.md`, le board se rafraîchit en direct (watch).
 - Commande **configurable** par `config.runners`. Sécurité : ne pas utiliser `--bare` (sinon la mémoire ne charge pas) ; permissions à la main de l'utilisateur (défaut `acceptEdits`, warning UI). Testé ici avec un agent **stub** (claude/codex non installés dans l'environnement de build).
+
+---
+
+## Session 5 — v0.5
+
+### D16 — `spectoflow update` : ownership par manifeste + `.new` sidecar, pas de merge 3 voies en v1
+- **ACTÉ.** `init` étant idempotent (ne réécrit jamais), il ne peut pas rafraîchir un projet installé. `spectoflow update` (+ `--dry-run`) rafraîchit les fichiers **framework-owned** vers la version du kit courant **sans jamais toucher** au travail de l'utilisateur. Usage : `npm update -g spectoflow` puis `spectoflow update` dans le projet.
+- **Modèle d'appartenance (dérivé, pas codé en dur) :** framework-owned = **tous les fichiers de `templates/`** SAUF `config.json` et `workflow.md`. Ainsi l'ajout d'un agent/skill par défaut au kit est automatiquement couvert. User-owned (jamais lu en écriture) : `config.json`, `workflow.md` (édité depuis le dashboard), `specs/`, `plans/`, `runtime.json`, et tout agent/skill créé ou édité par l'utilisateur. Voir `lib/ownership.js`.
+- **Détection par empreintes :** `init` écrit `.spectoflow/.manifest.json` (`{version, files:{rel: sha256}}`, `crypto` natif). Le manifeste est **commité** (pas gitignoré) → baseline partagée en équipe. Voir `lib/manifest.js`.
+- **Matrice par fichier (`lib/update.js`) :** absent → *create* ; `disque == nouveau` → *unchanged* (ou *adopted* si legacy) ; `disque == baseline` (non édité) → *refresh* ; sinon (édité, ou legacy divergent) → **préserver + `<fichier>.new`**. Le manifeste est réécrit à la version courante ; un fichier divergé garde sa baseline d'origine pour rester signalé.
+- **Legacy (installs sans manifeste, ex. `demo/`) :** dégradation prudente — si `disque == nouveau` on adopte (mise sous suivi), sinon on préserve + `.new` (ambigu : impossible de distinguer « édité » de « framework périmé »).
+- **Hors périmètre v1 (différé) :** merge 3 voies automatique ; suppression des fichiers retirés d'une version ; merge additif de clés dans `config.json` ; alias `sync`. On raffinera à l'usage.
+- **Tests :** suite Node native (`node --test`, zéro dépendance) — `test/ownership`, `test/manifest`, `test/init-manifest`, `test/update`, `test/cli-update`. `npm test` = `node --test`.

@@ -1,4 +1,4 @@
-# spectoflow (v0.3 — provisional name)
+# spectoflow (v0.5 — provisional name)
 
 An **agent-agnostic** spec-driven development framework with a **real-time local control plane**.
 You speak in plain language; the framework classifies your intent and runs the right workflow. No
@@ -20,6 +20,35 @@ spectoflow init /path/to/project # or: node bin/spectoflow.js init .
 **Empty project** → your agent asks what to build and runs Intake (brainstorm → analysis → spec → plan).
 **Existing project** → an existing `CLAUDE.md` is preserved as `CLAUDE.md.tomerge` (merged on first run);
 existing `plans/*.md` tasks are given stable ids.
+
+## Update
+
+`init` is idempotent (it never overwrites), so it can't refresh an installed project. `spectoflow
+update` refreshes **framework-owned** files (engine, dashboard, `AGENTS.md`, `capabilities.md`,
+`policy.md`, default agents & skills) to the CLI's version, while **preserving your work** —
+`config.json`, `workflow.md`, `specs/`, `plans/`, and any agent/skill you created or edited are never
+touched. A file you edited is preserved and its new version is written next to it as `<file>.new`
+for you to merge by hand. Add `--dry-run` to preview.
+
+First refresh the kit, then run update from your project — the flow is the same whichever way you
+installed:
+
+```bash
+# npm global
+npm update -g spectoflow  &&  spectoflow update
+
+# manual (cloned repo)
+git -C /path/to/spectoflow pull  &&  node /path/to/spectoflow/bin/spectoflow.js update
+
+# npx (no install)
+npx spectoflow@latest update
+```
+
+`update` resolves the framework version from the CLI you run and the project from the current
+directory, so it behaves identically across all three. `init` records a hashed baseline in
+`.spectoflow/.manifest.json` (committed) that lets update tell an untouched framework file from one
+you've edited; installs made before this file existed degrade safely (a matching file is adopted, a
+divergent one gets a `.new`).
 
 ## Storage is markdown
 

@@ -5,10 +5,14 @@ framework with a real-time local control plane. This file orients you to **build
 (it is not a spectoflow-managed project). Read `docs/` before making changes:
 `docs/ARCHITECTURE.md`, `docs/DECISIONS.md` (the full rationale, D1–D15), `docs/ROADMAP.md` (what's next).
 
-## What exists (v0.4.0)
+## What exists (v0.5.0)
 
-- `bin/spectoflow.js` — CLI: `init` (scaffold a project), `dashboard`, `status`.
+- `bin/spectoflow.js` — CLI: `init` (scaffold a project), `update [--dry-run]` (refresh framework
+  files to this kit version, preserving user edits), `dashboard`, `status`.
 - `lib/adapters.js` — generates per-agent shims (CLAUDE.md, AGENTS.md, `.claude/commands/`).
+- `lib/ownership.js` · `lib/manifest.js` · `lib/update.js` — the update subsystem: framework/user
+  ownership split (derived from `templates/`), the sha256 install manifest, and the update matrix.
+- `test/` — native `node --test` suite (`npm test`). No test framework, zero deps.
 - `templates/` — the **canonical framework**, copied into a project's `.spectoflow/` by `init`:
   - `AGENTS.md` (the brain: intent router, modes, rules) · `workflow.md` (single source) ·
     `capabilities.md` · `policy.md` · `config.json` (mode, language, agent, runners) ·
