@@ -94,6 +94,17 @@ body { background:var(--bg); color:var(--ink); font-family:var(--sans); font-siz
 .ocard { background:var(--surface); border:1px solid var(--line); border-radius:var(--radius); padding:16px 18px; }
 .ocard-title { font-size:11px; text-transform:uppercase; letter-spacing:.08em; color:var(--faint); font-weight:700; margin:0 0 12px; }
 
+.overview-top { display:grid; grid-template-columns:minmax(280px,1fr) minmax(320px,1.4fr); gap:14px; align-items:start; }
+@media (max-width:900px){ .overview-top { grid-template-columns:1fr; } }
+
+.area-wrap { width:100%; overflow-x:auto; }
+.area-wrap .area-svg { width:100%; height:auto; display:block; }
+.area-grid { stroke-opacity:.5; }
+.area-ylabel,.area-xlabel { font-family:var(--mono); font-size:9px; }
+.area-value { font-family:var(--mono); font-size:9px; font-weight:700; }
+.area-dot { transition:r .15s ease; }
+.area-hit { cursor:crosshair; }
+
 .donut-row { display:flex; align-items:center; gap:26px; flex-wrap:wrap; }
 .donut-wrap { position:relative; display:inline-flex; align-items:center; justify-content:center; flex-shrink:0; }
 .donut-svg circle { transition:stroke-dasharray .5s ease; }
@@ -282,3 +293,39 @@ body { background:var(--bg); color:var(--ink); font-family:var(--sans); font-siz
 .btn:hover { border-color:color-mix(in srgb,var(--cool) 45%,var(--line)); }
 .btn:active { transform:translateY(1px); }
 .btn.primary:hover { border-color:transparent; filter:brightness(1.06); }
+
+/* ---- chart & panel motion --------------------------------------------- */
+/* cards/panels rise in on render */
+@keyframes rise { from{ opacity:0; transform:translateY(8px);} to{ opacity:1; transform:translateY(0);} }
+.kpi,.ocard,.card { animation:rise .4s cubic-bezier(.2,.8,.2,1) both; }
+.kpi-row .kpi:nth-child(1){ animation-delay:.02s; } .kpi-row .kpi:nth-child(2){ animation-delay:.06s; }
+.kpi-row .kpi:nth-child(3){ animation-delay:.1s; } .kpi-row .kpi:nth-child(4){ animation-delay:.14s; }
+
+/* area curve draws itself — pathLength="1" makes stroke-dash* fraction-based */
+@keyframes draw { to{ stroke-dashoffset:0; } }
+.area-line { stroke-dasharray:1; stroke-dashoffset:1; animation:draw 1.1s cubic-bezier(.2,.8,.2,1) forwards; animation-delay:calc(var(--i,0)*.12s); }
+.area-fill { opacity:0; animation:fadein .6s ease forwards; animation-delay:calc(.4s + var(--i,0)*.12s); }
+.area-dot,.area-value { opacity:0; animation:fadein .3s ease forwards; animation-delay:calc(1s + var(--i,0)*.12s); }
+@keyframes fadein { to{ opacity:1; } }
+
+/* donut arcs pop in, staggered by --i */
+@keyframes pop { from{ opacity:0; transform:scale(.85); } to{ opacity:1; transform:scale(1); } }
+.seg-anim { transform-origin:center; transform-box:fill-box; opacity:0; animation:pop .45s cubic-bezier(.2,.8,.2,1) forwards; animation-delay:calc(var(--i,0)*.08s); }
+
+/* phase bars grow + the count-up badge is driven from JS (countUp in app.js) */
+.bar-fill { animation:grow .6s cubic-bezier(.2,.8,.2,1) both; animation-delay:calc(var(--i,0)*.07s); }
+@keyframes grow { from{ width:0; } }
+
+/* gradient ring (stroke="url(#grad)") fades/scales in */
+.ring-svg circle:last-of-type { transform-origin:center; animation:pop .5s cubic-bezier(.2,.8,.2,1) both; }
+
+@media (prefers-reduced-motion: reduce){
+  *{ animation:none!important; transition:none!important; }
+  .area-line{ stroke-dashoffset:0!important; }
+  .area-fill,.area-dot,.area-value,.seg-anim{ opacity:1!important; }
+}
+
+/* chart tooltip layer — theme-aware, follows the cursor over [data-tip] hit targets */
+.tooltip { position:fixed; z-index:30; pointer-events:none; background:var(--surface); border:1px solid var(--line); border-radius:8px; padding:6px 10px; font-size:11.5px; line-height:1.4; color:var(--ink); box-shadow:var(--shadow); max-width:220px; }
+.tooltip[hidden] { display:none; }
+.tooltip b { color:var(--ink); }

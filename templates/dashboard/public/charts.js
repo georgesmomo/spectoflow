@@ -9,7 +9,7 @@
     return [cx + r * Math.sin(rad), cy - r * Math.cos(rad)];
   }
 
-  const esc = (v) => String(v == null ? '' : v).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+  const esc = (v) => String(v == null ? '' : v).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
   const n2 = (v) => (Math.round(v * 100) / 100).toString();
 
   // donut(segs, opts) — segs=[{value,color,label}]. One <path> arc per non-zero

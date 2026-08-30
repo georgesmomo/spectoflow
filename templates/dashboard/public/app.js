@@ -216,7 +216,28 @@ function renderOverview(){
     legend.append(item);
   });
   const donutRow=el('div','donut-row'); donutRow.append(d.wrap,legend);
-  box.append(ocard('Status distribution', donutRow));
+
+  // Scope-vs-delivered area curve — history is a snapshot of {date,total,done}
+  // recorded by the server; seed a synthetic prior point when there's only one
+  // so the line actually draws instead of a single dot.
+  let hist=(P.runtime&&P.runtime.history)||[];
+  if(hist.length===1){ hist=[{date:hist[0].date,total:0,done:0},hist[0]]; }
+  const area=htmlBlock('area-wrap', hist.length
+    ? SpectoCharts.area(
+        [{name:'Scope',color:cssv('--cool'),data:hist.map(h=>h.total)},
+         {name:'Delivered',color:cssv('--signal'),data:hist.map(h=>h.done)}],
+        hist.map(h=>(h.date||'').slice(5)))
+    : '<div class="empty">No history yet.</div>');
+  // enrich the area's hit-rect tooltips with the actual scope/delivered values
+  // for that point (charts.js keeps them pure — just the date label)
+  area.querySelectorAll('.area-hit').forEach((hit,i)=>{
+    const h=hist[i]; if(!h) return;
+    hit.dataset.tip = `<b>${h.date||''}</b><br>Scope: ${h.total||0} · Delivered: ${h.done||0}`;
+  });
+  const topRow=el('div','overview-top');
+  topRow.append(ocard('Status distribution', donutRow));
+  topRow.append(ocard('Scope vs delivered', area));
+  box.append(topRow);
 
   // Workflow-at-a-glance strip (reuses the wf-arrow flow animation)
   const strip=el('div','wf-strip');
@@ -419,6 +440,21 @@ $('#search').addEventListener('input', e=>{ filter.q=e.target.value; renderBoard
 // theme
 (function(){ const s=localStorage.getItem('spf-theme'); if(s)document.documentElement.setAttribute('data-theme',s);
   $('#themeToggle').addEventListener('click',()=>{ const c=document.documentElement.getAttribute('data-theme'); const n=c==='dark'?'light':'dark'; document.documentElement.setAttribute('data-theme',n); localStorage.setItem('spf-theme',n); }); })();
+// chart tooltip — a single floating layer, shown on hover over any [data-tip]
+// element (area-hit rects, future hit targets) and positioned near the cursor.
+(function(){
+  const tip=$('#tooltip'); if(!tip) return;
+  let current=null;
+  document.addEventListener('mousemove',e=>{
+    const target=e.target.closest && e.target.closest('[data-tip],.hit,.area-hit');
+    if(!target){ if(current){ tip.hidden=true; current=null; } return; }
+    if(target!==current){ tip.innerHTML=target.dataset.tip||''; current=target; }
+    tip.hidden=false;
+    tip.style.left=(e.clientX+14)+'px';
+    tip.style.top=(e.clientY+14)+'px';
+  });
+  document.addEventListener('mouseleave',()=>{ tip.hidden=true; current=null; });
+})();
 // icons — fill every [data-icon] placeholder from the ICON map (icons.js), once at startup
 (function applyIcons(){
   if(typeof ICON==='undefined') return;
