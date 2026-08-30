@@ -219,8 +219,18 @@ function listSkills(dir) {
     return { name: fm.name || e.name, description: fm.description || '' };
   });
 }
+function readAgents(projectRoot) {
+  const dir = path.join(projectRoot, '.spectoflow', 'agents');
+  if (!fs.existsSync(dir)) return [];
+  return fs.readdirSync(dir).filter((f) => f.endsWith('.md')).map((f) => {
+    const fm = frontmatter(fs.readFileSync(path.join(dir, f), 'utf8'));
+    return { name: fm.name || f.replace(/\.md$/, ''), capability: fm.capability || null,
+      title: fm.title || '', description: fm.description || '' };
+  });
+}
 
 module.exports = {
   parseTaskLine, buildTaskLine, parsePlan, readPlans, updateTaskLine, addTaskComment,
   readRuntime, writeRuntime, parseAgentLine, appendMessage, readConfig, readWorkflow, readProject,
+  readAgents,
 };
