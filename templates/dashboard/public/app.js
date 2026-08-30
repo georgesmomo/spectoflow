@@ -21,17 +21,26 @@ function connect(){
   es.onmessage = (ev)=>{
     let m; try{ m=JSON.parse(ev.data); }catch{ return; }
     if(m.type==='change'||m.type==='message') return load();   // messages live from runtime.messages
-    if(m.type==='run-start'||m.type==='run-end') { rawBlock=null; return; }
+    if(m.type==='run-start'||m.type==='run-end') { chatState.forEach(st=>{ st.rawBlock=null; }); return; }
     if(m.type==='run-line') return appendRaw(m.chunk);          // raw output is ephemeral (not logged)
   };
   es.onerror = ()=>{ $('#sync').classList.add('offline'); $('#syncLabel').textContent='offline'; };
 }
-// The chat log is the view of runtime.messages. Render incrementally (by id) so a live raw-output
-// block isn't wiped by a re-render; raw run output streams into an ephemeral block appended in order.
-const rendered=new Set();
-let rawBlock=null;
-function scrollChat(){ const l=$('#chatLog'); l.scrollTop=l.scrollHeight; }
-function clearIdle(){ const i=$('#chatLog .chat-idle'); if(i) i.remove(); }
+// The chat transcript is the view of runtime.messages, shared by the floating widget (#chatLog)
+// and the Chat tab (#chatTabLog) via renderChatLog(container) — same messages, same markup, so
+// they never drift. Each container tracks its own render/raw state (a container can be rendered
+// into while hidden, e.g. the tab behind the widget) so neither surface clobbers the other.
+// Render incrementally (by message id) so a live raw-output block isn't wiped by a re-render; raw
+// run output streams into an ephemeral <pre> block appended in order, per container.
+const chatState=new Map(); // container element -> { rendered:Set<id>, rawBlock:Element|null }
+function stateFor(container){
+  let st=chatState.get(container);
+  if(!st){ st={rendered:new Set(),rawBlock:null}; chatState.set(container,st); }
+  return st;
+}
+function chatContainers(){ return [$('#chatLog'),$('#chatTabLog')].filter(Boolean); }
+function scrollChat(container){ container.scrollTop=container.scrollHeight; }
+function clearIdle(container){ const i=container.querySelector('.chat-idle'); if(i) i.remove(); }
 function bubble(m){
   if(m.role==='user'){ const d=el('div','msg you'); d.append(el('div','bubble',m.text)); return d; }
   const wrap=el('div','msg agentmsg k-'+(m.kind||'message'));
@@ -39,30 +48,35 @@ function bubble(m){
   wrap.append(el('div','bubble',m.text));
   return wrap;
 }
-function renderChat(){
-  const log=$('#chatLog'); const msgs=(P.runtime&&P.runtime.messages)||[];
-  if(msgs.length) clearIdle();
+function renderChatLog(container){
+  if(!container) return;
+  const st=stateFor(container); const msgs=(P.runtime&&P.runtime.messages)||[];
+  if(msgs.length) clearIdle(container);
   let added=false;
-  for(const m of msgs){ if(rendered.has(m.id)) continue; rendered.add(m.id); log.append(bubble(m)); added=true; }
-  if(added) scrollChat();
-  renderApproval();
+  for(const m of msgs){ if(st.rendered.has(m.id)) continue; st.rendered.add(m.id); container.append(bubble(m)); added=true; }
+  if(added) scrollChat(container);
+  renderApproval(container);
 }
-function renderApproval(){
+function renderApproval(container){
+  if(!container) return;
   const o=(P.runtime&&P.runtime.orchestration)||null;
-  let row=$('#approvalRow'); if(row) row.remove();
+  let row=container.querySelector('.approval'); if(row) row.remove();
   if(!o || o.status!=='awaiting_approval') return;
-  row=el('div','approval'); row.id='approvalRow';
+  row=el('div','approval');
   row.append(el('div','msg-role','orchestrator · awaiting approval'));
   const a=el('button','btn primary','Approve'); a.addEventListener('click',()=>approve('approve'));
   const c=el('button','btn','Cancel'); c.addEventListener('click',()=>approve('cancel'));
   const acts=el('div','c-actions'); acts.append(a,c); row.append(acts);
-  $('#chatLog').append(row); scrollChat();
+  container.append(row); scrollChat(container);
 }
 function appendRaw(chunk){
-  clearIdle();
-  if(!rawBlock){ rawBlock=el('pre','msg agent'); $('#chatLog').append(rawBlock); }
-  rawBlock.textContent += chunk; // single text node → correct preformatted wrapping
-  scrollChat();
+  chatContainers().forEach(container=>{
+    const st=stateFor(container);
+    clearIdle(container);
+    if(!st.rawBlock){ st.rawBlock=el('pre','msg agent'); container.append(st.rawBlock); }
+    st.rawBlock.textContent += chunk; // single text node → correct preformatted wrapping
+    scrollChat(container);
+  });
 }
 function setChat(open){
   $('#chat').setAttribute('aria-hidden', open?'false':'true');
@@ -70,16 +84,21 @@ function setChat(open){
   try{ localStorage.setItem('spf-chat', open?'1':'0'); }catch{}
   if(open) setTimeout(()=>$('#runPrompt').focus(),60);
 }
-async function doRun(){
-  const prompt=$('#runPrompt').value.trim(); if(!prompt) return;
-  const agent=$('#runAgent').value;
+// doRun/doOrchestrate default to the floating widget's textarea/select; the Chat tab has its own
+// #tabRunPrompt/#tabRunAgent (an id can't be shared by two elements) and passes them explicitly —
+// one code path, same endpoints, for both surfaces.
+async function doRun(promptEl,agentEl){
+  promptEl=promptEl||$('#runPrompt'); agentEl=agentEl||$('#runAgent');
+  const prompt=promptEl.value.trim(); if(!prompt) return;
+  const agent=agentEl.value;
   await fetch('/api/run',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({prompt,agent})});
-  $('#runPrompt').value=''; // the prompt renders as a bubble from the message log
+  promptEl.value=''; // the prompt renders as a bubble from the message log
 }
-async function doOrchestrate(){
-  const prompt=$('#runPrompt').value.trim(); if(!prompt) return;
+async function doOrchestrate(promptEl){
+  promptEl=promptEl||$('#runPrompt');
+  const prompt=promptEl.value.trim(); if(!prompt) return;
   await fetch('/api/orchestrate',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({request:prompt})});
-  $('#runPrompt').value='';
+  promptEl.value='';
 }
 async function approve(decision){ await fetch('/api/orchestrate/approve',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({decision})}); }
 async function patchTask(id,patch){ flash(); await fetch('/api/task/'+encodeURIComponent(id),{method:'PATCH',headers:{'Content-Type':'application/json'},body:JSON.stringify(patch)}); }
@@ -94,15 +113,22 @@ function render(){
   $('#langChip').textContent = c.language||'en';
   $('#modeChip').textContent = c.mode||'semi';
   $('#brandSub').textContent = (c.mode||'semi') + ' · ' + (c.language||'en');
-  const sel=$('#runAgent'); const runners=Object.keys((c.runners)||{claude:1});
-  if(sel.options.length!==runners.length){ sel.innerHTML=''; runners.forEach(k=>{ const o=document.createElement('option'); o.value=k; o.textContent=k; sel.append(o); }); if(c.agent) sel.value=c.agent; }
+  // agent select — widget (#runAgent) and Chat tab (#tabRunAgent) each get their own populated
+  // <select>, since an id can't be shared by two elements; same option list, same source of truth.
+  const runners=Object.keys((c.runners)||{claude:1});
+  [$('#runAgent'),$('#tabRunAgent')].forEach(sel=>{
+    if(!sel) return;
+    if(sel.options.length!==runners.length){ sel.innerHTML=''; runners.forEach(k=>{ const o=document.createElement('option'); o.value=k; o.textContent=k; sel.append(o); }); if(c.agent) sel.value=c.agent; }
+  });
   const s=SpectoStats.stats(P);
   const meterFill=$('#globalMeterFill');
   if(meterFill) meterFill.style.width=(s.pct||0)+'%';
   const meter=$('#globalMeter');
   if(meter) meter.title=`Global progress: ${s.pct}% (${s.done}/${s.total} tasks)`;
-  renderOverview(); renderBoard(); renderBacklog(); renderWorkflow(); renderTeam(); renderChat(); renderSidebar();
-  renderRequests(); renderInfo();
+  renderOverview(); renderBoard(); renderBacklog(); renderWorkflow(); renderTeam();
+  renderChatLog($('#chatLog')); renderChatLog($('#chatTabLog'));
+  renderSidebar(); renderRequests(); renderInfo();
+  applyActiveTab(); // re-apply the current tab so an SSE-driven re-render never resets to Board
 }
 
 // ---- Requests tab: tasks awaiting review/input (to_validate / to_analyze) ----
@@ -653,13 +679,21 @@ function openDrawer(id,keep){
 function closeDrawer(){ openTaskId=null; $('#drawer').setAttribute('aria-hidden','true'); }
 const cssv=(v)=> getComputedStyle(document.documentElement).getPropertyValue(v).trim()||'#888';
 
-// tabs
+// tabs — activeTab is the single source of truth (persisted), so a click sets it and applies it,
+// and render()'s SSE-driven re-render (triggered by the snapshot write / polling) re-applies it
+// too instead of ever resetting to Board; this is what keeps a tab selected across a race with a
+// 'change'/'message' event that lands right after a click.
+let activeTab = (()=>{ try{ return localStorage.getItem('spf-tab')||'board'; }catch{ return 'board'; } })();
+function applyActiveTab(){
+  $$('#tabs .tab').forEach(t=> t.classList.toggle('is-active', t.dataset.tab===activeTab));
+  $$('.panel').forEach(p=> p.classList.toggle('is-active', p.dataset.panel===activeTab));
+}
 $$('#tabs .tab').forEach(tab=> tab.addEventListener('click',()=>{
-  $$('#tabs .tab').forEach(t=>t.classList.remove('is-active'));
-  tab.classList.add('is-active');
-  $$('.panel').forEach(p=>p.classList.remove('is-active'));
-  $(`.panel[data-panel="${tab.dataset.tab}"]`).classList.add('is-active');
+  activeTab=tab.dataset.tab;
+  try{ localStorage.setItem('spf-tab',activeTab); }catch{}
+  applyActiveTab();
 }));
+applyActiveTab(); // sync to any persisted tab before the first render
 // filters (status chips + search) — client-side only, does not write anything
 $$('#statusChips .fchip').forEach(b=> b.addEventListener('click', ()=>{ filter.status=b.dataset.status; renderBoard(); }));
 $('#search').addEventListener('input', e=>{ filter.q=e.target.value; renderBoard(); });
@@ -700,9 +734,13 @@ $('#runQuickBtn').addEventListener('click',()=> setChat(true));
 $('#chatFab').addEventListener('click',()=> setChat($('#chat').getAttribute('aria-hidden')==='true'));
 $('#chatClose').addEventListener('click',()=> setChat(false));
 try{ if(localStorage.getItem('spf-chat')==='1') setChat(true); }catch{}
-$('#runBtn').addEventListener('click',doRun);
-$('#orchBtn').addEventListener('click',doOrchestrate);
+$('#runBtn').addEventListener('click',()=>doRun());
+$('#orchBtn').addEventListener('click',()=>doOrchestrate());
 $('#runPrompt').addEventListener('keydown',e=>{ if((e.metaKey||e.ctrlKey)&&e.key==='Enter')doRun(); });
+// Chat tab — same doRun/doOrchestrate/approve, its own textarea/select (#tabRunPrompt/#tabRunAgent)
+$('#tabRunBtn').addEventListener('click',()=>doRun($('#tabRunPrompt'),$('#tabRunAgent')));
+$('#tabOrchBtn').addEventListener('click',()=>doOrchestrate($('#tabRunPrompt')));
+$('#tabRunPrompt').addEventListener('keydown',e=>{ if((e.metaKey||e.ctrlKey)&&e.key==='Enter')doRun($('#tabRunPrompt'),$('#tabRunAgent')); });
 $('#drawerClose').addEventListener('click',closeDrawer);
 $('#drawerScrim').addEventListener('click',closeDrawer);
 document.addEventListener('keydown',e=>{ if(e.key==='Escape')closeDrawer(); });

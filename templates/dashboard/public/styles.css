@@ -156,8 +156,10 @@ body { background:var(--bg); color:var(--ink); font-family:var(--sans); font-siz
 .phase-head { display:flex; align-items:center; gap:10px; margin-bottom:12px; padding:9px 12px; border:1px solid var(--line); border-radius:11px; background:var(--surface); cursor:pointer; user-select:none; transition:border-color .15s,background .15s; }
 .phase-head:hover { border-color:color-mix(in srgb,var(--cool) 45%,var(--line)); background:var(--surface-2); }
 .phase-head:focus-visible { outline:2px solid var(--cool); outline-offset:2px; }
-.chevron { width:0; height:0; flex-shrink:0; border-style:solid; border-width:5px 0 5px 7px; border-color:transparent transparent transparent var(--muted); transition:transform .18s ease; }
-.phase.is-collapsed .chevron { transform:rotate(90deg); }
+/* raw shape points right; expanded (default, no .is-collapsed) rotates it down — the
+   conventional direction — and collapsed rotates it back to its raw right-pointing state */
+.chevron { width:0; height:0; flex-shrink:0; border-style:solid; border-width:5px 0 5px 7px; border-color:transparent transparent transparent var(--muted); transition:transform .18s ease; transform:rotate(90deg); }
+.phase.is-collapsed .chevron { transform:rotate(0deg); }
 .phase-title { font-size:14.5px; font-weight:700; }
 .phase-src { font-family:var(--mono); font-size:10px; color:var(--faint); }
 .phase-bar { width:84px; height:6px; border-radius:999px; background:var(--surface-2); overflow:hidden; flex-shrink:0; }
@@ -194,7 +196,7 @@ body { background:var(--bg); color:var(--ink); font-family:var(--sans); font-siz
 .request-title { flex:1; min-width:0; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; color:var(--ink); }
 .request-file { font-family:var(--mono); font-size:10.5px; color:var(--faint); flex-shrink:0; }
 
-/* placeholder panels (Chat / Info — filled in later tasks) */
+/* placeholder panels (none left as of the Chat tab — kept for any future WIP panel) */
 .placeholder-wrap { padding:26px 28px 60px; max-width:1000px; }
 .placeholder-empty { margin-top:8px; padding:40px; border:1px dashed var(--line); border-radius:var(--radius); text-align:center; color:var(--faint); font-style:italic; }
 
@@ -331,17 +333,22 @@ body { background:var(--bg); color:var(--ink); font-family:var(--sans); font-siz
 }
 @media (max-width:760px){ .tabs .tab{ padding:7px 8px;} .tab-label{ display:none; } }
 
-/* chat widget (floating agent runner) — same surface/radius/shadow tokens as the card system */
-.chat-fab { position:fixed; right:20px; bottom:20px; z-index:18; width:52px; height:52px; border-radius:50%; border:1px solid var(--line); background:var(--surface-2); color:var(--ink); font-size:22px; cursor:pointer; box-shadow:var(--shadow); display:grid; place-items:center; transition:transform .15s,border-color .15s; }
+/* chat widget (floating agent runner) — same surface/radius/shadow tokens as the card system.
+   Bubble/log styles below (.msg, .bubble, .chat-idle, .approval…) are shared, unscoped classes
+   so the Chat tab's #chatTabLog renders identically via the same renderChatLog(container). */
+.chat-fab { position:fixed; right:20px; bottom:20px; z-index:18; width:54px; height:54px; border-radius:50%; border:1px solid var(--line); background:var(--surface-2); color:var(--ink); font-size:23px; cursor:pointer; box-shadow:var(--shadow); display:grid; place-items:center; transition:transform .15s,border-color .15s; }
 .chat-fab:hover { transform:translateY(-2px); border-color:color-mix(in srgb,var(--signal) 50%,var(--line)); }
 .chat-fab.is-open { box-shadow:inset 0 0 0 2px var(--signal); }
-.chat { position:fixed; right:20px; bottom:84px; z-index:18; width:min(370px,92vw); height:min(520px,72vh); background:var(--surface); border:1px solid var(--line); border-radius:var(--radius); box-shadow:var(--shadow); display:flex; flex-direction:column; overflow:hidden; transform-origin:bottom right; transition:opacity .16s,transform .16s; }
+.chat { position:fixed; right:20px; bottom:88px; z-index:18; width:min(420px,94vw); height:min(600px,78vh); background:var(--surface); border:1px solid var(--line); border-radius:calc(var(--radius) + 2px); box-shadow:var(--shadow); display:flex; flex-direction:column; overflow:hidden; transform-origin:bottom right; transition:opacity .16s,transform .16s; }
 .chat[aria-hidden="true"] { opacity:0; transform:scale(.96) translateY(8px); pointer-events:none; }
-.chat-head { display:flex; align-items:center; gap:8px; padding:11px 12px; border-bottom:1px solid var(--line); background:color-mix(in srgb,var(--surface-2) 60%,transparent); }
-.chat-title { font-weight:700; font-size:13.5px; }
-.chat-agent { margin-left:auto; font:inherit; font-size:12px; background:var(--surface); color:var(--ink); border:1px solid var(--line); border-radius:7px; padding:4px 6px; }
-.chat-close { width:26px; height:26px; border:1px solid var(--line); background:var(--surface-2); color:var(--muted); border-radius:7px; font-size:16px; cursor:pointer; }
-.chat-log { flex:1; overflow-y:auto; padding:14px; display:flex; flex-direction:column; gap:10px; }
+.chat-head { display:flex; align-items:center; gap:10px; padding:14px 16px; border-bottom:1px solid var(--line); background:linear-gradient(180deg,color-mix(in srgb,var(--surface-2) 75%,transparent),transparent); }
+.chat-head-text { display:flex; flex-direction:column; gap:1px; min-width:0; }
+.chat-title { font-weight:700; font-size:15px; }
+.chat-sub { font-size:10px; color:var(--faint); text-transform:uppercase; letter-spacing:.04em; }
+.chat-agent { margin-left:auto; flex-shrink:0; font:inherit; font-size:12px; background:var(--surface); color:var(--ink); border:1px solid var(--line); border-radius:7px; padding:5px 8px; }
+.chat-close { width:28px; height:28px; flex-shrink:0; border:1px solid var(--line); background:var(--surface-2); color:var(--muted); border-radius:8px; font-size:17px; cursor:pointer; transition:border-color .15s,color .15s; }
+.chat-close:hover { border-color:color-mix(in srgb,var(--s-blocked) 45%,var(--line)); color:var(--ink); }
+.chat-log { flex:1; overflow-y:auto; padding:16px; display:flex; flex-direction:column; gap:11px; }
 .chat-idle { color:var(--faint); font-style:italic; font-size:12.5px; }
 .msg { display:flex; } .msg.you { justify-content:flex-end; }
 .msg.you .bubble { background:var(--signal); color:#241705; border-radius:12px 12px 3px 12px; padding:8px 11px; font-size:13px; max-width:82%; font-weight:500; }
@@ -354,18 +361,33 @@ body { background:var(--bg); color:var(--ink); font-family:var(--sans); font-siz
 .msg.agentmsg.k-status .bubble { border-color:color-mix(in srgb,var(--s-done) 35%,var(--line)); }
 .msg.agentmsg.k-question .msg-role { color:var(--signal); }
 .msg.agentmsg.k-handoff .msg-role { color:var(--s-to_analyze); }
-.chat-input { display:flex; gap:8px; padding:10px 12px 2px; }
+.chat-input { display:flex; gap:8px; padding:12px 14px 4px; }
 .chat-ta { flex:1; min-height:40px; max-height:120px; resize:vertical; font:inherit; background:var(--bg); color:var(--ink); border:1px solid var(--line); border-radius:9px; padding:9px 11px; transition:border-color .15s; }
 .chat-ta:focus { outline:2px solid var(--cool); outline-offset:1px; }
 .chat-send { align-self:stretch; }
 .chat-warn { font-size:10.5px; color:var(--signal); margin:6px 12px 10px; }
 .approval { display:flex; flex-direction:column; gap:8px; padding:10px 12px; background:var(--surface-2); border:1px solid color-mix(in srgb,var(--signal) 40%,var(--line)); border-radius:var(--radius); box-shadow:var(--shadow); }
 .approval .c-actions { display:flex; gap:8px; }
-#orchBtn { background:var(--cool); color:#04202a; border-color:transparent; font-weight:600; }
+#orchBtn,#tabOrchBtn { background:var(--cool); color:#04202a; border-color:transparent; font-weight:600; }
 .btn { transition:border-color .15s,transform .1s; }
 .btn:hover { border-color:color-mix(in srgb,var(--cool) 45%,var(--line)); }
 .btn:active { transform:translateY(1px); }
 .btn.primary:hover { border-color:transparent; filter:brightness(1.06); }
+
+/* Chat tab — full-height, full-width surface sharing renderChatLog/doRun/doOrchestrate/approve
+   with the floating widget (same .msg/.bubble/.chat-idle/.approval classes, unscoped above). */
+.panel[data-panel="chat"].is-active { display:flex; flex-direction:column; }
+.chat-tab-wrap { flex:1; min-height:0; display:flex; flex-direction:column; padding:22px 28px 26px; max-width:1040px; width:100%; margin:0 auto; }
+.chat-tab-head { display:flex; align-items:flex-start; gap:14px; margin-bottom:14px; }
+.chat-tab-head .panel-title { margin:0; }
+.chat-tab-head .panel-sub { margin:2px 0 0; }
+.chat-tab-head .chat-agent { margin-left:auto; flex-shrink:0; }
+.chat-tab-log { flex:1; min-height:220px; overflow-y:auto; display:flex; flex-direction:column; gap:12px; background:var(--surface); border:1px solid var(--line); border-radius:var(--radius); padding:20px; box-shadow:var(--shadow); }
+.chat-tab-input { display:flex; gap:10px; margin-top:14px; }
+.chat-tab-input .chat-ta { flex:1; min-height:56px; max-height:180px; }
+.chat-tab-actions { display:flex; flex-direction:column; gap:8px; flex-shrink:0; }
+.chat-tab-wrap .chat-warn { margin:8px 0 0; }
+@media (max-width:640px){ .chat-tab-input { flex-direction:column; } .chat-tab-actions { flex-direction:row; } }
 
 /* ---- chart & panel motion --------------------------------------------- */
 /* cards/panels rise in on render */

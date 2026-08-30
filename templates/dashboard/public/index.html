@@ -142,12 +142,28 @@
       </div>
     </section>
 
-    <!-- CHAT (placeholder panel — the floating chat widget below is the current entry point) -->
+    <!-- CHAT (full-width chat tab — shares renderChatLog + doRun/doOrchestrate/approve with the floating widget) -->
     <section class="panel" data-panel="chat">
-      <div class="placeholder-wrap">
-        <h2 class="panel-title">Chat</h2>
-        <p class="panel-sub">Coming soon — for now, use the Run button to open the chat widget.</p>
-        <div class="placeholder-empty" id="chatPanelEmpty">This view is not built yet.</div>
+      <div class="chat-tab-wrap">
+        <div class="chat-tab-head">
+          <div>
+            <h2 class="panel-title">Chat</h2>
+            <p class="panel-sub">Full conversation with the runner — the same run as the widget, more room to read it.</p>
+          </div>
+          <select id="tabRunAgent" class="chat-agent" title="Agent"></select>
+        </div>
+        <div class="chat-tab-log" id="chatTabLog">
+          <div class="chat-idle">Type a request — the agent runs headless in this project with full memory
+            (<code>CLAUDE.md → AGENTS.md</code>) and updates the board live.</div>
+        </div>
+        <div class="chat-tab-input">
+          <textarea id="tabRunPrompt" class="chat-ta" placeholder="e.g. Add a login feature with email + password"></textarea>
+          <div class="chat-tab-actions">
+            <button id="tabRunBtn" class="btn primary chat-send">Send</button>
+            <button id="tabOrchBtn" class="btn chat-send" title="Walk the enabled workflow">Orchestrate</button>
+          </div>
+        </div>
+        <p class="chat-warn">⚠ Launches a real agent (<code>config.json → runners</code>) that can modify files &amp; run commands.</p>
       </div>
     </section>
 
@@ -165,7 +181,10 @@
   <button class="chat-fab" id="chatFab" aria-label="Open run chat" title="Run an agent">💬</button>
   <div class="chat" id="chat" aria-hidden="true" role="dialog" aria-label="Run an agent">
     <div class="chat-head">
-      <span class="chat-title">Run an agent</span>
+      <div class="chat-head-text">
+        <span class="chat-title">Run an agent</span>
+        <span class="chat-sub">Quick access · full view in the Chat tab</span>
+      </div>
       <select id="runAgent" class="chat-agent" title="Agent"></select>
       <button class="chat-close" id="chatClose" aria-label="Close">×</button>
     </div>
