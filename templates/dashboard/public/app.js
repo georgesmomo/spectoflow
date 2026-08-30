@@ -91,30 +91,40 @@ function render(){
   $('#agentChip').textContent = c.agent||'claude';
   $('#langChip').textContent = c.language||'en';
   $('#modeChip').textContent = c.mode||'semi';
+  $('#brandSub').textContent = (c.mode||'semi') + ' · ' + (c.language||'en');
   const sel=$('#runAgent'); const runners=Object.keys((c.runners)||{claude:1});
   if(sel.options.length!==runners.length){ sel.innerHTML=''; runners.forEach(k=>{ const o=document.createElement('option'); o.value=k; o.textContent=k; sel.append(o); }); if(c.agent) sel.value=c.agent; }
+  const s=SpectoStats.stats(P);
+  const meterFill=$('#globalMeterFill');
+  if(meterFill) meterFill.style.width=(s.pct||0)+'%';
+  const meter=$('#globalMeter');
+  if(meter) meter.title=`Global progress: ${s.pct}% (${s.done}/${s.total} tasks)`;
   renderOverview(); renderBoard(); renderWorkflow(); renderTeam(); renderChat(); renderSidebar();
+  renderRequests();
 }
 
-// ---- right sidebar: "À demander" (toAsk tasks) + "Journal" (read-only runtime.messages feed) ----
-function renderSidebar(){ renderToAsk(); renderJournal(); }
-function renderToAsk(){
-  const list=$('#toAsk'); if(!list) return;
+// ---- Requests tab: tasks awaiting review/input (to_validate / to_analyze) ----
+function renderRequests(){
+  const list=$('#requestsList'); if(!list) return;
   const toAsk=SpectoStats.stats(P).toAsk||[];
-  $('#toAskCount').textContent=toAsk.length;
+  const count=$('#requestsCount'); if(count) count.textContent=toAsk.length;
   list.innerHTML='';
   if(!toAsk.length){ list.append(li('empty','Nothing awaiting you.')); return; }
   toAsk.forEach(t=>{
-    const row=el('li','toask-row'); row.tabIndex=0;
-    row.append(el('span','toask-id',t.id));
-    row.append(el('span','toask-title',t.title));
+    const row=el('li','request-row'); row.tabIndex=0;
+    row.append(el('span','request-id',t.id));
+    row.append(el('span','request-title',t.title));
     row.append(el('span','chip s-'+t.status,STATUS[t.status]||t.status));
+    row.append(el('span','request-file',t.file));
     const open=()=>openDrawer(t.id);
     row.addEventListener('click',open);
     row.addEventListener('keydown',e=>{ if(e.key==='Enter')open(); });
     list.append(row);
   });
 }
+
+// ---- right sidebar: "Journal" (read-only runtime.messages feed) ----
+function renderSidebar(){ renderJournal(); }
 function renderJournal(){
   const box=$('#journal'); if(!box) return;
   const msgs=((P.runtime&&P.runtime.messages)||[]).slice().reverse(); // reverse-chronological
@@ -409,7 +419,13 @@ $('#search').addEventListener('input', e=>{ filter.q=e.target.value; renderBoard
 // theme
 (function(){ const s=localStorage.getItem('spf-theme'); if(s)document.documentElement.setAttribute('data-theme',s);
   $('#themeToggle').addEventListener('click',()=>{ const c=document.documentElement.getAttribute('data-theme'); const n=c==='dark'?'light':'dark'; document.documentElement.setAttribute('data-theme',n); localStorage.setItem('spf-theme',n); }); })();
+// icons — fill every [data-icon] placeholder from the ICON map (icons.js), once at startup
+(function applyIcons(){
+  if(typeof ICON==='undefined') return;
+  $$('[data-icon]').forEach(node=>{ const svg=ICON[node.dataset.icon]; if(svg) node.innerHTML=svg; });
+})();
 // chat widget
+$('#runQuickBtn').addEventListener('click',()=> setChat(true));
 $('#chatFab').addEventListener('click',()=> setChat($('#chat').getAttribute('aria-hidden')==='true'));
 $('#chatClose').addEventListener('click',()=> setChat(false));
 try{ if(localStorage.getItem('spf-chat')==='1') setChat(true); }catch{}

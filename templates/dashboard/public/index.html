@@ -10,20 +10,33 @@
   <header class="topbar">
     <div class="brand">
       <span class="brand-mark" aria-hidden="true"></span>
-      <span class="brand-name">spectoflow</span>
-      <span class="brand-sep">/</span>
-      <span class="brand-project" id="projectName">—</span>
+      <div class="brand-text">
+        <div class="brand-line">
+          <span class="brand-name">spectoflow</span>
+          <span class="brand-sep">/</span>
+          <span class="brand-project" id="projectName">—</span>
+        </div>
+        <div class="brand-sub" id="brandSub">semi · en</div>
+      </div>
+      <div class="progress-meter" id="globalMeter" title="Global progress">
+        <div class="progress-meter-fill" id="globalMeterFill"></div>
+      </div>
     </div>
     <nav class="tabs" id="tabs">
-      <button class="tab is-active" data-tab="board">Board</button>
-      <button class="tab" data-tab="workflow">Workflow</button>
-      <button class="tab" data-tab="team">Agents &amp; Skills</button>
+      <button class="tab is-active" data-tab="board"><span class="tab-ico" data-icon="board"></span><span class="tab-label">Board</span></button>
+      <button class="tab" data-tab="requests"><span class="tab-ico" data-icon="requests"></span><span class="tab-label">Requests</span></button>
+      <button class="tab" data-tab="backlog"><span class="tab-ico" data-icon="backlog"></span><span class="tab-label">Backlog</span></button>
+      <button class="tab" data-tab="workflow"><span class="tab-ico" data-icon="workflow"></span><span class="tab-label">Workflow</span></button>
+      <button class="tab" data-tab="team"><span class="tab-ico" data-icon="agents"></span><span class="tab-label">Agents &amp; Skills</span></button>
+      <button class="tab" data-tab="chat"><span class="tab-ico" data-icon="chat"></span><span class="tab-label">Chat</span></button>
+      <button class="tab" data-tab="info"><span class="tab-ico" data-icon="info"></span><span class="tab-label">Info</span></button>
     </nav>
     <div class="top-right">
       <span class="meta-chip" id="agentChip" title="Active agent">claude</span>
       <span class="meta-chip" id="langChip" title="Output language">en</span>
       <span class="mode-chip" id="modeChip" title="Autonomy mode">semi</span>
       <span class="sync" id="sync"><span class="sync-dot"></span><span id="syncLabel">live</span></span>
+      <button class="btn primary run-btn" id="runQuickBtn" title="Open the run chat"><span class="tab-ico" data-icon="run"></span><span>Run</span></button>
       <button class="theme-toggle" id="themeToggle" aria-label="Toggle theme"><span class="theme-ico"></span></button>
     </div>
   </header>
@@ -48,10 +61,6 @@
         <div class="board" id="board"></div>
       </div>
       <aside class="side" id="side">
-        <div class="rail-block">
-          <h2 class="rail-title">À demander <span class="count" id="toAskCount">0</span></h2>
-          <ul class="flatlist toask-list" id="toAsk"></ul>
-        </div>
         <div class="rail-block rail-block-journal">
           <h2 class="rail-title">Journal <span class="count" id="journalCount">0</span></h2>
           <div class="journal" id="journal"></div>
@@ -65,6 +74,24 @@
           <ul class="flatlist" id="running"></ul>
         </div>
       </aside>
+    </section>
+
+    <!-- REQUESTS (tasks awaiting review: to_validate / to_analyze) -->
+    <section class="panel" data-panel="requests">
+      <div class="requests-wrap">
+        <h2 class="panel-title">Requests <span class="count" id="requestsCount">0</span></h2>
+        <p class="panel-sub">Tasks awaiting your input — status <em>to validate</em> or <em>to analyze</em>.</p>
+        <ul class="flatlist requests-list" id="requestsList"></ul>
+      </div>
+    </section>
+
+    <!-- BACKLOG (placeholder — filled in a later task) -->
+    <section class="panel" data-panel="backlog">
+      <div class="placeholder-wrap">
+        <h2 class="panel-title">Backlog</h2>
+        <p class="panel-sub">Coming soon.</p>
+        <div class="placeholder-empty" id="backlogEmpty">This view is not built yet.</div>
+      </div>
     </section>
 
     <!-- WORKFLOW -->
@@ -85,6 +112,24 @@
         <h2 class="panel-title" style="margin-top:28px">Skills <span class="count" id="skillsCount">0</span></h2>
         <p class="panel-sub">Evolving procedures — the <em>how</em>.</p>
         <div class="cards" id="skills"></div>
+      </div>
+    </section>
+
+    <!-- CHAT (placeholder panel — the floating chat widget below is the current entry point) -->
+    <section class="panel" data-panel="chat">
+      <div class="placeholder-wrap">
+        <h2 class="panel-title">Chat</h2>
+        <p class="panel-sub">Coming soon — for now, use the Run button to open the chat widget.</p>
+        <div class="placeholder-empty" id="chatPanelEmpty">This view is not built yet.</div>
+      </div>
+    </section>
+
+    <!-- INFO (placeholder — filled in a later task) -->
+    <section class="panel" data-panel="info">
+      <div class="placeholder-wrap">
+        <h2 class="panel-title">Info</h2>
+        <p class="panel-sub">Coming soon.</p>
+        <div class="placeholder-empty" id="infoEmpty">This view is not built yet.</div>
       </div>
     </section>
   </main>
@@ -126,6 +171,7 @@
 
   <script src="stats.js"></script>
   <script src="charts.js"></script>
+  <script src="icons.js"></script>
   <script src="app.js"></script>
 </body>
 </html>
