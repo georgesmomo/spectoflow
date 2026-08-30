@@ -32,19 +32,21 @@
   other output raw. The widget renders the log as a group chat: identified bubbles coloured by kind
   (message/status/question/handoff), persisted across reloads; raw output stays an ephemeral block.
   Mechanism chosen = **structured stdout**; MCP stays the planned upgrade (same log). See DECISIONS D19.
+- **0.9** — orchestrator runtime: a thin deterministic sequencer that walks the **enabled** workflow
+  steps in order, honouring `mode` and `policy` gates. `workflow.md` now carries a per-step `{cap:…
+  skill:… [policy]}` annotation (backward-compatible; resolves step → agent via `agents/*.md`
+  front-matter `capability`, step → skill file). The pipeline lives in `templates/dashboard/
+  orchestrator.js` (`runOrchestration`) with **injectable** `runStep`/`confirm`, unit-testable without
+  agents or HTTP — same split as `runner.js`. Server gains `POST /api/orchestrate` and `POST
+  /api/orchestrate/approve`; the 💬 widget gains an **Orchestrate** button and **Approve/Cancel**
+  affordances on a pending step. `semi` v1 == autopilot + policy (only policy-gated steps confirm);
+  `manual` confirms every step; a step is policy-gated iff its annotation carries `policy` or
+  `cap:security`. Resume restarts from the first not-`done` step; `modify` is deferred. See DECISIONS
+  D20 and `docs/orchestrator-design.md`.
 
 ## Next (from user feedback, in priority order)
 
-### 1. Orchestrator runtime (the big one)
-A supervisor that, given a request, **walks the enabled workflow steps and wakes the right agent per
-step**, posting each to the group-chat and updating plans/tasks.
-- Loop: classify → for each enabled step, resolve capability → agent → run it (headless run or
-  sub-agent) → collect output → post to chat → advance. Respect mode (autopilot/semi/manual) and
-  policy gates. Handle concurrency, failures, and resume.
-- Prior art to study: BMAD autonomous mode, amux (headless fleet + dashboard + kanban). This is where
-  spectoflow becomes an orchestrator, not just a control plane — build it incrementally, gated by tests.
-
-### 2. Design pass
+### 1. Design pass
 Redesign the dashboard once a visual reference is chosen (control-room direction so far; avoid
 AI-default looks). Tighten the Run/chat, add the animated workflow diagram polish.
 

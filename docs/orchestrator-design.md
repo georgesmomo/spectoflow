@@ -1,6 +1,6 @@
 # Orchestrator — design (v1)
 
-> Status: **approved** (O1–O3 resolved by review, 2026-08-30). Target: spectoflow **0.9**. Roadmap
+> Status: **implemented** (O1–O3 resolved by review, 2026-08-30). Target: spectoflow **0.9**. Roadmap
 > item "Orchestrator runtime". Decisions here graduate to `DECISIONS.md` (D20) once implemented.
 
 ## Purpose
