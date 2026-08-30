@@ -295,13 +295,34 @@ function li(cls,txt){ const e=el('li',cls); e.textContent=txt; return e; }
 function emptyState(){ const d=el('div','empty'); d.style.padding='40px'; d.textContent='No plans yet. Ask your agent to build something — it will run Intake and write plans/*.md.'; return d; }
 function noMatchState(){ const d=el('div','empty'); d.style.padding='40px'; d.textContent='No tasks match this filter.'; return d; }
 
+// ---- collapsed-phase state (persisted per phase title, guarded for private mode) ----
+function loadCollapsed(){
+  try{ const raw=localStorage.getItem('spf-collapsed'); const arr=raw?JSON.parse(raw):[]; return new Set(Array.isArray(arr)?arr:[]); }
+  catch{ return new Set(); }
+}
+function saveCollapsed(set){ try{ localStorage.setItem('spf-collapsed', JSON.stringify([...set])); }catch{} }
+let collapsedPhases=loadCollapsed();
+
 function renderPhase(ph,file,filteredTasks){
-  const sec=el('section','phase');
-  const head=el('div','phase-head');
+  const isCollapsed=collapsedPhases.has(ph.title);
+  const sec=el('section','phase'+(isCollapsed?' is-collapsed':''));
+  const head=el('div','phase-head'); head.tabIndex=0; head.setAttribute('role','button'); head.setAttribute('aria-expanded',String(!isCollapsed));
+  head.append(el('span','chevron'));
   head.append(el('span','phase-title',ph.title));
   head.append(el('span','phase-src',file));
-  const d=ph.tasks.filter(t=>t.status==='done').length;
-  head.append(el('span','phase-stat',`${d}/${ph.tasks.length}`));
+  const d=ph.tasks.filter(t=>t.status==='done').length, tot=ph.tasks.length;
+  const pct=tot?Math.round((d/tot)*100):0;
+  const track=el('div','phase-bar'); const fill=el('div','phase-bar-fill'); fill.style.width=pct+'%'; track.append(fill);
+  head.append(track);
+  head.append(el('span','phase-stat',`${d}/${tot}`));
+  const toggle=()=>{
+    const now=sec.classList.toggle('is-collapsed');
+    head.setAttribute('aria-expanded',String(!now));
+    if(now) collapsedPhases.add(ph.title); else collapsedPhases.delete(ph.title);
+    saveCollapsed(collapsedPhases);
+  };
+  head.addEventListener('click',toggle);
+  head.addEventListener('keydown',e=>{ if(e.key==='Enter'||e.key===' '){ e.preventDefault(); toggle(); } });
   sec.append(head);
   const wrap=el('div','tasks');
   filteredTasks.forEach(t=> wrap.append(renderTask(t)));
@@ -316,9 +337,14 @@ function renderTask(t){
   top.append(el('span','chip s-'+t.status,STATUS[t.status]||t.status));
   c.append(top);
   c.append(el('div','task-title',t.title));
+  if(t.tags&&t.tags.length){
+    const tags=el('div','task-tags');
+    t.tags.forEach(tg=> tags.append(el('span','tag',tg)));
+    c.append(tags);
+  }
   const foot=el('div','task-foot');
   if(t.owner) foot.append(el('span','owner','@'+t.owner));
-  if(t.comments&&t.comments.length) foot.append(el('span',null,'💬 '+t.comments.length));
+  if(t.comments&&t.comments.length) foot.append(el('span','cmt-count','💬 '+t.comments.length));
   const tr=runtimeTests(t.id);
   if(tr) foot.append(el('span','tflag '+(tr.failed?'fail':'pass'), tr.failed?`${tr.failed} failing`:`${tr.passed||0} passing`));
   c.append(foot);

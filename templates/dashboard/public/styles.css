@@ -138,23 +138,36 @@ body { background:var(--bg); color:var(--ink); font-family:var(--sans); font-siz
 
 /* board */
 .board { padding:22px 24px 60px; overflow-y:auto; }
-.phase { margin-bottom:28px; }
-.phase-head { display:flex; align-items:baseline; gap:10px; margin-bottom:12px; }
-.phase-title { font-size:15px; font-weight:700; } .phase-src { font-family:var(--mono); font-size:10px; color:var(--faint); }
-.phase-stat { margin-left:auto; font-family:var(--mono); font-size:11px; color:var(--faint); }
-.tasks { display:grid; grid-template-columns:repeat(auto-fill,minmax(290px,1fr)); gap:12px; }
+.phase { margin-bottom:26px; }
+.phase-head { display:flex; align-items:center; gap:10px; margin-bottom:12px; padding:9px 12px; border:1px solid var(--line); border-radius:11px; background:var(--surface); cursor:pointer; user-select:none; transition:border-color .15s,background .15s; }
+.phase-head:hover { border-color:color-mix(in srgb,var(--cool) 45%,var(--line)); background:var(--surface-2); }
+.phase-head:focus-visible { outline:2px solid var(--cool); outline-offset:2px; }
+.chevron { width:0; height:0; flex-shrink:0; border-style:solid; border-width:5px 0 5px 7px; border-color:transparent transparent transparent var(--muted); transition:transform .18s ease; }
+.phase.is-collapsed .chevron { transform:rotate(90deg); }
+.phase-title { font-size:14.5px; font-weight:700; }
+.phase-src { font-family:var(--mono); font-size:10px; color:var(--faint); }
+.phase-bar { width:84px; height:6px; border-radius:999px; background:var(--surface-2); overflow:hidden; flex-shrink:0; }
+[data-theme="light"] .phase-bar { background:var(--line); }
+.phase-bar-fill { height:100%; background:linear-gradient(90deg,var(--cool),var(--signal)); border-radius:999px; transition:width .4s ease; }
+.phase-stat { margin-left:auto; font-family:var(--mono); font-size:11px; color:var(--faint); flex-shrink:0; }
+.phase .tasks { display:grid; grid-template-columns:repeat(auto-fill,minmax(290px,1fr)); gap:12px; overflow:hidden; max-height:4000px; opacity:1; transition:max-height .25s ease,opacity .2s ease,margin-top .2s ease; margin-top:12px; }
+.phase.is-collapsed .tasks { max-height:0; opacity:0; margin-top:0; pointer-events:none; }
 .task { background:var(--surface); border:1px solid var(--line); border-radius:var(--radius); padding:13px 14px; cursor:pointer; transition:border-color .15s,transform .15s,box-shadow .15s; display:flex; flex-direction:column; gap:9px; }
 .task:hover { border-color:color-mix(in srgb,var(--cool) 55%,var(--line)); transform:translateY(-1px); box-shadow:var(--shadow); }
+.task:focus-visible { outline:2px solid var(--cool); outline-offset:2px; }
 .task.is-in_progress { border-left:2px solid var(--signal); }
 .task-top { display:flex; align-items:center; gap:8px; }
-.task-id { font-family:var(--mono); font-size:11px; color:var(--muted); }
+.task-id { font-family:var(--mono); font-size:11px; color:var(--muted); background:var(--surface-2); border:1px solid var(--line); border-radius:5px; padding:1px 6px; }
 .lvl { font-family:var(--mono); font-size:9px; text-transform:uppercase; letter-spacing:.06em; color:var(--faint); border:1px solid var(--line); border-radius:4px; padding:1px 4px; }
 .chip { font-family:var(--mono); font-size:10px; text-transform:uppercase; letter-spacing:.06em; padding:2px 7px; border-radius:999px; margin-left:auto; color:#10151b; font-weight:600; }
 .chip.s-todo{background:var(--s-todo)} .chip.s-in_progress{background:var(--s-in_progress)} .chip.s-to_validate{background:var(--s-to_validate)} .chip.s-to_analyze{background:var(--s-to_analyze)} .chip.s-done{background:var(--s-done)} .chip.s-blocked{background:var(--s-blocked)}
 .task-title { font-size:14px; font-weight:600; line-height:1.35; }
-.task-foot { display:flex; align-items:center; gap:10px; font-size:11.5px; color:var(--muted); }
+.task-tags { display:flex; flex-wrap:wrap; gap:5px; }
+.task-tags .tag { font-family:var(--mono); font-size:10px; color:var(--cool); border:1px solid color-mix(in srgb,var(--cool) 35%,var(--line)); border-radius:5px; padding:1px 6px; }
+.task-foot { display:flex; align-items:center; gap:10px; font-size:11.5px; color:var(--muted); margin-top:auto; }
 .owner { font-family:var(--mono); }
-.tflag { font-family:var(--mono); font-size:10px; padding:1px 5px; border-radius:4px; }
+.cmt-count { font-family:var(--mono); font-size:11px; color:var(--muted); }
+.tflag { font-family:var(--mono); font-size:10px; padding:1px 5px; border-radius:4px; margin-left:auto; }
 .tflag.pass { color:var(--s-done); border:1px solid color-mix(in srgb,var(--s-done) 45%,var(--line)); }
 .tflag.fail { color:var(--s-blocked); border:1px solid color-mix(in srgb,var(--s-blocked) 45%,var(--line)); }
 
@@ -162,25 +175,25 @@ body { background:var(--bg); color:var(--ink); font-family:var(--sans); font-siz
 .wf-wrap,.team-wrap { padding:26px 28px 60px; max-width:1000px; }
 .wf-diagram { display:flex; flex-wrap:wrap; align-items:center; gap:0; margin-top:8px; }
 .wf-step { display:flex; align-items:center; }
-.wf-node { display:flex; align-items:center; gap:8px; padding:10px 14px; border:1px solid var(--line); border-radius:10px; background:var(--surface); cursor:pointer; transition:all .18s; user-select:none; }
-.wf-node:hover { border-color:var(--cool); }
-.wf-node .dot { width:8px; height:8px; border-radius:50%; background:var(--s-done); }
+.wf-node { display:flex; align-items:center; gap:8px; padding:11px 15px; border:1px solid var(--line); border-radius:var(--radius); background:var(--surface); cursor:pointer; transition:border-color .18s,transform .15s,box-shadow .15s; user-select:none; }
+.wf-node:hover { border-color:var(--cool); transform:translateY(-1px); box-shadow:var(--shadow); }
+.wf-node .dot { width:8px; height:8px; border-radius:50%; background:var(--s-done); flex-shrink:0; }
 .wf-node.off { opacity:.42; border-style:dashed; background:transparent; }
 .wf-node.off .dot { background:var(--faint); }
 .wf-node .nm { font-size:13px; font-weight:600; }
-.wf-node .opt { font-family:var(--mono); font-size:9px; color:var(--faint); text-transform:uppercase; }
+.wf-node .opt { font-family:var(--mono); font-size:9px; color:var(--faint); text-transform:uppercase; border:1px solid var(--line); border-radius:4px; padding:1px 4px; }
 .wf-arrow { width:34px; height:2px; position:relative; background:var(--line); margin:0 2px; overflow:hidden; }
 .wf-arrow::after { content:""; position:absolute; inset:0; width:40%; background:linear-gradient(90deg,transparent,var(--signal),transparent); animation:flow 2.2s linear infinite; }
 .wf-arrow.off::after { display:none; }
 @keyframes flow { from{ transform:translateX(-100%);} to{ transform:translateX(250%);} }
 
-/* cards (agents / skills) */
+/* cards (agents / skills) — same surface/radius/shadow tokens as .task/.kpi/.ocard */
 .cards { display:grid; grid-template-columns:repeat(auto-fill,minmax(240px,1fr)); gap:12px; }
-.card { background:var(--surface); border:1px solid var(--line); border-radius:var(--radius); padding:14px; transition:box-shadow .15s; }
-.card:hover { box-shadow:var(--shadow); }
+.card { background:var(--surface); border:1px solid var(--line); border-radius:var(--radius); padding:14px; transition:border-color .15s,transform .15s,box-shadow .15s; }
+.card:hover { border-color:color-mix(in srgb,var(--cool) 55%,var(--line)); transform:translateY(-1px); box-shadow:var(--shadow); }
 .card .ct { font-size:14px; font-weight:700; }
 .card .cc { font-family:var(--mono); font-size:10px; color:var(--cool); text-transform:uppercase; letter-spacing:.06em; margin-top:2px; }
-.card .cd { font-size:12.5px; color:var(--muted); margin-top:8px; }
+.card .cd { font-size:12.5px; color:var(--muted); margin-top:8px; line-height:1.45; }
 .card .cu { margin-top:9px; display:flex; flex-wrap:wrap; gap:4px; }
 .card .cu span { font-family:var(--mono); font-size:10px; color:var(--muted); border:1px solid var(--line); border-radius:5px; padding:1px 6px; }
 
@@ -218,7 +231,7 @@ body { background:var(--bg); color:var(--ink); font-family:var(--sans); font-siz
 }
 @media (max-width:760px){ .tabs .tab{ padding:6px 8px;} }
 
-/* chat widget (floating agent runner) */
+/* chat widget (floating agent runner) — same surface/radius/shadow tokens as the card system */
 .chat-fab { position:fixed; right:20px; bottom:20px; z-index:18; width:52px; height:52px; border-radius:50%; border:1px solid var(--line); background:var(--surface-2); color:var(--ink); font-size:22px; cursor:pointer; box-shadow:var(--shadow); display:grid; place-items:center; transition:transform .15s,border-color .15s; }
 .chat-fab:hover { transform:translateY(-2px); border-color:color-mix(in srgb,var(--signal) 50%,var(--line)); }
 .chat-fab.is-open { box-shadow:inset 0 0 0 2px var(--signal); }
@@ -242,9 +255,14 @@ body { background:var(--bg); color:var(--ink); font-family:var(--sans); font-siz
 .msg.agentmsg.k-question .msg-role { color:var(--signal); }
 .msg.agentmsg.k-handoff .msg-role { color:var(--s-to_analyze); }
 .chat-input { display:flex; gap:8px; padding:10px 12px 2px; }
-.chat-ta { flex:1; min-height:40px; max-height:120px; resize:vertical; font:inherit; background:var(--bg); color:var(--ink); border:1px solid var(--line); border-radius:9px; padding:9px 11px; }
+.chat-ta { flex:1; min-height:40px; max-height:120px; resize:vertical; font:inherit; background:var(--bg); color:var(--ink); border:1px solid var(--line); border-radius:9px; padding:9px 11px; transition:border-color .15s; }
+.chat-ta:focus { outline:2px solid var(--cool); outline-offset:1px; }
 .chat-send { align-self:stretch; }
 .chat-warn { font-size:10.5px; color:var(--signal); margin:6px 12px 10px; }
-.approval { display:flex; flex-direction:column; gap:6px; padding:8px 10px; border:1px solid color-mix(in srgb,var(--signal) 40%,var(--line)); border-radius:10px; }
+.approval { display:flex; flex-direction:column; gap:8px; padding:10px 12px; background:var(--surface-2); border:1px solid color-mix(in srgb,var(--signal) 40%,var(--line)); border-radius:var(--radius); box-shadow:var(--shadow); }
 .approval .c-actions { display:flex; gap:8px; }
 #orchBtn { background:var(--cool); color:#04202a; border-color:transparent; font-weight:600; }
+.btn { transition:border-color .15s,transform .1s; }
+.btn:hover { border-color:color-mix(in srgb,var(--cool) 45%,var(--line)); }
+.btn:active { transform:translateY(1px); }
+.btn.primary:hover { border-color:transparent; filter:brightness(1.06); }
