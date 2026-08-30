@@ -1,4 +1,4 @@
-# spectoflow (v0.7 — provisional name)
+# spectoflow (v0.8 — provisional name)
 
 An **agent-agnostic** spec-driven development framework with a **real-time local control plane**.
 You speak in plain language; the framework classifies your intent and runs the right workflow. No
@@ -80,7 +80,9 @@ node .spectoflow/dashboard/server.js   # → http://localhost:4319
 Zero dependencies, updates live via SSE + file watching. Tabs: **Board** (plans/tasks, test results,
 running agents), **Workflow** (the pipeline as a diagram — click a step to enable/disable it, which
 edits `workflow.md`), **Agents & Skills**. A floating **💬 chat widget** (bottom-right) runs the
-configured agent headless and streams its output as a conversation; the board refreshes live as it
+configured agent headless and renders it as a **group chat**: a running agent identifies itself by
+printing `::spectoflow role=… kind=… msg=…` sentinels, which become labelled messages (analyst /
+developer / qa …) in `runtime.messages`; other output streams raw. The board refreshes live as it
 edits plans.
 
 ## Agents vs skills

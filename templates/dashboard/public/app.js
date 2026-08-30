@@ -17,24 +17,36 @@ function connect(){
   es.onopen = ()=>{ $('#sync').classList.remove('offline'); $('#syncLabel').textContent='live'; };
   es.onmessage = (ev)=>{
     let m; try{ m=JSON.parse(ev.data); }catch{ return; }
-    if(m.type==='change') return load();
-    if(m.type==='run-start') return appendRun(`▶ ${m.run.tool}: ${m.run.prompt}\n`,'meta');
-    if(m.type==='run-line') return appendRun(m.chunk);
-    if(m.type==='run-end') return appendRun(`\n■ finished (exit ${m.code})\n`,'end');
+    if(m.type==='change'||m.type==='message') return load();   // messages live from runtime.messages
+    if(m.type==='run-start'||m.type==='run-end') { rawBlock=null; return; }
+    if(m.type==='run-line') return appendRaw(m.chunk);          // raw output is ephemeral (not logged)
   };
   es.onerror = ()=>{ $('#sync').classList.add('offline'); $('#syncLabel').textContent='offline'; };
 }
-let agentBlock=null;
-function clearIdle(){ const i=$('#chatLog .chat-idle'); if(i) i.remove(); }
+// The chat log is the view of runtime.messages. Render incrementally (by id) so a live raw-output
+// block isn't wiped by a re-render; raw run output streams into an ephemeral block appended in order.
+const rendered=new Set();
+let rawBlock=null;
 function scrollChat(){ const l=$('#chatLog'); l.scrollTop=l.scrollHeight; }
-function appendUser(text){ clearIdle(); const m=el('div','msg you'); m.append(el('div','bubble',text)); $('#chatLog').append(m); scrollChat(); }
-function appendRun(text,cls){
+function clearIdle(){ const i=$('#chatLog .chat-idle'); if(i) i.remove(); }
+function bubble(m){
+  if(m.role==='user'){ const d=el('div','msg you'); d.append(el('div','bubble',m.text)); return d; }
+  const wrap=el('div','msg agentmsg k-'+(m.kind||'message'));
+  wrap.append(el('div','msg-role', m.role + (m.agent&&m.agent!==m.role?(' · '+m.agent):'')));
+  wrap.append(el('div','bubble',m.text));
+  return wrap;
+}
+function renderChat(){
+  const log=$('#chatLog'); const msgs=(P.runtime&&P.runtime.messages)||[];
+  if(msgs.length) clearIdle();
+  let added=false;
+  for(const m of msgs){ if(rendered.has(m.id)) continue; rendered.add(m.id); log.append(bubble(m)); added=true; }
+  if(added) scrollChat();
+}
+function appendRaw(chunk){
   clearIdle();
-  const log=$('#chatLog');
-  if(cls==='meta'){ agentBlock=null; log.append(el('div','chat-meta',text.trim())); return scrollChat(); }
-  if(cls==='end'){ agentBlock=null; log.append(el('div','chat-meta end',text.trim())); return scrollChat(); }
-  if(!agentBlock){ agentBlock=el('pre','msg agent'); log.append(agentBlock); }
-  agentBlock.textContent += text; // single text node → correct preformatted wrapping
+  if(!rawBlock){ rawBlock=el('pre','msg agent'); $('#chatLog').append(rawBlock); }
+  rawBlock.textContent += chunk; // single text node → correct preformatted wrapping
   scrollChat();
 }
 function setChat(open){
@@ -46,9 +58,8 @@ function setChat(open){
 async function doRun(){
   const prompt=$('#runPrompt').value.trim(); if(!prompt) return;
   const agent=$('#runAgent').value;
-  appendUser(prompt);
   await fetch('/api/run',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({prompt,agent})});
-  $('#runPrompt').value='';
+  $('#runPrompt').value=''; // the prompt renders as a bubble from the message log
 }
 async function patchTask(id,patch){ flash(); await fetch('/api/task/'+encodeURIComponent(id),{method:'PATCH',headers:{'Content-Type':'application/json'},body:JSON.stringify(patch)}); }
 async function addComment(id,text,action){ flash(); await fetch('/api/task/'+encodeURIComponent(id)+'/comment',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({text,action})}); }
@@ -63,7 +74,7 @@ function render(){
   $('#modeChip').textContent = c.mode||'semi';
   const sel=$('#runAgent'); const runners=Object.keys((c.runners)||{claude:1});
   if(sel.options.length!==runners.length){ sel.innerHTML=''; runners.forEach(k=>{ const o=document.createElement('option'); o.value=k; o.textContent=k; sel.append(o); }); if(c.agent) sel.value=c.agent; }
-  renderBoard(); renderWorkflow(); renderTeam();
+  renderBoard(); renderWorkflow(); renderTeam(); renderChat();
 }
 
 function renderBoard(){

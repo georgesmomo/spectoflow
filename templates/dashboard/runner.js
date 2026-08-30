@@ -1,0 +1,74 @@
+'use strict';
+/*
+ * Agent run pipeline — spawns the configured agent headless and turns its output into the
+ * group-chat message log. The user prompt is logged as a message; the agent identifies itself by
+ * printing sentinel lines (::spectoflow role=… kind=… msg=…) which become structured messages;
+ * any other output streams raw as run-line events. `emit` publishes SSE events to the dashboard.
+ *
+ * Kept separate from server.js so the pipeline is unit-testable without an HTTP server.
+ */
+const { spawn } = require('child_process');
+const store = require('../lib/store');
+
+function runStart(root, run) {
+  const rt = store.readRuntime(root); rt.agents = rt.agents || []; rt.agents.push(run); store.writeRuntime(root, rt);
+}
+function runEnd(root, id, code) {
+  const rt = store.readRuntime(root); const a = (rt.agents || []).find((x) => x.id === id);
+  if (a) { a.status = code === 0 ? 'done' : 'failed'; a.endedAt = new Date().toISOString(); }
+  store.writeRuntime(root, rt);
+}
+// Buffer a stream into whole lines; flush() emits any trailing partial line at close.
+function makeFeeder(onLine) {
+  let buf = '';
+  return {
+    feed(chunk) { buf += chunk.toString(); let i; while ((i = buf.indexOf('\n')) >= 0) { onLine(buf.slice(0, i)); buf = buf.slice(i + 1); } },
+    flush() { if (buf) { onLine(buf); buf = ''; } },
+  };
+}
+
+// Start an agent run. Returns { runId, child } or { error } if no runner is configured.
+function startRun(root, { prompt, agent }, emit) {
+  const cfg = store.readConfig(root);
+  const which = agent || cfg.agent || 'claude';
+  const cmdStr = cfg.runners && cfg.runners[which];
+  if (!cmdStr) return { error: `No runner configured for "${which}".` };
+  const parts = cmdStr.split(/\s+/).filter(Boolean);
+  const runId = 'r' + Date.now().toString(36);
+  const p = String(prompt).trim();
+
+  const um = store.appendMessage(root, { role: 'user', kind: 'message', text: p, agent: which, runId });
+  emit({ type: 'message', message: um });
+
+  const run = { id: runId, tool: which, prompt: p, status: 'running', startedAt: new Date().toISOString() };
+  runStart(root, run); emit({ type: 'run-start', run }); emit({ type: 'change' });
+
+  let child;
+  try { child = spawn(parts[0], [...parts.slice(1), p], { cwd: root, env: process.env }); }
+  catch (e) {
+    runEnd(root, runId, 1);
+    emit({ type: 'run-line', runId, chunk: 'spawn error: ' + e.message + '\n' });
+    emit({ type: 'run-end', runId, code: 1 }); emit({ type: 'change' });
+    return { runId };
+  }
+
+  const onLine = (line) => {
+    const m = store.parseAgentLine(line);
+    if (m) { const full = store.appendMessage(root, { ...m, agent: which, runId }); emit({ type: 'message', message: full }); }
+    else emit({ type: 'run-line', runId, chunk: line + '\n' });
+  };
+  const out = makeFeeder(onLine), err = makeFeeder(onLine);
+  child.stdout && child.stdout.on('data', (d) => out.feed(d));
+  child.stderr && child.stderr.on('data', (d) => err.feed(d));
+  child.on('error', (e) => emit({ type: 'run-line', runId, chunk: 'error: ' + e.message + '\n' }));
+  child.on('close', (code) => {
+    out.flush(); err.flush();
+    runEnd(root, runId, code);
+    const sm = store.appendMessage(root, { role: which, kind: 'status', text: `finished (exit ${code})`, agent: which, runId });
+    emit({ type: 'message', message: sm });
+    emit({ type: 'run-end', runId, code }); emit({ type: 'change' });
+  });
+  return { runId, child };
+}
+
+module.exports = { startRun };
