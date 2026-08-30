@@ -41,11 +41,19 @@ const server = http.createServer(async (req,res)=>{
     if (p === '/api/agentfile' && req.method === 'GET') {
       const rel = new URL(req.url, 'http://x').searchParams.get('path') || '';
       const base = path.join(ROOT, '.spectoflow');
+      const aDir = path.join(base, 'agents'), sDir = path.join(base, 'skills');
       const abs = path.resolve(base, rel);
-      const okDir = abs.startsWith(path.join(base, 'agents') + path.sep) || abs.startsWith(path.join(base, 'skills') + path.sep);
+      const okDir = abs.startsWith(aDir + path.sep) || abs.startsWith(sDir + path.sep);
       if (!okDir || !abs.endsWith('.md') || !fs.existsSync(abs) || fs.statSync(abs).isDirectory())
         return sendJSON(res, 400, { error: 'not an agent/skill file' });
-      return sendJSON(res, 200, { content: fs.readFileSync(abs, 'utf8') });
+      // Symlink guard: the resolved real path must stay within the (real) scope dirs.
+      let real; try { real = fs.realpathSync(abs); } catch { real = null; }
+      const realA = (() => { try { return fs.realpathSync(aDir); } catch { return aDir; } })();
+      const realS = (() => { try { return fs.realpathSync(sDir); } catch { return sDir; } })();
+      const okReal = real && (real.startsWith(realA + path.sep) || real.startsWith(realS + path.sep));
+      if (!okReal || !real.endsWith('.md') || fs.statSync(real).isDirectory())
+        return sendJSON(res, 400, { error: 'not an agent/skill file' });
+      return sendJSON(res, 200, { content: fs.readFileSync(real, 'utf8') });
     }
 
     if(p==='/api/events'){

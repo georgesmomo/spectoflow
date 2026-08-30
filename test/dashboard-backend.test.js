@@ -114,3 +114,19 @@ test('GET /api/agentfile returns content for a real agent/skill file and 400s on
     assert.strictEqual(trav2.status, 400);
   } finally { srv.kill(); }
 });
+
+test('GET /api/agentfile 400s on a symlink escaping the agents/skills scope', async (t) => {
+  const d = project();
+  // Plant a .md symlink inside agents/ that points OUT of scope (.spectoflow/config.json).
+  const link = path.join(d, '.spectoflow', 'agents', 'evil.md');
+  const target = path.join(d, '.spectoflow', 'config.json');
+  try { fs.symlinkSync(target, link); }
+  catch { return t.skip('symlinks unavailable on this platform'); }
+
+  const port = 4820 + Math.floor(Math.random() * 150);
+  const srv = await startServer(d, port);
+  try {
+    const res = await get(port, '/api/agentfile?' + new URLSearchParams({ path: 'agents/evil.md' }));
+    assert.strictEqual(res.status, 400, 'must reject a symlink resolving outside agents/skills');
+  } finally { srv.kill(); }
+});
