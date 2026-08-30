@@ -135,3 +135,16 @@
 - **Legacy (installs sans manifeste, ex. `demo/`) :** dégradation prudente — si `disque == nouveau` on adopte (mise sous suivi), sinon on préserve + `.new` (ambigu : impossible de distinguer « édité » de « framework périmé »).
 - **Hors périmètre v1 (différé) :** merge 3 voies automatique ; suppression des fichiers retirés d'une version ; merge additif de clés dans `config.json` ; alias `sync`. On raffinera à l'usage.
 - **Tests :** suite Node native (`node --test`, zéro dépendance) — `test/ownership`, `test/manifest`, `test/init-manifest`, `test/update`, `test/cli-update`. `npm test` = `node --test`.
+
+---
+
+## Session 6 — v0.6
+
+### D17 — Auto-détection d'agent + multi-agent : `adapters.js` devient un registre déclaratif
+- **ACTÉ.** `init` **détecte les agents installés** et choisit des défauts sensés au lieu d'imposer `claude,codex`. Objectif : l'utilisateur ne devrait pas avoir à déclarer son agent.
+- **Registre déclaratif (`lib/adapters.js`) :** fin du `if (claude)…if (codex)…` en dur. Un descripteur par agent — `{ id, entries:[{path,content}], runner, detect:{bin,dirs} }`. `entries` = les shims d'entrée natifs pointant vers `.spectoflow/AGENTS.md` ; `runner` = commande headless par défaut (alimente `config.runners`, ajustable — cf. D15) ; `detect` = binaire PATH + dossiers indices. **L'ordre du registre = priorité de l'agent par défaut.**
+- **Agents v1 :** `claude` (`CLAUDE.md` + `.claude/commands/spectoflow.md`), `codex` et `cursor` (partagent `AGENTS.md`, dédupliqué par `writeIfAbsent`), `gemini` (`GEMINI.md`). `opencode`/`kilocode` = point d'extension prêt, ajoutés quand leurs conventions sont confirmées.
+- **Détection (`lib/detect.js`) :** signal principal = binaire résolvable dans le PATH (⇒ le runner marchera), **PATHEXT-aware** sur win32 ; signal secondaire = dossier agent existant (`.claude/`, `.codex/`…). Retourne la liste ordonnée par priorité. Prouvé sur PATH réel (détecte claude+codex dans cet environnement).
+- **Câblage `init` :** `--agent=` explicite gagne (aucune surprise) ; sinon détection → shims de **tous** les détectés, `config.agent` = le premier par priorité, `config.runners` complété (merge non destructif) ; **rien détecté → fallback `claude` + `codex`** (comportement historique). Message d'install indique ce qui a été détecté.
+- **Dashboard :** aucun changement — il défaulte déjà sur `config.agent`/`config.runners`. Le bon défaut vient de l'init.
+- **Tests :** `test/detect`, `test/adapters`, `test/init-detect` (détection injectée via env PATH contrôlé + `process.execPath`).

@@ -5,6 +5,7 @@ const path = require('path');
 const { spawn } = require('child_process');
 const store = require('../templates/lib/store');
 const adapters = require('../lib/adapters');
+const detect = require('../lib/detect');
 const ownership = require('../lib/ownership');
 const manifest = require('../lib/manifest');
 
@@ -49,9 +50,20 @@ function normalizePlans(root) {
 function init() {
   const target = path.resolve(argv[1] && !argv[1].startsWith('--') ? argv[1] : '.');
   const agentsArg = (argv.find((a) => a.startsWith('--agent=')) || '').split('=')[1];
-  const agents = agentsArg ? agentsArg.split(',') : ['claude', 'codex'];
   fs.mkdirSync(target, { recursive: true });
   const notes = [];
+
+  // explicit --agent wins; otherwise detect installed agents; otherwise fall back to claude + codex
+  let agents, detected = [];
+  if (agentsArg) {
+    agents = agentsArg.split(',');
+  } else {
+    detected = detect.detectAgents(target);
+    agents = detected.length ? detected : ['claude', 'codex'];
+    notes.push(detected.length
+      ? `Detected agent(s): ${detected.join(', ')} — active: ${agents[0]}.`
+      : 'No agent CLI detected — defaulted to claude + codex.');
+  }
 
   // preserve an existing CLAUDE.md
   const claude = path.join(target, 'CLAUDE.md');
@@ -70,6 +82,13 @@ function init() {
     version: VERSION,
     files: manifest.hashFileMap(spectoflowDir, frameworkFiles),
   });
+
+  // set the active agent and seed runner commands from the selected/detected agents
+  const cfgPath = path.join(spectoflowDir, 'config.json');
+  const cfg = JSON.parse(fs.readFileSync(cfgPath, 'utf8'));
+  cfg.agent = agents[0];
+  cfg.runners = { ...cfg.runners, ...adapters.defaultRunners(agents) };
+  fs.writeFileSync(cfgPath, JSON.stringify(cfg, null, 2) + '\n');
 
   // artifact folders
   fs.mkdirSync(path.join(target, 'specs'), { recursive: true });
