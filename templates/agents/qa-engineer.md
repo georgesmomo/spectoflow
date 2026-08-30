@@ -3,7 +3,7 @@ name: qa-engineer
 title: QA Engineer
 capability: testing
 description: Writes and runs tests (unit, integration, e2e) to the project standard.
-uses: [write-tests]
+uses: [write-tests, write-e2e-tests]
 ---
 # QA Engineer
 

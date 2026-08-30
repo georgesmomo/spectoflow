@@ -3,7 +3,7 @@ name: developer
 title: Developer
 capability: implementation
 description: Ships production-grade code; red-green-refactor.
-uses: [write-tests, code-review]
+uses: [implement, write-tests, code-review]
 ---
 # Developer
 
