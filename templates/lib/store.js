@@ -225,8 +225,16 @@ function readProject(projectRoot) {
   const last = history[history.length - 1];
   const changed = !last || last.date !== today || last.total !== total || last.done !== done;
   if (changed) {
-    runtime = recordSnapshot(runtime, { total, done }, today);
-    runtime = writeRuntime(projectRoot, runtime);
+    // Concurrency guard: readProject's own initial `readRuntime` above can be stale by the time
+    // we're ready to write — a concurrent writer (e.g. appendMessage, from a running agent) may
+    // have written runtime.json in between. Writing back our stale in-memory copy would silently
+    // clobber whatever that concurrent writer just persisted (messages, agent status, etc).
+    // So we re-read the freshest runtime immediately before writing and mutate ONLY its history
+    // in place; every other field (messages/agents/tests) comes from this fresh read, not from
+    // the possibly-stale `runtime` captured earlier in this function.
+    const cur = readRuntime(projectRoot);
+    recordSnapshot(cur, { total, done }, today);
+    runtime = writeRuntime(projectRoot, cur);
   }
 
   return { config, plans, specs, workflow, agents, skills, runtime };
