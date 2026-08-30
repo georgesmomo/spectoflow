@@ -1,7 +1,7 @@
 # Orchestrator — design (v1)
 
-> Status: **proposed** (awaiting review). Target: spectoflow **0.9**. Roadmap item "Orchestrator
-> runtime". Decisions captured here graduate to `DECISIONS.md` (D20) once implemented.
+> Status: **approved** (O1–O3 resolved by review, 2026-08-30). Target: spectoflow **0.9**. Roadmap
+> item "Orchestrator runtime". Decisions here graduate to `DECISIONS.md` (D20) once implemented.
 
 ## Purpose
 
@@ -94,8 +94,8 @@ For each enabled step, in order:
 2. **Gate**:
    - **policy** (`policy.md`): if the step is policy-sensitive (deploy / destructive migration /
      security), require approval **regardless of mode**.
-   - **mode** (`config.json`): `manual` → confirm **every** step; `semi` → confirm a "heavy" step
-     (Major/risky — v1 heuristic: steps flagged, see O2); `autopilot` → no confirmation.
+   - **mode** (`config.json`): `manual` → confirm **every** step; `semi` → confirm **nothing beyond
+     policy** in v1 (see resolved O2); `autopilot` → no confirmation beyond policy.
    - If confirmation is required → step + run `status = awaiting_approval`, post a `kind:question`
      message describing the step and (for policy) the risk, then **wait** for a decision.
 3. **Run**: launch the resolved agent via `runner.startRun` with a **focused prompt**:
@@ -157,17 +157,16 @@ Everything is unit-testable with `node --test`, no agents and no HTTP:
 - `runtime.orchestration` is returned by `store.readProject` (already returns `runtime`), so the
   widget sees state + resumes on load. Live via existing `{type:'change'}` + `message` events.
 
-## Open questions
+## Resolved decisions (from review)
 
-- **O1 — Develop step skill.** Ship `{cap:implementation}` with no skill (persona-only prompt), or
-  introduce a `implement` skill file for symmetry? Proposed: no skill in v1 (persona mandate is
-  enough); revisit if the prompt proves too thin.
-- **O2 — "Heavy step" heuristic for `semi`.** Without dynamic classification, how does `semi` decide
-  which steps to confirm? Proposed v1: `semi` confirms only **policy-gated** steps (same as
-  autopilot); confirming by scope/risk waits for the classification increment. (So v1 `semi` ≈
-  `autopilot` + policy; `manual` confirms each step.) Flag for review.
-- **O3 — Resume UX.** After a `failed` step, offer Retry / Skip / Cancel in the widget? Proposed:
-  v1 exposes Cancel + "start over"; Retry/Skip is a fast-follow.
+- **O1 — Develop step skill → RESOLVED: no skill in v1.** Ship `{cap:implementation}` with no skill;
+  the developer persona mandate + task context is the prompt. Revisit only if it proves too thin.
+- **O2 — `semi` gate in v1 → RESOLVED: policy-only.** Without dynamic classification, v1 `semi`
+  confirms only **policy-gated** steps (so `semi` ≈ `autopilot` + policy). `manual` confirms every
+  step; `autopilot` confirms nothing but policy. Per-step scope/risk confirmation waits for the
+  classification increment. Section 3's "heavy step" heuristic is therefore **not** in v1.
+- **O3 — Resume UX → RESOLVED: Cancel + start over in v1.** After a `failed` step the widget exposes
+  Cancel and "start over"; Retry / Skip is a fast-follow increment.
 
 ## Not changing
 
