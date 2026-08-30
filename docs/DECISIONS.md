@@ -148,3 +148,14 @@
 - **Câblage `init` :** `--agent=` explicite gagne (aucune surprise) ; sinon détection → shims de **tous** les détectés, `config.agent` = le premier par priorité, `config.runners` complété (merge non destructif) ; **rien détecté → fallback `claude` + `codex`** (comportement historique). Message d'install indique ce qui a été détecté.
 - **Dashboard :** aucun changement — il défaulte déjà sur `config.agent`/`config.runners`. Le bon défaut vient de l'init.
 - **Tests :** `test/detect`, `test/adapters`, `test/init-detect` (détection injectée via env PATH contrôlé + `process.execPath`).
+
+---
+
+## Session 7 — v0.7
+
+### D18 — Chat widget flottant : le run devient une conversation, entrée du group-chat
+- **ACTÉ.** L'onglet/panneau **Run** (vide, encombrant) est **supprimé**. À la place : un **lanceur flottant 💬 en bas-droite** qui ouvre une fenêtre de chat compacte ancrée bas-droite.
+- **Comportement :** enveloppe le flux run **existant** (`POST /api/run` + SSE `run-*`, **serveur inchangé**) présenté en chat — bulle utilisateur (droite, ambre), sortie agent en bloc monospace (gauche), lignes méta ▶ (démarrage) / ■ (fin, verte). Sélecteur d'agent compact (défaut `config.agent`), Cmd/Ctrl+Enter conservé. État ouvert/fermé mémorisé en `localStorage` (`spf-chat`).
+- **Détail d'implémentation appris :** le streaming doit s'accumuler dans **un seul nœud texte** (`pre.textContent += chunk`), pas un `<span>` par chunk — sinon les chunks se disposaient en colonnes côte à côte dans le `<pre>`. Marqueurs ▶/■ sortis en lignes `.chat-meta` séparées.
+- **Périmètre :** front only (`dashboard/public/{index.html,styles.css,app.js}`). Le vrai **message log multi-agents par identité** (`runtime.messages`, rôles) reste l'item suivant (group-chat) — le widget en est le **contenant/point d'entrée**, sans préempter ce modèle de données (YAGNI).
+- **Vérification :** pas de test unitaire DOM (cohérent avec le reste du dashboard, non testé ; jsdom casserait le zéro-dép) — **vérifié en réel** dans Chrome contre un projet de préview à runner stub (ouverture/fermeture, envoi, stream, persistance, correction du bug de colonnes).

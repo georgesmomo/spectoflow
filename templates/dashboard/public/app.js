@@ -24,14 +24,29 @@ function connect(){
   };
   es.onerror = ()=>{ $('#sync').classList.add('offline'); $('#syncLabel').textContent='offline'; };
 }
+let agentBlock=null;
+function clearIdle(){ const i=$('#chatLog .chat-idle'); if(i) i.remove(); }
+function scrollChat(){ const l=$('#chatLog'); l.scrollTop=l.scrollHeight; }
+function appendUser(text){ clearIdle(); const m=el('div','msg you'); m.append(el('div','bubble',text)); $('#chatLog').append(m); scrollChat(); }
 function appendRun(text,cls){
-  const c=$('#runConsole'); const idle=c.querySelector('.run-idle'); if(idle) idle.remove();
-  const span=document.createElement('span'); if(cls)span.className='run-line '+cls; span.textContent=text; c.append(span);
-  c.scrollTop=c.scrollHeight;
+  clearIdle();
+  const log=$('#chatLog');
+  if(cls==='meta'){ agentBlock=null; log.append(el('div','chat-meta',text.trim())); return scrollChat(); }
+  if(cls==='end'){ agentBlock=null; log.append(el('div','chat-meta end',text.trim())); return scrollChat(); }
+  if(!agentBlock){ agentBlock=el('pre','msg agent'); log.append(agentBlock); }
+  agentBlock.textContent += text; // single text node → correct preformatted wrapping
+  scrollChat();
+}
+function setChat(open){
+  $('#chat').setAttribute('aria-hidden', open?'false':'true');
+  $('#chatFab').classList.toggle('is-open',open);
+  try{ localStorage.setItem('spf-chat', open?'1':'0'); }catch{}
+  if(open) setTimeout(()=>$('#runPrompt').focus(),60);
 }
 async function doRun(){
   const prompt=$('#runPrompt').value.trim(); if(!prompt) return;
   const agent=$('#runAgent').value;
+  appendUser(prompt);
   await fetch('/api/run',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({prompt,agent})});
   $('#runPrompt').value='';
 }
@@ -191,6 +206,10 @@ $$('#tabs .tab').forEach(tab=> tab.addEventListener('click',()=>{
 // theme
 (function(){ const s=localStorage.getItem('spf-theme'); if(s)document.documentElement.setAttribute('data-theme',s);
   $('#themeToggle').addEventListener('click',()=>{ const c=document.documentElement.getAttribute('data-theme'); const n=c==='dark'?'light':'dark'; document.documentElement.setAttribute('data-theme',n); localStorage.setItem('spf-theme',n); }); })();
+// chat widget
+$('#chatFab').addEventListener('click',()=> setChat($('#chat').getAttribute('aria-hidden')==='true'));
+$('#chatClose').addEventListener('click',()=> setChat(false));
+try{ if(localStorage.getItem('spf-chat')==='1') setChat(true); }catch{}
 $('#runBtn').addEventListener('click',doRun);
 $('#runPrompt').addEventListener('keydown',e=>{ if((e.metaKey||e.ctrlKey)&&e.key==='Enter')doRun(); });
 $('#drawerClose').addEventListener('click',closeDrawer);

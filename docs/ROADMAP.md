@@ -20,14 +20,15 @@
   detected agent, sets `config.agent` to the top-priority one, and seeds `config.runners`; `--agent=`
   still overrides; nothing detected → claude + codex fallback. The dashboard already defaults to
   `config.agent`. See DECISIONS D17.
+- **0.7** — floating chat widget: the empty Run tab/panel is gone. A bottom-right 💬 launcher opens a
+  compact chat that runs the configured agent (`/api/run`, unchanged) and renders the stream as a
+  chat — user bubble + a monospace agent block + ▶/■ meta lines. Open/closed state persists in
+  `localStorage`. Front-only (`index.html`/`styles.css`/`app.js`); it's the entry point to the
+  group-chat. See DECISIONS D18.
 
 ## Next (from user feedback, in priority order)
 
-### 1. Floating chat widget (replaces the empty Run panel)
-- A small chat launcher icon fixed at **bottom-right**; click to open a compact chat window (standard
-  pattern). This is the entry point to the group-chat (item 2). Remove the big empty Run panel.
-
-### 2. Agent group-chat (per-agent identity)
+### 1. Agent group-chat (per-agent identity)
 Model the runtime with a **message log** that both the user and running agents post to:
 ```
 runtime.messages: [ { id, at, role, agent, runId, text, kind } ]
@@ -36,13 +37,14 @@ runtime.messages: [ { id, at, role, agent, runId, text, kind } ]
   message | status | question | handoff.
 - The dashboard renders it as a **group chat**, live over SSE. Example flow for "add login":
   analyst posts its findings → developer posts "finished T-023, status updated" → qa posts "taking
-  over, running tests" — each identified, while the board updates in parallel. (Entry point: item 1.)
+  over, running tests" — each identified, while the board updates in parallel. (Entry point: the
+  0.7 chat widget — evolve it from single-run to the multi-agent message log.)
 - **How agents post:** two options, pick one (recommend the MCP tool for cleanliness):
   (a) a tiny **MCP server** exposing `post_message`, `update_task`, `report_test`, `heartbeat`, that the
       headless agent calls as it works; or
   (b) the runner **parses structured stdout** (e.g. lines like `::spectoflow role=developer msg=…`).
 
-### 3. Orchestrator runtime (the big one)
+### 2. Orchestrator runtime (the big one)
 A supervisor that, given a request, **walks the enabled workflow steps and wakes the right agent per
 step**, posting each to the group-chat and updating plans/tasks.
 - Loop: classify → for each enabled step, resolve capability → agent → run it (headless run or
@@ -51,7 +53,7 @@ step**, posting each to the group-chat and updating plans/tasks.
 - Prior art to study: BMAD autonomous mode, amux (headless fleet + dashboard + kanban). This is where
   spectoflow becomes an orchestrator, not just a control plane — build it incrementally, gated by tests.
 
-### 4. Design pass
+### 3. Design pass
 Redesign the dashboard once a visual reference is chosen (control-room direction so far; avoid
 AI-default looks). Tighten the Run/chat, add the animated workflow diagram polish.
 

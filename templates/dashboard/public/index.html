@@ -18,7 +18,6 @@
       <button class="tab is-active" data-tab="board">Board</button>
       <button class="tab" data-tab="workflow">Workflow</button>
       <button class="tab" data-tab="team">Agents &amp; Skills</button>
-      <button class="tab" data-tab="run">Run</button>
     </nav>
     <div class="top-right">
       <span class="meta-chip" id="agentChip" title="Active agent">claude</span>
@@ -72,22 +71,24 @@
     </section>
   </main>
 
-    <!-- RUN -->
-    <section class="panel" data-panel="run">
-      <div class="run-wrap">
-        <h2 class="panel-title">Run an agent</h2>
-        <p class="panel-sub">Type a request; the agent runs headless in this project with its full memory
-          (<code>CLAUDE.md → AGENTS.md</code>) and updates the plans. The board refreshes live.</p>
-        <div class="run-bar">
-          <select id="runAgent" class="run-select"></select>
-          <textarea id="runPrompt" class="run-input" placeholder="e.g. Add a login feature with email + password"></textarea>
-          <button id="runBtn" class="btn primary">Run</button>
-        </div>
-        <p class="run-warn">⚠ This launches a real agent that can modify files and run commands. It uses
-          the command in <code>.spectoflow/config.json → runners</code>; set permissions there.</p>
-        <div class="run-console" id="runConsole"><span class="run-idle">Output will stream here.</span></div>
-      </div>
-    </section>
+  <!-- CHAT WIDGET (floating agent runner; entry point to the group-chat) -->
+  <button class="chat-fab" id="chatFab" aria-label="Open run chat" title="Run an agent">💬</button>
+  <div class="chat" id="chat" aria-hidden="true" role="dialog" aria-label="Run an agent">
+    <div class="chat-head">
+      <span class="chat-title">Run an agent</span>
+      <select id="runAgent" class="chat-agent" title="Agent"></select>
+      <button class="chat-close" id="chatClose" aria-label="Close">×</button>
+    </div>
+    <div class="chat-log" id="chatLog">
+      <div class="chat-idle">Type a request — the agent runs headless in this project with full memory
+        (<code>CLAUDE.md → AGENTS.md</code>) and updates the board live.</div>
+    </div>
+    <div class="chat-input">
+      <textarea id="runPrompt" class="chat-ta" placeholder="e.g. Add a login feature with email + password"></textarea>
+      <button id="runBtn" class="btn primary chat-send">Send</button>
+    </div>
+    <p class="chat-warn">⚠ Launches a real agent (<code>config.json → runners</code>) that can modify files &amp; run commands.</p>
+  </div>
 
   <div class="drawer" id="drawer" aria-hidden="true">
     <div class="drawer-scrim" id="drawerScrim"></div>
