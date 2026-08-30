@@ -3,9 +3,9 @@
 This repository is the **source of spectoflow**, an agent-agnostic spec-driven development (SDD)
 framework with a real-time local control plane. This file orients you to **build spectoflow itself**
 (it is not a spectoflow-managed project). Read `docs/` before making changes:
-`docs/ARCHITECTURE.md`, `docs/DECISIONS.md` (the full rationale, D1–D21), `docs/ROADMAP.md` (what's next).
+`docs/ARCHITECTURE.md`, `docs/DECISIONS.md` (the full rationale, D1–D22), `docs/ROADMAP.md` (what's next).
 
-## What exists (v0.10.0)
+## What exists (v0.11.0)
 
 - `bin/spectoflow.js` — CLI: `init` (scaffold a project; auto-detects installed agents), `update
   [--dry-run]` (refresh framework files to this kit version, preserving user edits), `dashboard`,
@@ -27,6 +27,12 @@ framework with a real-time local control plane. This file orients you to **build
   - `agents/` and `skills/` are now sourced, domain-standard playbooks (TDD, OWASP ASVS/Top 10, C4/ADR,
     INVEST, Playwright E2E, Conventional Commits, …), not one-line stubs — the gold-standard shape for
     both is pinned in `docs/agents-skills-standard.md`.
+  - The dashboard's Board tab now has a control-room **Overview** (KPI cards, a status donut, a
+    workflow-at-a-glance strip, per-phase progress bars — all hand-rolled inline SVG), filter chips +
+    search, and a right sidebar (**À demander** = `to_validate`/`to_analyze` tasks, **Journal** = the
+    group-chat message log). All aggregation is client-side, in the pure, unit-tested
+    `dashboard/public/stats.js`; no server/API change. See `docs/dashboard-redesign-design.md` and
+    DECISIONS D22.
 - `demo/` — a real inited project used to preview the dashboard (spectoflow tracking itself).
 
 ## Core invariants (do not break — see DECISIONS.md)

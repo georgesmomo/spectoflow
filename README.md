@@ -1,4 +1,4 @@
-# spectoflow (v0.10 — provisional name)
+# spectoflow (v0.11 — provisional name)
 
 An **agent-agnostic** spec-driven development framework with a **real-time local control plane**.
 You speak in plain language; the framework classifies your intent and runs the right workflow. No
@@ -84,7 +84,10 @@ configured agent headless and renders it as a **group chat**: a running agent id
 printing `::spectoflow role=… kind=… msg=…` sentinels, which become labelled messages (analyst /
 developer / qa …) in `runtime.messages`; other output streams raw. The board refreshes live as it
 edits plans. The widget can also **Orchestrate** the enabled workflow: each step runs its agent,
-gated by mode + policy.
+gated by mode + policy. The Board tab opens on a control-room **Overview** — KPI cards, a status donut,
+a workflow-at-a-glance strip, per-phase progress bars, filter chips + search — plus a right sidebar
+with **À demander** (tasks awaiting you) and the **Journal** (the group-chat activity log); charts are
+zero-dep inline SVG, and every aggregate is computed client-side.
 
 ## Agents vs skills
 

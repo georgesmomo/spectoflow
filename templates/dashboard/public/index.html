@@ -31,11 +31,30 @@
   <main class="stage">
     <!-- BOARD -->
     <section class="panel is-active" data-panel="board">
-      <aside class="rail">
+      <div class="main">
+        <div class="overview" id="overview"></div>
+        <div class="filters" id="filters">
+          <div class="chip-list" id="statusChips">
+            <button class="fchip active" data-status="all">All</button>
+            <button class="fchip" data-status="todo">To do</button>
+            <button class="fchip" data-status="in_progress">In progress</button>
+            <button class="fchip" data-status="to_validate">To validate</button>
+            <button class="fchip" data-status="to_analyze">To analyze</button>
+            <button class="fchip" data-status="done">Done</button>
+            <button class="fchip" data-status="blocked">Blocked</button>
+          </div>
+          <input type="search" id="search" class="search" placeholder="Filter tasks…" autocomplete="off" />
+        </div>
+        <div class="board" id="board"></div>
+      </div>
+      <aside class="side" id="side">
         <div class="rail-block">
-          <h2 class="rail-title">Progress</h2>
-          <div class="progress"><div class="progress-fill" id="progressFill"></div></div>
-          <div class="progress-label" id="progressLabel"></div>
+          <h2 class="rail-title">À demander <span class="count" id="toAskCount">0</span></h2>
+          <ul class="flatlist toask-list" id="toAsk"></ul>
+        </div>
+        <div class="rail-block rail-block-journal">
+          <h2 class="rail-title">Journal <span class="count" id="journalCount">0</span></h2>
+          <div class="journal" id="journal"></div>
         </div>
         <div class="rail-block">
           <h2 class="rail-title">Specs <span class="count" id="specsCount">0</span></h2>
@@ -46,7 +65,6 @@
           <ul class="flatlist" id="running"></ul>
         </div>
       </aside>
-      <div class="board" id="board"></div>
     </section>
 
     <!-- WORKFLOW -->
@@ -96,6 +114,7 @@
     <div class="drawer-panel" role="dialog"><button class="drawer-close" id="drawerClose">×</button><div id="drawerBody"></div></div>
   </div>
 
+  <script src="stats.js"></script>
   <script src="app.js"></script>
 </body>
 </html>

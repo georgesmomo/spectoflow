@@ -248,3 +248,44 @@
   capability n'est partagée par deux agents sans `priority:` de départage. Le fix de `operations`
   (ci-dessus) a été fait dans le même commit que ce garde-fou, pour que la suite reste verte en
   permanence — jamais de fenêtre rouge entre étapes.
+
+---
+
+## Session 11 — v0.11
+
+### D22 — Refonte « control-room » du dashboard : identité ambre gardée, structure de la référence adoptée, Overview + sidebar calculés côté client
+- **ACTÉ.** Le dashboard passait pour utilitaire face à une référence fournie par l'utilisateur (un
+  control-room sombre riche : cartes KPI, donut de statut, barres de progression par phase, chips de
+  filtre, sidebar droite). Cette passe l'amène à ce standard **sans toucher** l'orchestrateur, le chat,
+  le moteur de workflow ni le SSE temps réel — c'est une passe **visuelle + une nouvelle section
+  Overview**, calculée à partir de données déjà disponibles. Référence : `docs/dashboard-redesign-design.md`
+  (statut passé à **implemented**).
+- **Identité gardée, pas un remplacement de palette.** L'ambre `--signal` (`#e6a54b`, l'identité
+  spectoflow — le point ambre = ce qui tourne) et le cyan secondaire sont **conservés** comme accent
+  live/actif. Ce que la référence apporte : son **système de cartes**, ses **neutres chauds**, le rayon
+  14px, les ombres douces, et sa **cartographie couleur↔statut** — pas un remplacement de teinte.
+- **Nouvel onglet Board — Overview :** une rangée de **4 cartes KPI** (progression globale en donut-ring,
+  en cours, à valider, agents en cours / dernière orchestration) ; un **donut de statut** sur les 6
+  statuts ; une **bande « workflow en un coup d'œil »** (réutilise l'animation du diagramme Workflow),
+  qui remplace le graphique en aires temps-série de la référence — spectoflow ne garde pas
+  d'historique daté ; des **barres de progression par phase** de plan.
+- **Filtres + recherche :** chips de statut (Tous / To do / In progress / To validate / To analyze /
+  Done / Blocked) + chips owner/level + une recherche texte, qui filtrent le board de tâches en
+  dessous, inchangé dans sa logique (sections de phase repliables, drawer de tâche).
+- **Sidebar droite :** **« À demander »** — les tâches `to_validate`/`to_analyze` (ce qui attend
+  l'humain, cf. D4), une ligne compacte par tâche vers son drawer ; **« Journal »** — le log de
+  messages du group-chat (`runtime.messages`) en flux d'activité anté-chronologique (rôle · agent ·
+  kind · texte), mis à jour en direct via SSE.
+- **Graphiques = SVG inline, écrits à la main (zéro dépendance).** `donut()`, `ring()`, `bars()`,
+  `sparkline()` — pas de librairie de charts, cohérent avec l'invariant zéro-dépendance du framework.
+- **Tout l'agrégat est calculé côté client**, dans un module pur et **testé unitairement** —
+  `templates/dashboard/public/stats.js` (`stats(project) → {total, done, pct, byStatus, phases, toAsk,
+  running}`), compatible navigateur + Node (`module.exports` gardé), consommé par `app.js` côté
+  navigateur et par `test/dashboard-stats.test.js` sous `node --test`.
+- **Aucun changement serveur/API.** `GET /api/project` porte déjà tout ce dont l'Overview a besoin
+  (plans/tâches, `runtime.messages`, `runtime.agents`/`orchestration`, `workflow`) ; aucun nouvel
+  endpoint. L'orchestrateur, le widget de chat, Approve/Cancel, le diagramme Workflow, Agents & Skills,
+  les écritures granulaires et le temps réel SSE sont **préservés** tels quels — seule la couche de
+  présentation change.
+- **Sections repliables (persistées en `localStorage`) et système de cartes unifié** sur tous les
+  onglets (Board / Workflow / Agents & Skills), cohérent avec le nouveau langage visuel.

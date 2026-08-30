@@ -1,6 +1,7 @@
 'use strict';
 const STATUS = { todo:'To do', in_progress:'In progress', to_validate:'To validate', to_analyze:'To analyze', done:'Done', blocked:'Blocked' };
 let P = null, openTaskId = null;
+let filter = { status: 'all', q: '' }; // board filter state — client-side only, read-only
 
 const $ = (s,r=document)=>r.querySelector(s);
 const $$ = (s,r=document)=>[...r.querySelectorAll(s)];
@@ -92,15 +93,183 @@ function render(){
   $('#modeChip').textContent = c.mode||'semi';
   const sel=$('#runAgent'); const runners=Object.keys((c.runners)||{claude:1});
   if(sel.options.length!==runners.length){ sel.innerHTML=''; runners.forEach(k=>{ const o=document.createElement('option'); o.value=k; o.textContent=k; sel.append(o); }); if(c.agent) sel.value=c.agent; }
-  renderBoard(); renderWorkflow(); renderTeam(); renderChat();
+  renderOverview(); renderBoard(); renderWorkflow(); renderTeam(); renderChat(); renderSidebar();
+}
+
+// ---- right sidebar: "À demander" (toAsk tasks) + "Journal" (read-only runtime.messages feed) ----
+function renderSidebar(){ renderToAsk(); renderJournal(); }
+function renderToAsk(){
+  const list=$('#toAsk'); if(!list) return;
+  const toAsk=SpectoStats.stats(P).toAsk||[];
+  $('#toAskCount').textContent=toAsk.length;
+  list.innerHTML='';
+  if(!toAsk.length){ list.append(li('empty','Nothing awaiting you.')); return; }
+  toAsk.forEach(t=>{
+    const row=el('li','toask-row'); row.tabIndex=0;
+    row.append(el('span','toask-id',t.id));
+    row.append(el('span','toask-title',t.title));
+    row.append(el('span','chip s-'+t.status,STATUS[t.status]||t.status));
+    const open=()=>openDrawer(t.id);
+    row.addEventListener('click',open);
+    row.addEventListener('keydown',e=>{ if(e.key==='Enter')open(); });
+    list.append(row);
+  });
+}
+function renderJournal(){
+  const box=$('#journal'); if(!box) return;
+  const msgs=((P.runtime&&P.runtime.messages)||[]).slice().reverse(); // reverse-chronological
+  $('#journalCount').textContent=msgs.length;
+  box.innerHTML='';
+  if(!msgs.length){ box.append(el('div','empty','No activity yet.')); return; }
+  msgs.forEach(m=>{
+    const row=el('div','journal-row'+(m.role==='user'?' j-you':' k-'+(m.kind||'message')));
+    row.append(el('div','journal-head', m.role + (m.agent&&m.agent!==m.role?(' · '+m.agent):'')));
+    row.append(el('div','journal-text', m.text));
+    box.append(row);
+  });
+}
+
+// ---- inline-SVG helpers (zero-dep charts) --------------------------------
+const SVGNS='http://www.w3.org/2000/svg';
+function svgEl(tag,attrs){ const e=document.createElementNS(SVGNS,tag); for(const k in attrs) e.setAttribute(k,attrs[k]); return e; }
+
+// A single-value progress ring: track + amber arc, % centred.
+function ring(pct,size){
+  size=size||72; pct=Math.max(0,Math.min(100,pct||0));
+  const stroke=7, r=(size-stroke)/2, c=2*Math.PI*r;
+  const svg=svgEl('svg',{viewBox:`0 0 ${size} ${size}`,width:size,height:size,class:'ring-svg'});
+  svg.append(svgEl('circle',{cx:size/2,cy:size/2,r,fill:'none',stroke:'var(--line)','stroke-width':stroke}));
+  svg.append(svgEl('circle',{cx:size/2,cy:size/2,r,fill:'none','stroke-width':stroke,'stroke-linecap':'round',
+    'stroke-dasharray':`${c}`,'stroke-dashoffset':`${c*(1-pct/100)}`,
+    transform:`rotate(-90 ${size/2} ${size/2})`,style:'stroke:var(--signal)'}));
+  const wrap=el('div','ring-wrap'); wrap.style.width=size+'px'; wrap.style.height=size+'px';
+  wrap.append(svg); wrap.append(el('div','ring-label',pct+'%'));
+  return wrap;
+}
+
+// A donut from [{value,color}]: track + stacked arcs. Returns {wrap, center} so
+// the caller can drop a total/label into the empty centre.
+function donut(segments,size){
+  size=size||140; segments=segments||[];
+  const stroke=16, r=(size-stroke)/2, c=2*Math.PI*r;
+  const total=segments.reduce((a,s)=>a+(s.value||0),0);
+  const svg=svgEl('svg',{viewBox:`0 0 ${size} ${size}`,width:size,height:size,class:'donut-svg'});
+  svg.append(svgEl('circle',{cx:size/2,cy:size/2,r,fill:'none',stroke:'var(--line)','stroke-width':stroke}));
+  let offset=0;
+  segments.forEach(s=>{
+    const v=s.value||0; if(!v) return;
+    const len=total? (v/total)*c : 0;
+    svg.append(svgEl('circle',{cx:size/2,cy:size/2,r,fill:'none','stroke-width':stroke,
+      'stroke-dasharray':`${len} ${Math.max(c-len,0)}`,'stroke-dashoffset':`${-offset}`,
+      transform:`rotate(-90 ${size/2} ${size/2})`,style:`stroke:${s.color}`}));
+    offset+=len;
+  });
+  const wrap=el('div','donut-wrap'); wrap.style.width=size+'px'; wrap.style.height=size+'px';
+  wrap.append(svg);
+  const center=el('div','donut-center'); wrap.append(center);
+  return {wrap,center};
+}
+
+// Horizontal progress bars from [{label,pct,sub}].
+function bars(rows){
+  const wrap=el('div','bars');
+  (rows||[]).forEach(r=>{
+    const row=el('div','bar-row');
+    const head=el('div','bar-head');
+    head.append(el('span','bar-label',r.label));
+    head.append(el('span','bar-sub',r.sub||''));
+    row.append(head);
+    const track=el('div','bar-track');
+    const fill=el('div','bar-fill'); fill.style.width=Math.max(0,Math.min(100,r.pct||0))+'%';
+    track.append(fill); row.append(track);
+    wrap.append(row);
+  });
+  if(!(rows||[]).length) wrap.append(el('div','empty','No phases yet.'));
+  return wrap;
+}
+
+function kpiCard(label,visual,sub){
+  const c=el('div','kpi');
+  c.append(el('div','kpi-label',label));
+  const body=el('div','kpi-body'); body.append(visual); c.append(body);
+  if(sub) c.append(el('div','kpi-sub',sub));
+  return c;
+}
+function numBlock(val,color,isText){
+  const d=el('div','kpi-num'+(isText?' is-text':''),String(val));
+  if(color) d.style.color=color;
+  return d;
+}
+function ocard(title,content){
+  const c=el('div','ocard');
+  c.append(el('div','ocard-title',title));
+  c.append(content);
+  return c;
+}
+
+function renderOverview(){
+  const box=$('#overview'); if(!box) return;
+  const s=SpectoStats.stats(P);
+  box.innerHTML='';
+
+  // KPI row
+  const kpis=el('div','kpi-row');
+  kpis.append(kpiCard('Global progress', ring(s.pct,72), `${s.done}/${s.total} tasks`));
+  kpis.append(kpiCard('In progress', numBlock(s.byStatus.in_progress||0,'var(--s-in_progress)'), 'tasks'));
+  kpis.append(kpiCard('To validate', numBlock(s.byStatus.to_validate||0,'var(--s-to_validate)'), 'awaiting review'));
+  const r=s.running||{};
+  let runVal='—', runSub='no runs yet';
+  if(r.agents>0){ runVal=`${r.agents} running`; runSub='agents active'; }
+  else if(r.orchestration&&r.orchestration.status){ runVal=r.orchestration.status; runSub='orchestration'; }
+  else if(r.lastRun){ runVal=r.lastRun.status||'—'; runSub='last: '+(r.lastRun.tool||'—'); }
+  kpis.append(kpiCard('Running', numBlock(runVal, r.agents>0?'var(--signal)':'var(--muted)', true), runSub));
+  box.append(kpis);
+
+  // Status donut + legend
+  const segments=s.statuses.map(k=>({key:k,value:s.byStatus[k]||0,color:cssv('--s-'+k)}));
+  const d=donut(segments,140);
+  d.center.append(el('div','donut-total',String(s.total)));
+  d.center.append(el('div','donut-sub','tasks'));
+  const legend=el('div','legend');
+  segments.forEach(seg=>{
+    const item=el('div','legend-item');
+    const sw=el('span','legend-swatch'); sw.style.background=seg.color;
+    item.append(sw, el('span','legend-label',STATUS[seg.key]||seg.key), el('span','legend-count',String(seg.value)));
+    legend.append(item);
+  });
+  const donutRow=el('div','donut-row'); donutRow.append(d.wrap,legend);
+  box.append(ocard('Status distribution', donutRow));
+
+  // Workflow-at-a-glance strip (reuses the wf-arrow flow animation)
+  const strip=el('div','wf-strip');
+  const steps=P.workflow||[];
+  steps.forEach((st,i)=>{
+    const node=el('div','wf-mini'+(st.enabled?'':' off'));
+    node.append(el('span','dot')); node.append(el('span','nm',st.name));
+    strip.append(node);
+    if(i<steps.length-1){ const a=el('div','wf-arrow'+(st.enabled&&steps[i+1].enabled?'':' off')); strip.append(a); }
+  });
+  if(!steps.length) strip.append(el('div','empty','No workflow defined.'));
+  box.append(ocard('Workflow at a glance', strip));
+
+  // Per-phase progress bars
+  const rows=s.phases.map(ph=>({label:ph.title,pct:ph.pct,sub:`${ph.done}/${ph.total}`}));
+  box.append(ocard('Phase progress', bars(rows)));
+}
+
+function taskMatches(t){
+  if(filter.status!=='all' && t.status!==filter.status) return false;
+  const q=filter.q.trim().toLowerCase();
+  if(q && !((t.title+' '+t.id).toLowerCase().includes(q))) return false;
+  return true;
+}
+function updateFilterChips(){
+  $$('#statusChips .fchip').forEach(b=> b.classList.toggle('active', b.dataset.status===filter.status));
 }
 
 function renderBoard(){
-  const tasks = allTasks();
-  const done = tasks.filter(t=>t.status==='done').length;
-  const pct = tasks.length?Math.round(done/tasks.length*100):0;
-  $('#progressFill').style.width = pct+'%';
-  $('#progressLabel').textContent = `${done}/${tasks.length} tasks · ${pct}%`;
+  const tasks = allTasks(); // unfiltered — used only to tell "no plans" apart from "no matches"
+  updateFilterChips();
 
   const specs=$('#specs'); specs.innerHTML=''; $('#specsCount').textContent=(P.specs||[]).length;
   if(!(P.specs||[]).length) specs.append(li('empty','none yet'));
@@ -112,22 +281,51 @@ function renderBoard(){
   running.forEach(a=>{ const e=li('run-live',''); e.innerHTML=`<b>${a.tool}</b> · ${a.task||'—'}`; rl.append(e); });
 
   const board=$('#board'); board.innerHTML='';
-  (P.plans||[]).forEach(pl=> pl.phases.forEach(ph=> board.append(renderPhase(ph,pl.file))));
+  let shown=0;
+  (P.plans||[]).forEach(pl=> pl.phases.forEach(ph=>{
+    const filtered=ph.tasks.filter(taskMatches);
+    shown+=filtered.length;
+    if(!filtered.length) return; // hide phases with zero matching tasks
+    board.append(renderPhase(ph,pl.file,filtered));
+  }));
   if(!tasks.length) board.append(emptyState());
+  else if(!shown) board.append(noMatchState());
 }
 function li(cls,txt){ const e=el('li',cls); e.textContent=txt; return e; }
 function emptyState(){ const d=el('div','empty'); d.style.padding='40px'; d.textContent='No plans yet. Ask your agent to build something — it will run Intake and write plans/*.md.'; return d; }
+function noMatchState(){ const d=el('div','empty'); d.style.padding='40px'; d.textContent='No tasks match this filter.'; return d; }
 
-function renderPhase(ph,file){
-  const sec=el('section','phase');
-  const head=el('div','phase-head');
+// ---- collapsed-phase state (persisted per phase title, guarded for private mode) ----
+function loadCollapsed(){
+  try{ const raw=localStorage.getItem('spf-collapsed'); const arr=raw?JSON.parse(raw):[]; return new Set(Array.isArray(arr)?arr:[]); }
+  catch{ return new Set(); }
+}
+function saveCollapsed(set){ try{ localStorage.setItem('spf-collapsed', JSON.stringify([...set])); }catch{} }
+let collapsedPhases=loadCollapsed();
+
+function renderPhase(ph,file,filteredTasks){
+  const isCollapsed=collapsedPhases.has(ph.title);
+  const sec=el('section','phase'+(isCollapsed?' is-collapsed':''));
+  const head=el('div','phase-head'); head.tabIndex=0; head.setAttribute('role','button'); head.setAttribute('aria-expanded',String(!isCollapsed));
+  head.append(el('span','chevron'));
   head.append(el('span','phase-title',ph.title));
   head.append(el('span','phase-src',file));
-  const d=ph.tasks.filter(t=>t.status==='done').length;
-  head.append(el('span','phase-stat',`${d}/${ph.tasks.length}`));
+  const d=ph.tasks.filter(t=>t.status==='done').length, tot=ph.tasks.length;
+  const pct=tot?Math.round((d/tot)*100):0;
+  const track=el('div','phase-bar'); const fill=el('div','phase-bar-fill'); fill.style.width=pct+'%'; track.append(fill);
+  head.append(track);
+  head.append(el('span','phase-stat',`${d}/${tot}`));
+  const toggle=()=>{
+    const now=sec.classList.toggle('is-collapsed');
+    head.setAttribute('aria-expanded',String(!now));
+    if(now) collapsedPhases.add(ph.title); else collapsedPhases.delete(ph.title);
+    saveCollapsed(collapsedPhases);
+  };
+  head.addEventListener('click',toggle);
+  head.addEventListener('keydown',e=>{ if(e.key==='Enter'||e.key===' '){ e.preventDefault(); toggle(); } });
   sec.append(head);
   const wrap=el('div','tasks');
-  ph.tasks.forEach(t=> wrap.append(renderTask(t)));
+  filteredTasks.forEach(t=> wrap.append(renderTask(t)));
   sec.append(wrap); return sec;
 }
 function renderTask(t){
@@ -139,9 +337,14 @@ function renderTask(t){
   top.append(el('span','chip s-'+t.status,STATUS[t.status]||t.status));
   c.append(top);
   c.append(el('div','task-title',t.title));
+  if(t.tags&&t.tags.length){
+    const tags=el('div','task-tags');
+    t.tags.forEach(tg=> tags.append(el('span','tag',tg)));
+    c.append(tags);
+  }
   const foot=el('div','task-foot');
   if(t.owner) foot.append(el('span','owner','@'+t.owner));
-  if(t.comments&&t.comments.length) foot.append(el('span',null,'💬 '+t.comments.length));
+  if(t.comments&&t.comments.length) foot.append(el('span','cmt-count','💬 '+t.comments.length));
   const tr=runtimeTests(t.id);
   if(tr) foot.append(el('span','tflag '+(tr.failed?'fail':'pass'), tr.failed?`${tr.failed} failing`:`${tr.passed||0} passing`));
   c.append(foot);
@@ -232,6 +435,9 @@ $$('#tabs .tab').forEach(tab=> tab.addEventListener('click',()=>{
   $$('.panel').forEach(p=>p.classList.remove('is-active'));
   $(`.panel[data-panel="${tab.dataset.tab}"]`).classList.add('is-active');
 }));
+// filters (status chips + search) — client-side only, does not write anything
+$$('#statusChips .fchip').forEach(b=> b.addEventListener('click', ()=>{ filter.status=b.dataset.status; renderBoard(); }));
+$('#search').addEventListener('input', e=>{ filter.q=e.target.value; renderBoard(); });
 // theme
 (function(){ const s=localStorage.getItem('spf-theme'); if(s)document.documentElement.setAttribute('data-theme',s);
   $('#themeToggle').addEventListener('click',()=>{ const c=document.documentElement.getAttribute('data-theme'); const n=c==='dark'?'light':'dark'; document.documentElement.setAttribute('data-theme',n); localStorage.setItem('spf-theme',n); }); })();
