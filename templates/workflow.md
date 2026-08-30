@@ -4,12 +4,12 @@ The enabled steps below define how work flows for this project. Check = enabled;
 line to change the pipeline (you can also edit this from the dashboard). This file is the single
 source of truth for the workflow.
 
-- [x] Brainstorm
-- [x] Analysis
-- [x] Spec
-- [x] Plan
-- [x] Develop
-- [x] Unit tests
-- [ ] Integration tests (optional)
-- [ ] End-to-end tests (optional)
-- [x] Review
+- [x] Brainstorm {cap:intake skill:brainstorm}
+- [x] Analysis {cap:analysis skill:analyze-requirements}
+- [x] Spec {cap:analysis skill:write-spec}
+- [x] Plan {cap:planning skill:write-plan}
+- [x] Develop {cap:implementation}
+- [x] Unit tests {cap:testing skill:write-tests}
+- [ ] Integration tests (optional) {cap:testing skill:write-tests}
+- [ ] End-to-end tests (optional) {cap:testing skill:write-tests}
+- [x] Review {cap:quality skill:code-review}
