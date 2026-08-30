@@ -43,6 +43,23 @@
   `manual` confirms every step; a step is policy-gated iff its annotation carries `policy` or
   `cap:security`. Resume restarts from the first not-`done` step; `modify` is deferred. See DECISIONS
   D20 and `docs/orchestrator-design.md`.
+- **0.10** — agents & skills upgrade: the 10 agents and 8 skills, previously one-line stubs, are now
+  best-in-class, sourced, domain-standard playbooks. Two gold-standard shapes (agent:
+  Mandate/Operating standards/Definition of done/Handoff/Guardrails; skill: When to
+  use/Method/Output contract/Quality bar/References) are pinned in `docs/agents-skills-standard.md`
+  and applied to every component, with the source cited in-file (OWASP ASVS/Top 10 for security, TDD
+  + xUnit for unit tests, Playwright for E2E, BDD + spec-kit/OpenSpec for analysis, Conventional
+  Commits/YAGNI/DRY for implementation, C4 + ADR for architecture, INVEST for planning, a Google-style
+  rubric for code review, structured product discovery for intake, Nielsen heuristics for design,
+  DORA/CI-CD/IaC for operations). Front-matter gains `standards`/`priority` (agents) and
+  `capability`/`inputs`/`outputs`/`standard` (skills); the sentinel syntax (`::spectoflow role=…
+  kind=… msg=…`) is now owned solely by each skill's Output contract, agents only reference it. New
+  `operations` capability (moved off `implementation`, fixing a `devops`/`developer` collision) and
+  two new skills, `implement` and `write-e2e-tests`. E2E strategy: Playwright is the durable,
+  agent-agnostic committed suite; native browser tooling (Playwright-headed fallback) is for
+  live/exploratory verification only, never the committed suite. `test/roster-integrity.test.js`
+  guards capability/skill/workflow consistency going forward. See DECISIONS D21 and
+  `docs/agents-skills-upgrade-design.md`.
 
 ## Next (from user feedback, in priority order)
 

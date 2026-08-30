@@ -1,6 +1,6 @@
 # Agents & Skills upgrade — design
 
-> Status: **approved** (O1–O3 resolved by review, 2026-08-30). Target: spectoflow **0.10**. Turns the
+> Status: **implemented** (O1–O3 resolved by review, 2026-08-30). Target: spectoflow **0.10**. Turns the
 > framework's personas and procedures from one-line stubs into best-in-class, domain-standard
 > playbooks. Graduates to `DECISIONS.md` (D21) once implemented.
 

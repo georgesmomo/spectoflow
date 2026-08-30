@@ -188,3 +188,63 @@
   - **Reprise = redémarrage depuis la première étape non-`done`.** Pas de reprise fine intra-étape (hors périmètre v1, cf. design "Out").
   - **`runner.js` durci :** le stdin de l'enfant est explicitement **fermé après le spawn** — corrige un blocage spawn/stdin observé sous Windows, et aide aussi les agents réels qui lisent stdin. Le blocage intermittent multi-spawn observé en test a été diagnostiqué comme **environnemental** (un AV/EDR qui intercepte `CreateProcessW`), pas un bug de code ; le test d'intégration HTTP ne lance donc volontairement **qu'une seule étape** pour le minimiser. Un timeout de hang par étape (agent qui ne répond plus) est différé à un futur incrément de fiabilité.
 - **Référence :** `docs/orchestrator-design.md` (statut passé à **implemented**) — spec complète, tableau de résolution par défaut, protocole d'approbation, surface serveur.
+
+---
+
+## Session 10 — v0.10
+
+### D21 — Agents & skills passent de stubs à des playbooks sourcés, best-in-class
+- **ACTÉ.** Les 10 agents (`.spectoflow/agents/*.md`) et les 8 skills (`.spectoflow/skills/*/SKILL.md`)
+  existants — jusqu'ici une persona en une ligne de mandat, une skill en trois puces — sont réécrits
+  pour encoder les **meilleurs standards, méthodes et techniques de leur domaine**, avec la **source
+  citée** dans le fichier. C'est l'invariant du produit rendu concret : le « cerveau » de spectoflow,
+  ce sont des instructions qu'un agent lit, pas un moteur runtime — donc leur qualité **est** la
+  qualité du framework. Référence : `docs/agents-skills-upgrade-design.md` (statut passé à
+  **implemented**).
+- **Deux formes gold-standard, définies une fois dans `docs/agents-skills-standard.md`, appliquées
+  partout :**
+  - **Agent** (persona) : `Mandate` → `Operating standards` (méthodes citées, une ligne de « pourquoi »
+    chacune) → `Definition of done` → `Handoff` → `Guardrails`. Front-matter enrichi de **`standards:`**
+    (liste des méthodes/sources tenues par le rôle) et **`priority:`** (optionnel, départage quand une
+    capability a plusieurs agents) — les clés existantes (`name`/`capability`/`uses`/`description`)
+    restent inchangées, l'orchestrateur continue de résoudre dessus.
+  - **Skill** (procédure) : `When to use` → `Method` (procédure numérotée, sourcée — le standard du
+    domaine vit ici) → `Output contract` (artefact exact + où il est écrit + comment l'agent rapporte)
+    → `Quality bar` (checklist vérifiable) → `References`. Front-matter enrichi de **`capability:`**,
+    **`inputs:`**, **`outputs:`**, **`standard:`** (source nommée).
+- **Convention de propriété du sentinel :** la skill (`Output contract`) est seule propriétaire de la
+  syntaxe exacte `::spectoflow role=… kind=… msg=…` (D19) ; l'agent ne fait que la référencer dans son
+  `Handoff`, jamais la redéfinir — une seule source pour ce contrat, pas de dérive entre fichiers.
+- **Standards effectivement encodés, par capability :** sécurité → **OWASP ASVS + Top 10** (pilote,
+  choisi car il exerce le mieux la recherche sur standard externe) ; tests unitaires → **TDD
+  red-green-refactor, patterns xUnit** ; tests E2E → **Playwright** (locators par rôle, assertions
+  web-first, fixtures, trace-on-retry, pas de wait en dur) ; analyse → **BDD (Given/When/Then)** pour
+  les critères d'acceptation + conventions **spec-kit / OpenSpec** pour le gabarit de spec ;
+  implémentation → **Conventional Commits**, YAGNI/DRY, petits commits, règle du boy-scout ;
+  architecture → **C4** (vues) + **ADR** (MADR / Nygard) ; planification → **INVEST** (découpage de
+  tâches, décomposition ordonnée par dépendances) ; qualité → grille de revue façon **Google**
+  (correction / tests / lisibilité / sécurité, niveaux de sévérité) ; intake → **découverte produit
+  structurée** (problème / utilisateurs / contraintes / risques) ; design → heuristiques **Nielsen** ;
+  operations → **DORA / CI-CD / IaC**.
+- **Nouvelle capability `operations` :** `devops` portait `capability: implementation`, en collision
+  avec `developer` — résolution `readdir`-dépendante côté orchestrateur. Fix **par la donnée, pas par
+  le code** : `devops` passe à `capability: operations`, ajoutée à la palette de `capabilities.md` (et
+  aux lignes de projet infra/ops) ; `developer` reste seul sur `implementation`. `resolveStep`
+  inchangé.
+- **Deux skills manquantes comblées :** `implement` (l'étape `Develop` du workflow n'avait aucune
+  skill — trou historique) et `write-e2e-tests` (Playwright — voir stratégie E2E ci-dessous).
+- **Stratégie E2E — deux activités distinctes, jamais confondues :**
+  - **La suite E2E durable**, committée, rejouable en CI, **agent-agnostique** → **Playwright** est le
+    standard produit par la skill `write-e2e-tests`. Ces fichiers de test sont des artefacts durables,
+    au même titre que `specs/`/`plans/`.
+  - **La vérification live/exploratoire** en cours de dev → outillage navigateur **natif** de l'agent
+    (ex. l'extension Chrome de Claude Code), avec **repli sur Playwright headed/codegen** si absent ou
+    en échec. Ce repli appartient à la vérification, jamais à la suite committée.
+  - Zéro-dépendance préservé : la skill reste du markdown ; Playwright n'est une dépendance que du
+    **projet utilisateur**, jamais de spectoflow lui-même.
+- **Garde-fou de cohérence — `test/roster-integrity.test.js` :** vérifie que chaque `capability:`
+  d'agent est bien dans la palette de `capabilities.md`, que chaque skill listée dans un `uses:`
+  d'agent existe sur disque, que chaque annotation `{cap:… skill:…}` du workflow résout, et qu'aucune
+  capability n'est partagée par deux agents sans `priority:` de départage. Le fix de `operations`
+  (ci-dessus) a été fait dans le même commit que ce garde-fou, pour que la suite reste verte en
+  permanence — jamais de fenêtre rouge entre étapes.
