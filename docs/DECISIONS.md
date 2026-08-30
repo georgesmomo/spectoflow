@@ -159,3 +159,15 @@
 - **Détail d'implémentation appris :** le streaming doit s'accumuler dans **un seul nœud texte** (`pre.textContent += chunk`), pas un `<span>` par chunk — sinon les chunks se disposaient en colonnes côte à côte dans le `<pre>`. Marqueurs ▶/■ sortis en lignes `.chat-meta` séparées.
 - **Périmètre :** front only (`dashboard/public/{index.html,styles.css,app.js}`). Le vrai **message log multi-agents par identité** (`runtime.messages`, rôles) reste l'item suivant (group-chat) — le widget en est le **contenant/point d'entrée**, sans préempter ce modèle de données (YAGNI).
 - **Vérification :** pas de test unitaire DOM (cohérent avec le reste du dashboard, non testé ; jsdom casserait le zéro-dép) — **vérifié en réel** dans Chrome contre un projet de préview à runner stub (ouverture/fermeture, envoi, stream, persistance, correction du bug de colonnes).
+
+---
+
+## Session 8 — v0.8
+
+### D19 — Group-chat par identité d'agent : log de messages + sentinelles stdout, pipeline extrait
+- **ACTÉ.** Le runtime porte un **log de messages** : `runtime.messages: [{ id, at, role, agent, runId, text, kind }]` (volatile, gitignoré — anticipé par D8). `role` = rôle de workflow (analyst / developer / qa / …) ; `kind` = message | status | question | handoff. Helper `store.appendMessage` (id/at estampillés côté serveur, non surchargeables).
+- **Mécanisme d'émission (le choix ACTÉ du roadmap « pick one ») = sentinelles stdout.** L'agent s'identifie en imprimant `::spectoflow role=developer kind=status msg=…` ; `store.parseAgentLine` en fait un message structuré, les autres lignes streament en brut. Choisi car **testable maintenant** (stub) et greffé sur le `spawn`+`pipe` existant. **MCP reste l'évolution prévue** (D6) écrivant dans le **même** log.
+- **Pipeline extrait dans `templates/dashboard/runner.js`** (`startRun(root, {prompt,agent}, emit)`) — hors de `server.js`, donc **unit-testable sans serveur HTTP**. Il : (1) logge le prompt utilisateur comme message `role:user` ; (2) `runStart` + SSE ; (3) bufferise stdout/stderr par lignes → sentinelle ⇒ `appendMessage`+SSE `message`, sinon SSE `run-line` (brut) ; (4) à la fin, message `kind:status` « finished (exit N) ». `server.js` ne fait plus qu'appeler `startRun`.
+- **Widget = vue du log.** Rendu **incrémental par id** (pour ne pas effacer le bloc de sortie brute en cours) : bulles identifiées (tag rôle · agent, couleur par kind), utilisateur à droite. La sortie brute reste un bloc **éphémère** (non loggé, D8). Historique **persistant** : au reload, le log se repeuple depuis `runtime.messages` (la sortie brute, elle, disparaît — voulu).
+- **Hors périmètre :** canal MCP, threads/édition, @mentions. Un seul log par projet.
+- **Tests :** `test/messages` (`parseAgentLine`, `appendMessage`), `test/runner` (pipeline bout-en-bout via un agent-fixture émettant une sentinelle → assertions sur `runtime.messages` + events). Front vérifié en direct dans Chrome (group-chat multi-rôles + persistance au reload).

@@ -122,12 +122,38 @@ function writeAtomic(fp, content) {
 function runtimePath(projectRoot) { return path.join(projectRoot, '.spectoflow', 'runtime.json'); }
 function readRuntime(projectRoot) {
   try { return JSON.parse(fs.readFileSync(runtimePath(projectRoot), 'utf8')); }
-  catch { return { agents: [], tests: {}, updatedAt: null }; }
+  catch { return { agents: [], tests: {}, messages: [], updatedAt: null }; }
 }
 function writeRuntime(projectRoot, rt) {
   rt.updatedAt = new Date().toISOString();
   writeAtomic(runtimePath(projectRoot), JSON.stringify(rt, null, 2) + '\n');
   return rt;
+}
+
+// ---- group-chat message log (volatile) --------------------------------------
+// A running agent identifies itself by printing sentinel lines on stdout:
+//   ::spectoflow role=developer kind=status msg=finished T-023
+// Everything after `msg=` is free text to end of line. Non-sentinel lines return null.
+function parseAgentLine(line) {
+  const s = String(line);
+  if (!/^\s*::spectoflow\b/.test(s)) return null;
+  return {
+    role: (s.match(/\brole=(\S+)/) || [])[1] || 'agent',
+    kind: (s.match(/\bkind=(\S+)/) || [])[1] || 'message',
+    text: ((s.match(/\bmsg=([\s\S]*)$/) || [])[1] || '').trim(),
+  };
+}
+
+// Append one message to runtime.messages (id + at stamped here; caller can't override them).
+function appendMessage(projectRoot, msg) {
+  const rt = readRuntime(projectRoot);
+  rt.messages = rt.messages || [];
+  const full = { kind: 'message', ...msg,
+    id: 'm' + Date.now().toString(36) + Math.random().toString(36).slice(2, 6),
+    at: new Date().toISOString() };
+  rt.messages.push(full);
+  writeRuntime(projectRoot, rt);
+  return full;
 }
 
 // ---- config & workflow -------------------------------------------------------
@@ -187,5 +213,5 @@ function listSkills(dir) {
 
 module.exports = {
   parseTaskLine, buildTaskLine, parsePlan, readPlans, updateTaskLine, addTaskComment,
-  readRuntime, writeRuntime, readConfig, readWorkflow, readProject,
+  readRuntime, writeRuntime, parseAgentLine, appendMessage, readConfig, readWorkflow, readProject,
 };

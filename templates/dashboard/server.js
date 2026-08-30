@@ -8,8 +8,8 @@
 const http = require('http');
 const fs = require('fs');
 const path = require('path');
-const { spawn } = require('child_process');
 const store = require('../lib/store');
+const { startRun } = require('./runner');
 
 const PORT = process.env.SPECTOFLOW_PORT ? Number(process.env.SPECTOFLOW_PORT) : 4319;
 const PUBLIC = path.join(__dirname, 'public');
@@ -25,10 +25,6 @@ function findPlanFileForTask(id){ for(const pl of store.readPlans(ROOT)) for(con
 
 function watch(dir){ try{ fs.watch(dir,{recursive:false},()=>emit({type:'change'})); }catch(_){} }
 ['plans','specs','.spectoflow'].forEach(d=>{ const p=path.join(ROOT,d); if(fs.existsSync(p)) watch(p); });
-
-// ---- runtime helpers for runs ----
-function runStart(run){ const rt=store.readRuntime(ROOT); rt.agents=rt.agents||[]; rt.agents.push(run); store.writeRuntime(ROOT,rt); }
-function runEnd(id,code){ const rt=store.readRuntime(ROOT); const a=(rt.agents||[]).find(x=>x.id===id); if(a){ a.status=code===0?'done':'failed'; a.endedAt=new Date().toISOString(); } store.writeRuntime(ROOT,rt); }
 
 const server = http.createServer(async (req,res)=>{
   const u=new URL(req.url,`http://localhost:${PORT}`); const p=u.pathname;
@@ -62,26 +58,13 @@ const server = http.createServer(async (req,res)=>{
       fs.writeFileSync(wf,lines.join('\n')); emit({type:'change'}); return sendJSON(res,200,{ok:true});
     }
 
-    // ---- agent launcher ----
+    // ---- agent launcher (pipeline lives in runner.js; posts to the group-chat log) ----
     if(p==='/api/run'&&req.method==='POST'){
       const {prompt,agent}=await body(req);
       if(!prompt||!String(prompt).trim()) return sendJSON(res,400,{error:'Empty request.'});
-      const cfg=store.readConfig(ROOT);
-      const which=agent||cfg.agent||'claude';
-      const cmdStr=(cfg.runners&&cfg.runners[which]);
-      if(!cmdStr) return sendJSON(res,400,{error:`No runner configured for "${which}".`});
-      const parts=cmdStr.split(/\s+/).filter(Boolean);
-      const runId='r'+Date.now().toString(36);
-      const run={ id:runId, tool:which, prompt:String(prompt).trim(), status:'running', startedAt:new Date().toISOString() };
-      runStart(run); emit({type:'run-start',run}); emit({type:'change'});
-      let child;
-      try{ child=spawn(parts[0],[...parts.slice(1),String(prompt).trim()],{cwd:ROOT,env:process.env}); }
-      catch(e){ runEnd(runId,1); emit({type:'run-line',runId,chunk:'spawn error: '+e.message}); emit({type:'run-end',runId,code:1}); emit({type:'change'}); return sendJSON(res,200,{runId}); }
-      const pipe=(stream)=>{ stream.on('data',d=> emit({type:'run-line',runId,chunk:d.toString()})); };
-      child.stdout&&pipe(child.stdout); child.stderr&&pipe(child.stderr);
-      child.on('error',e=> emit({type:'run-line',runId,chunk:'error: '+e.message}));
-      child.on('close',code=>{ runEnd(runId,code); emit({type:'run-end',runId,code}); emit({type:'change'}); });
-      return sendJSON(res,200,{runId});
+      const r=startRun(ROOT,{prompt,agent},emit);
+      if(r.error) return sendJSON(res,400,{error:r.error});
+      return sendJSON(res,200,{runId:r.runId});
     }
 
     let file=p==='/'?'/index.html':p;
