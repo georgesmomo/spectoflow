@@ -54,6 +54,17 @@ skills, runtime}`. It watches `plans/ specs/ .spectoflow/` with `fs.watch` and p
 SSE (`/api/events`): `{type:'change'}` triggers a client refetch; run events stream agent output.
 Granular mutations: `PATCH /api/task/:id`, `POST /api/task/:id/comment`, `POST /api/workflow/toggle`.
 
+**Board Overview + sidebar (v0.11, no new endpoints):** the same `GET /api/project` payload already
+carries everything the Board's Overview needs — plan tasks (statuses, phases, owners),
+`runtime.messages` (Journal), `runtime.agents`/`orchestration` (Running KPI / last orchestration), and
+`workflow` (the at-a-glance strip). `dashboard/public/stats.js` is a small, pure, unit-tested module
+(`stats(project) → {total, done, pct, byStatus, phases, toAsk, running}`, browser + Node via a guarded
+`module.exports`, covered by `test/dashboard-stats.test.js`) that computes all KPI/donut/phase-bar/
+sidebar aggregates **client-side** in `app.js`; the server does no aggregation. Charts (donut, ring,
+progress bars, sparkline) are hand-rolled **inline SVG**, zero dependency. SSE `change`/`message`
+events already drive live updates, so the Overview and sidebar refresh the same way the task board
+always has.
+
 ## Agent launcher + group-chat (v0.4 → v0.8)
 
 `POST /api/run {prompt, agent}` delegates to `dashboard/runner.js:startRun`, which splits

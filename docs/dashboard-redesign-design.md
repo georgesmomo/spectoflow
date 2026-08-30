@@ -1,8 +1,8 @@
 # Dashboard redesign — design
 
-> Status: **approved** (O1–O3 resolved by review, 2026-08-30). Target: spectoflow **0.11**. The last
+> Status: **implemented** (O1–O3 resolved by review, 2026-08-30). Target: spectoflow **0.11**. The last
 > roadmap item ("Design pass"). Brings the dashboard to a polished control-room standard, inspired by a
-> reference dashboard the user supplied, adapted to spectoflow's data model. Graduates to
+> reference dashboard the user supplied, adapted to spectoflow's data model. Graduated to
 > `DECISIONS.md` (D22).
 
 ## Purpose

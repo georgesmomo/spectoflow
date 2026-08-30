@@ -60,13 +60,28 @@
   live/exploratory verification only, never the committed suite. `test/roster-integrity.test.js`
   guards capability/skill/workflow consistency going forward. See DECISIONS D21 and
   `docs/agents-skills-upgrade-design.md`.
+- **0.11** — control-room dashboard redesign: spectoflow's amber `--signal` identity kept, the
+  reference's card system / warm neutrals / status-colour mapping adopted. The Board tab gains an
+  **Overview** (4 KPI cards, a status donut, a workflow-at-a-glance strip reusing the workflow
+  animation, per-phase progress bars), filter chips + search, and a right sidebar (**À demander** =
+  `to_validate`/`to_analyze` tasks, **Journal** = the group-chat message log, live over SSE). Charts
+  are hand-rolled inline SVG (zero-dep). All aggregates are computed client-side via the shared,
+  unit-tested `templates/dashboard/public/stats.js`. No server/API change; orchestrator, chat widget,
+  workflow engine, and SSE realtime are unchanged. Collapsible phase sections persist in
+  `localStorage`; a unified card system now spans Board/Workflow/Agents & Skills. See DECISIONS D22
+  and `docs/dashboard-redesign-design.md`.
 
-## Next (from user feedback, in priority order)
+## Next
 
-### 1. Design pass
-Redesign the dashboard once a visual reference is chosen (control-room direction so far; avoid
-AI-default looks). Tighten the Run/chat, add the animated workflow diagram polish.
+Nothing queued — the roadmap's planned work is done. See "Before publish" below for what's left
+before a public release.
 
-## Open naming decision
-Package `spectoflow` is free on npm. Short alias deferred (`stf` taken = DeviceFarmer; `spkt` free but
-cryptic). Decide at publish time.
+## Before publish
+
+- **Naming decision.** Package `spectoflow` is free on npm, but the name risks collision with
+  "SpecFlow", a known .NET BDD tool (Tricentis / successor Reqnroll) — same semantic zone, confusable,
+  hard to SEO. Short alias also deferred (`stf` taken = DeviceFarmer; `spkt` free but cryptic). Decide
+  before publish. See DECISIONS DIFF3.
+- **Real-agent shakedown.** Everything so far (agent launcher, group-chat, orchestrator) has been
+  tested against **stub** agents (claude/codex not installed in the build environment). Run a full
+  pass against real `claude`/`codex` installs before calling the framework production-ready.
