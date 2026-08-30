@@ -17,7 +17,9 @@
 - **Motion honours `prefers-reduced-motion`** (the codebase already guards this; every new animation must sit under a `@media (prefers-reduced-motion: reduce)` disable or reuse the existing guard).
 - **Theme-aware:** every colour a token on `:root`, re-declared for light. Keep the amber `--signal` identity.
 - **Security:** `/api/agentfile` is read-only and strictly scoped to `.spectoflow/agents/**` and `.spectoflow/skills/**`; reject any path that escapes those dirs (`..`, absolute, symlink-out). Return 400/404, never arbitrary file contents.
-- **English** UI; `node -c` must pass on edited JS; `npm test` green after each task.
+- **ALL UI text is English** — no French labels. In particular the 0.11 right-sidebar block **"À
+  demander"** is renamed **"Requests"** and MOVED to its own tab (see Task 3); scan every panel/label
+  for stray French and fix. `node -c` must pass on edited JS; `npm test` green after each task.
 - **Semver:** feature → **0.12.0**.
 - **Live verification is the controller's step** for every visual task (screenshots in Chrome against a seeded preview project).
 
@@ -165,7 +167,8 @@ test('polar returns [x,y] on the circle', () => {
 **Files:** Create `templates/dashboard/public/icons.js` (an `ICON` map of inline SVG strings) or inline in app.js; Modify `index.html`, `app.js`, `styles.css`.
 
 - [ ] **Step 1:** Add a small SVG line-icon set (info, board, backlog, workflow, agents, chat, run/play, sun/moon already exist; plus small status/section glyphs) as `ICON.name → '<svg…>'`.
-- [ ] **Step 2:** Rework the topbar in index.html + `render()`: left = brand mark + `spectoflow / <projectType>` + a subtitle line (mode · language) + a slim global-progress meter (done/total %); centre = the tab nav with an icon per tab — **Board · Backlog · Workflow · Agents & Skills · Chat · Info** — active tab underlined with `--signal`; right = active-agent/lang/mode chips + a pulsing sync dot + a **Run** quick-action (opens the chat widget) + theme toggle. Wire the new tabs' panels (empty placeholders for Backlog/Chat/Info — filled in later tasks) so switching works.
+- [ ] **Step 2:** Rework the topbar in index.html + `render()`: left = brand mark + `spectoflow / <projectType>` + a subtitle line (mode · language) + a slim global-progress meter (done/total %); centre = the tab nav with an icon per tab — **Board · Requests · Backlog · Workflow · Agents & Skills · Chat · Info** — active tab underlined with `--signal`; right = active-agent/lang/mode chips + a pulsing sync dot + a **Run** quick-action (opens the chat widget) + theme toggle. Wire the new tabs' panels (empty placeholders for Requests/Backlog/Chat/Info — filled in later tasks) so switching works.
+- [ ] **Step 2b — Requests tab + sidebar cleanup (English fix):** the 0.11 right sidebar has a French **"À demander"** block — REMOVE it from the sidebar (the sidebar keeps Journal + Specs + Running) and instead render its content in the new **Requests** tab: `renderRequests()` = the full list of `to_validate` + `to_analyze` tasks (`SpectoStats.stats(P).toAsk`) as rows (id · title · status chip · phase), each opening the existing drawer (`openDrawer(id)`), with an empty state "Nothing awaiting you." All labels English. Also grep the whole `public/` for any other French UI text and translate it.
 - [ ] **Step 3:** styles.css — the denser header, icon-tab styling, the slim meter, pulsing sync dot (`@keyframes pulse`), theme-aware.
 - [ ] **Step 4: Controller live-verify** — all six tabs switch; header looks right in dark + light; Run opens the widget. Screenshot.
 - [ ] **Step 5: Commit** — `feat(dashboard): redesigned header + icon tabs (Board/Backlog/Workflow/Agents/Chat/Info)`
