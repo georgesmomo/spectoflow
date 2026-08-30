@@ -18,6 +18,9 @@ permissions:
 jobs:
   publish:
     runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      id-token: write   # ensure the token is granted at the job level too
     steps:
       - uses: actions/checkout@v4
 
@@ -46,4 +49,6 @@ jobs:
         run: npm test
 
       - name: Publish
-        run: npm publish --provenance --access public
+        run: |
+          echo "OIDC id-token URL present? ${ACTIONS_ID_TOKEN_REQUEST_URL:+yes}"
+          npm publish --provenance --access public --loglevel verbose
