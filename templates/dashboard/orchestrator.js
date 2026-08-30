@@ -2,6 +2,7 @@
 const fs = require('fs');
 const path = require('path');
 const store = require('../lib/store');
+const { startRun } = require('./runner');
 
 // step (from store.readWorkflow) -> { agent, skill } or { error }
 function resolveStep(root, step) {
@@ -70,4 +71,32 @@ async function runOrchestration({ root, request, mode, runStep, confirm, resume 
   return o;
 }
 
-module.exports = { resolveStep, runOrchestration };
+function buildPrompt({ step, agent, skill, request }) {
+  const skillLine = skill
+    ? `Run the "${skill}" skill (.spectoflow/skills/${skill}/SKILL.md) for this request.`
+    : `Apply your role's mandate for this request.`;
+  return [
+    `You are the ${agent} (capability: ${step.cap}). ${skillLine}`,
+    `Request: ${request}`,
+    `Context: the current specs/ and plans/ in this project.`,
+    `Work to the project standard and post progress as ::spectoflow role=${step.cap} kind=… msg=… lines.`,
+  ].join('\n');
+}
+
+function defaultRunStep({ root, step, agent, skill, request }, emit) {
+  return new Promise((resolve) => {
+    const prompt = buildPrompt({ step, agent, skill, request });
+    const tool = store.readConfig(root).agent;
+    const r = startRun(root, { prompt, agent: tool }, (e) => { emit(e); if (e.type === 'run-end') resolve(e.code); });
+    if (r.error) { emit({ type: 'message', message: { role: 'orchestrator', kind: 'status', text: r.error } }); resolve(1); }
+  });
+}
+
+let pending = null;
+function defaultConfirm(step, reason) { return new Promise((resolve) => { pending = { resolve }; }); }
+function submitDecision(decision, note) {
+  if (!pending) return false;
+  const p = pending; pending = null; p.resolve({ decision, note }); return true;
+}
+
+module.exports = { resolveStep, runOrchestration, defaultRunStep, defaultConfirm, submitDecision };
