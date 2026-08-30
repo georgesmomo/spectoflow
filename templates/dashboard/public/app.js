@@ -438,22 +438,104 @@ function renderWorkflow(){
   if(!steps.length) box.append(el('div','empty','No workflow defined.'));
 }
 
+// chip row: a small uppercase kicker label followed by one chip per item — used for
+// agent standards/uses and the skill standard.
+function chipRow(label,items){
+  if(!items||!items.length) return null;
+  const row=el('div','cu'); row.append(el('b',null,label));
+  items.forEach(x=> row.append(el('span',null,x)));
+  return row;
+}
+function agentCard(a){
+  const c=el('div','card'); c.tabIndex=0;
+  c.append(el('div','ct',a.title||a.name));
+  if(a.capability) c.append(el('div','cc',a.capability));
+  const std=chipRow('standards',a.standards); if(std) c.append(std);
+  const uses=chipRow('uses',a.uses); if(uses) c.append(uses);
+  if(a.description) c.append(el('div','cd',a.description));
+  const open=()=>openFileDrawer('agent',a);
+  c.addEventListener('click',open);
+  c.addEventListener('keydown',e=>{ if(e.key==='Enter')open(); });
+  return c;
+}
+function skillCard(s){
+  const c=el('div','card'); c.tabIndex=0;
+  c.append(el('div','ct',s.name));
+  if(s.capability) c.append(el('div','cc',s.capability));
+  const std=chipRow('standard', s.standard?[s.standard]:null); if(std) c.append(std);
+  if(s.inputs||s.outputs) c.append(el('div','io', (s.inputs||'—')+'  →  '+(s.outputs||'—')));
+  if(s.description) c.append(el('div','cd',s.description));
+  const open=()=>openFileDrawer('skill',s);
+  c.addEventListener('click',open);
+  c.addEventListener('keydown',e=>{ if(e.key==='Enter')open(); });
+  return c;
+}
 function renderTeam(){
   const ag=$('#agents'); ag.innerHTML=''; $('#agentsCount').textContent=(P.agents||[]).length;
-  (P.agents||[]).forEach(a=>{
-    const c=el('div','card');
-    c.append(el('div','ct',a.title||a.name));
-    if(a.capability) c.append(el('div','cc',a.capability));
-    if(a.description) c.append(el('div','cd',a.description));
-    ag.append(c);
-  });
+  (P.agents||[]).forEach(a=> ag.append(agentCard(a)));
   const sk=$('#skills'); sk.innerHTML=''; $('#skillsCount').textContent=(P.skills||[]).length;
-  (P.skills||[]).forEach(s=>{
-    const c=el('div','card');
-    c.append(el('div','ct',s.name));
-    if(s.description) c.append(el('div','cd',s.description));
-    sk.append(c);
-  });
+  (P.skills||[]).forEach(s=> sk.append(skillCard(s)));
+}
+
+// ---- Agent/Skill file-body drawer — fetches the real markdown file and renders it with a
+// tiny inline renderer (mdLite). Content is HTML-escaped before any markup is generated, so a
+// crafted agent/skill file can never inject markup into the page.
+function escHtml(s){ return String(s==null?'':s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;'); }
+function mdLite(raw){
+  let text=String(raw||'');
+  // 1) strip YAML front-matter (between the first two '---' lines), if present
+  const lines0=text.split('\n');
+  if(lines0[0]&&lines0[0].trim()==='---'){
+    let end=-1;
+    for(let i=1;i<lines0.length;i++){ if(lines0[i].trim()==='---'){ end=i; break; } }
+    if(end!==-1) text=lines0.slice(end+1).join('\n');
+  }
+  text=text.replace(/^\n+/,'');
+  if(!text.trim()) return '<pre>(empty file)</pre>';
+  // 2) escape HTML — everything below builds markup only from this escaped text
+  text=escHtml(text);
+  // 3) convert a small markdown subset to HTML
+  const inline=s=> s.replace(/`([^`]+)`/g,'<code>$1</code>').replace(/\*\*([^*]+)\*\*/g,'<strong>$1</strong>');
+  const lines=text.split('\n');
+  let html='', inCode=false, codeBuf=[], listBuf=[], paraBuf=[];
+  const flushPara=()=>{ if(paraBuf.length){ html+='<p>'+paraBuf.join(' ')+'</p>'; paraBuf=[]; } };
+  const flushList=()=>{ if(listBuf.length){ html+='<ul>'+listBuf.map(x=>'<li>'+x+'</li>').join('')+'</ul>'; listBuf=[]; } };
+  for(const line of lines){
+    if(/^\s*```/.test(line)){
+      if(!inCode){ flushPara(); flushList(); inCode=true; codeBuf=[]; }
+      else { html+='<pre><code>'+codeBuf.join('\n')+'</code></pre>'; inCode=false; }
+      continue;
+    }
+    if(inCode){ codeBuf.push(line); continue; }
+    const h=line.match(/^(#{1,3})\s+(.*)$/);
+    if(h){ flushPara(); flushList(); const lvl=h[1].length; html+=`<h${lvl}>${inline(h[2])}</h${lvl}>`; continue; }
+    const li=line.match(/^\s*-\s+(.*)$/);
+    if(li){ flushPara(); listBuf.push(inline(li[1])); continue; }
+    if(line.trim()===''){ flushPara(); flushList(); continue; }
+    flushList(); paraBuf.push(inline(line));
+  }
+  flushPara(); flushList();
+  if(inCode&&codeBuf.length) html+='<pre><code>'+codeBuf.join('\n')+'</code></pre>';
+  return html || '<pre>'+text+'</pre>';
+}
+async function openFileDrawer(kind,obj){
+  openTaskId=null;
+  const rel = kind==='agent' ? ('agents/'+(obj.file||(obj.name+'.md'))) : ('skills/'+obj.name+'/SKILL.md');
+  const b=$('#drawerBody'); b.innerHTML='';
+  b.append(el('div','d-id', kind==='agent'?'Agent':'Skill'));
+  b.append(el('div','d-title', obj.title||obj.name));
+  const sec=el('div','d-section'); sec.append(el('div','d-label','File · '+rel));
+  const body=el('div','md-body'); body.append(el('div','empty','Loading…'));
+  sec.append(body); b.append(sec);
+  $('#drawer').setAttribute('aria-hidden','false');
+  try{
+    const r=await fetch('/api/agentfile?path='+encodeURIComponent(rel));
+    const data=await r.json().catch(()=>({}));
+    if(!r.ok){ body.innerHTML=''; body.append(el('div','empty', data.error||'Could not load this file.')); return; }
+    body.innerHTML=mdLite(data.content||'');
+  }catch(err){
+    body.innerHTML=''; body.append(el('div','empty','Could not load this file.'));
+  }
 }
 
 // ---- Info tab: read-only project overview (config, runners, counts, specs, active workflow) ----
