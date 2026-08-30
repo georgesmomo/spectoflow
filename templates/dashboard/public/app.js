@@ -2,6 +2,8 @@
 const STATUS = { todo:'To do', in_progress:'In progress', to_validate:'To validate', to_analyze:'To analyze', done:'Done', blocked:'Blocked' };
 let P = null, openTaskId = null;
 let filter = { status: 'all', q: '' }; // board filter state — client-side only, read-only
+let backlogFilter = { status: 'all', q: '' }; // backlog filter state — independent from the board's
+let backlogSort = { col: 'id', dir: 'asc' };   // backlog sort state — client-side only
 
 const $ = (s,r=document)=>r.querySelector(s);
 const $$ = (s,r=document)=>[...r.querySelectorAll(s)];
@@ -99,7 +101,7 @@ function render(){
   if(meterFill) meterFill.style.width=(s.pct||0)+'%';
   const meter=$('#globalMeter');
   if(meter) meter.title=`Global progress: ${s.pct}% (${s.done}/${s.total} tasks)`;
-  renderOverview(); renderBoard(); renderWorkflow(); renderTeam(); renderChat(); renderSidebar();
+  renderOverview(); renderBoard(); renderBacklog(); renderWorkflow(); renderTeam(); renderChat(); renderSidebar();
   renderRequests(); renderInfo();
 }
 
@@ -293,6 +295,72 @@ function renderBoard(){
 function li(cls,txt){ const e=el('li',cls); e.textContent=txt; return e; }
 function emptyState(){ const d=el('div','empty'); d.style.padding='40px'; d.textContent='No plans yet. Ask your agent to build something — it will run Intake and write plans/*.md.'; return d; }
 function noMatchState(){ const d=el('div','empty'); d.style.padding='40px'; d.textContent='No tasks match this filter.'; return d; }
+
+// ---- Backlog tab: flat, sortable, filterable table of every task ----------
+// Rows are built from P.plans (not allTasks()) so each task carries its phase title.
+function backlogRows(){
+  const rows=[];
+  (P.plans||[]).forEach(pl=> pl.phases.forEach(ph=> ph.tasks.forEach(t=>{
+    rows.push({ id:t.id, title:t.title, phase:ph.title, status:t.status, owner:t.owner||'', level:t.level||'standard', comments:(t.comments||[]).length, file:pl.file });
+  })));
+  return rows;
+}
+function backlogMatches(r){
+  if(backlogFilter.status!=='all' && r.status!==backlogFilter.status) return false;
+  const q=backlogFilter.q.trim().toLowerCase();
+  if(q && !((r.id+' '+r.title).toLowerCase().includes(q))) return false;
+  return true;
+}
+function sortBacklogRows(rows){
+  const {col,dir}=backlogSort; const mul=dir==='asc'?1:-1;
+  return rows.slice().sort((a,b)=>{
+    if(col==='comments') return (a.comments-b.comments)*mul;
+    let av=a[col], bv=b[col];
+    if(col==='status'){ av=STATUS[a.status]||a.status; bv=STATUS[b.status]||b.status; }
+    av=String(av==null?'':av).toLowerCase(); bv=String(bv==null?'':bv).toLowerCase();
+    if(av<bv) return -1*mul;
+    if(av>bv) return 1*mul;
+    return 0;
+  });
+}
+function updateBacklogFilterChips(){
+  $$('#backlogStatusChips .fchip').forEach(b=> b.classList.toggle('active', b.dataset.status===backlogFilter.status));
+}
+function updateBacklogSortHeaders(){
+  $$('#backlogTable thead th').forEach(th=>{
+    const active=th.dataset.col===backlogSort.col;
+    th.classList.toggle('is-sorted',active);
+    if(active) th.dataset.dir=backlogSort.dir; else th.removeAttribute('data-dir');
+  });
+}
+function renderBacklog(){
+  const body=$('#backlogBody'); if(!body) return;
+  updateBacklogFilterChips(); updateBacklogSortHeaders();
+  const all=backlogRows();
+  const cnt=$('#backlogCount'); if(cnt) cnt.textContent=all.length;
+  const filtered=sortBacklogRows(all.filter(backlogMatches));
+  body.innerHTML='';
+  if(!all.length){ body.append(backlogEmptyRow('No plans yet. Ask your agent to build something — it will run Intake and write plans/*.md.')); return; }
+  if(!filtered.length){ body.append(backlogEmptyRow('No tasks match this filter.')); return; }
+  filtered.forEach(r=> body.append(backlogRow(r)));
+}
+function backlogEmptyRow(txt){
+  const tr=el('tr','backlog-empty-row'); const td=el('td',null,txt); td.colSpan=7; tr.append(td); return tr;
+}
+function backlogRow(r){
+  const tr=el('tr','backlog-row'); tr.tabIndex=0;
+  tr.append(el('td','bl-id',r.id));
+  tr.append(el('td','bl-title',r.title));
+  tr.append(el('td','bl-phase',r.phase));
+  const stTd=el('td','bl-status'); stTd.append(el('span','chip s-'+r.status,STATUS[r.status]||r.status)); tr.append(stTd);
+  tr.append(el('td','bl-owner', r.owner?('@'+r.owner):'—'));
+  tr.append(el('td','bl-level', r.level));
+  tr.append(el('td','bl-comments', r.comments?('💬 '+r.comments):''));
+  const open=()=>openDrawer(r.id);
+  tr.addEventListener('click',open);
+  tr.addEventListener('keydown',e=>{ if(e.key==='Enter')open(); });
+  return tr;
+}
 
 // ---- collapsed-phase state (persisted per phase title, guarded for private mode) ----
 function loadCollapsed(){
@@ -513,6 +581,15 @@ $$('#tabs .tab').forEach(tab=> tab.addEventListener('click',()=>{
 // filters (status chips + search) — client-side only, does not write anything
 $$('#statusChips .fchip').forEach(b=> b.addEventListener('click', ()=>{ filter.status=b.dataset.status; renderBoard(); }));
 $('#search').addEventListener('input', e=>{ filter.q=e.target.value; renderBoard(); });
+// backlog: independent filters + sortable column headers — client-side only
+$$('#backlogStatusChips .fchip').forEach(b=> b.addEventListener('click', ()=>{ backlogFilter.status=b.dataset.status; renderBacklog(); }));
+$('#backlogSearch').addEventListener('input', e=>{ backlogFilter.q=e.target.value; renderBacklog(); });
+$$('#backlogTable thead th').forEach(th=> th.addEventListener('click', ()=>{
+  const col=th.dataset.col;
+  if(backlogSort.col===col) backlogSort.dir = backlogSort.dir==='asc'?'desc':'asc';
+  else { backlogSort.col=col; backlogSort.dir='asc'; }
+  renderBacklog();
+}));
 // theme
 (function(){ const s=localStorage.getItem('spf-theme'); if(s)document.documentElement.setAttribute('data-theme',s);
   $('#themeToggle').addEventListener('click',()=>{ const c=document.documentElement.getAttribute('data-theme'); const n=c==='dark'?'light':'dark'; document.documentElement.setAttribute('data-theme',n); localStorage.setItem('spf-theme',n); }); })();

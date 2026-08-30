@@ -85,12 +85,39 @@
       </div>
     </section>
 
-    <!-- BACKLOG (placeholder — filled in a later task) -->
+    <!-- BACKLOG (flat, sortable, filterable table of every task) -->
     <section class="panel" data-panel="backlog">
-      <div class="placeholder-wrap">
-        <h2 class="panel-title">Backlog</h2>
-        <p class="panel-sub">Coming soon.</p>
-        <div class="placeholder-empty" id="backlogEmpty">This view is not built yet.</div>
+      <div class="backlog-wrap">
+        <h2 class="panel-title">Backlog <span class="count" id="backlogCount">0</span></h2>
+        <p class="panel-sub">Every task, across every plan, in one flat table.</p>
+        <div class="filters" id="backlogFilters">
+          <div class="chip-list" id="backlogStatusChips">
+            <button class="fchip active" data-status="all">All</button>
+            <button class="fchip" data-status="todo">To do</button>
+            <button class="fchip" data-status="in_progress">In progress</button>
+            <button class="fchip" data-status="to_validate">To validate</button>
+            <button class="fchip" data-status="to_analyze">To analyze</button>
+            <button class="fchip" data-status="done">Done</button>
+            <button class="fchip" data-status="blocked">Blocked</button>
+          </div>
+          <input type="search" id="backlogSearch" class="search" placeholder="Filter by id or title…" autocomplete="off" />
+        </div>
+        <div class="table-scroll">
+          <table class="backlog-table" id="backlogTable">
+            <thead>
+              <tr>
+                <th data-col="id">ID</th>
+                <th data-col="title">Title</th>
+                <th data-col="phase">Phase</th>
+                <th data-col="status">Status</th>
+                <th data-col="owner">Owner</th>
+                <th data-col="level">Level</th>
+                <th data-col="comments">💬</th>
+              </tr>
+            </thead>
+            <tbody id="backlogBody"></tbody>
+          </table>
+        </div>
       </div>
     </section>
 

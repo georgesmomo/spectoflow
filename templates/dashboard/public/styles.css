@@ -194,9 +194,32 @@ body { background:var(--bg); color:var(--ink); font-family:var(--sans); font-siz
 .request-title { flex:1; min-width:0; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; color:var(--ink); }
 .request-file { font-family:var(--mono); font-size:10.5px; color:var(--faint); flex-shrink:0; }
 
-/* placeholder panels (Backlog / Chat / Info — filled in later tasks) */
+/* placeholder panels (Chat / Info — filled in later tasks) */
 .placeholder-wrap { padding:26px 28px 60px; max-width:1000px; }
 .placeholder-empty { margin-top:8px; padding:40px; border:1px dashed var(--line); border-radius:var(--radius); text-align:center; color:var(--faint); font-style:italic; }
+
+/* Backlog tab — flat, sortable, filterable table of every task */
+.backlog-wrap { padding:26px 28px 60px; max-width:1200px; }
+.backlog-wrap .filters { padding:0 0 14px; }
+.table-scroll { width:100%; overflow-x:auto; border:1px solid var(--line); border-radius:var(--radius); }
+.backlog-table { width:100%; min-width:720px; border-collapse:collapse; font-size:12.5px; }
+.backlog-table thead th { position:sticky; top:0; z-index:1; background:var(--surface-2); text-align:left; padding:9px 12px; font-family:var(--mono); font-size:10.5px; text-transform:uppercase; letter-spacing:.05em; color:var(--muted); white-space:nowrap; cursor:pointer; user-select:none; border-bottom:1px solid var(--line); }
+.backlog-table thead th:hover { color:var(--ink); }
+.backlog-table thead th.is-sorted { color:var(--ink); }
+.backlog-table thead th[data-dir="asc"]::after { content:'\25B2'; margin-left:5px; font-size:9px; }
+.backlog-table thead th[data-dir="desc"]::after { content:'\25BC'; margin-left:5px; font-size:9px; }
+.backlog-table tbody tr.backlog-row { cursor:pointer; border-bottom:1px solid var(--line); transition:background .12s; }
+.backlog-table tbody tr.backlog-row:last-child { border-bottom:0; }
+.backlog-table tbody tr.backlog-row:hover,.backlog-table tbody tr.backlog-row:focus-visible { background:var(--surface-2); outline:none; }
+.backlog-table td { padding:8px 12px; color:var(--ink); vertical-align:middle; }
+.bl-id { font-family:var(--mono); font-size:11px; color:var(--muted); white-space:nowrap; }
+.bl-title { min-width:200px; max-width:420px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+.bl-phase,.bl-owner { color:var(--muted); white-space:nowrap; }
+.bl-level { color:var(--muted); white-space:nowrap; text-transform:capitalize; }
+.bl-comments { font-family:var(--mono); font-size:11px; color:var(--muted); white-space:nowrap; }
+.backlog-table .chip { margin-left:0; }
+.backlog-empty-row td { padding:40px; text-align:center; color:var(--faint); font-style:italic; border:0; }
+@media (max-width:640px){ .backlog-wrap { padding:18px 14px 40px; } }
 
 /* Info tab (project overview — config, runners, counts, specs, active workflow) */
 .info-wrap { padding:26px 28px 60px; max-width:1000px; }
