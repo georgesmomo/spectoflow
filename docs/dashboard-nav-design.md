@@ -1,6 +1,6 @@
 # Dashboard navigation & chat — design (0.12)
 
-> Status: **approved** (O1–O5 resolved at their proposed defaults, 2026-08-30). Target: spectoflow **0.12**. A follow-up to the 0.11
+> Status: **implemented** (O1–O5 resolved at their proposed defaults, 2026-08-30). Target: spectoflow **0.12**. A follow-up to the 0.11
 > control-room redesign: a better header, new **Infos** and **Backlog** tabs, an enriched **Agents &
 > Skills** tab (with a full-body drawer), and a full **Chat** tab beside a redesigned floating widget.
 > Graduates to `DECISIONS.md` (D23).

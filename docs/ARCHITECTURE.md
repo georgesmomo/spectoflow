@@ -60,10 +60,50 @@ carries everything the Board's Overview needs — plan tasks (statuses, phases, 
 `workflow` (the at-a-glance strip). `dashboard/public/stats.js` is a small, pure, unit-tested module
 (`stats(project) → {total, done, pct, byStatus, phases, toAsk, running}`, browser + Node via a guarded
 `module.exports`, covered by `test/dashboard-stats.test.js`) that computes all KPI/donut/phase-bar/
-sidebar aggregates **client-side** in `app.js`; the server does no aggregation. Charts (donut, ring,
-progress bars, sparkline) are hand-rolled **inline SVG**, zero dependency. SSE `change`/`message`
+sidebar aggregates **client-side** in `app.js`; the server does no aggregation. SSE `change`/`message`
 events already drive live updates, so the Overview and sidebar refresh the same way the task board
 always has.
+
+**Navigation, tabs & dynamism (v0.12):** the header carries brand + `/ <projectType>` + a mode/language
+subtitle, a slim global-progress meter, icon tabs, agent/lang/mode chips, a pulsing sync dot, and a
+**Run** quick-action. Seven tabs, all client-side over the existing `GET /api/project` + SSE:
+- **Board** — the v0.11 Overview + phase board, unchanged.
+- **Requests** — what was the sidebar's "À demander" block (v0.11) is now its own tab: the
+  `to_validate`/`to_analyze` tasks, translated to English (the UI is English-only).
+- **Backlog** — a flat table of every task across all `plans/*.md`, sortable by column, filterable by
+  status/owner/level + text search (reuses the Board's filter logic); a row opens the existing task
+  drawer. Read-only over the same data as the Board.
+- **Workflow**, **Agents & Skills** — as before, but Agents & Skills cards are enriched
+  (`capability`/`standards`/`uses` for agents; `capability`/`standard`/`inputs`/`outputs` for skills)
+  and a click opens a full-body **drawer** rendering the file's markdown body via a tiny hand-rolled
+  `mdLite(raw)` renderer (headings/lists/inline-code/paragraphs, HTML-escaped before any markup is
+  generated — no library).
+- **Chat** — a full-height panel over `runtime.messages`, sharing `renderChatLog(container)` with the
+  redesigned floating widget so the two never drift; same `/api/run` + `/api/orchestrate` endpoints.
+- **Info** — a project-summary panel (config, mode, language, active agent, runners, counts) read
+  entirely from the existing `GET /api/project` payload.
+
+**Charts move into a module, `dashboard/public/charts.js` (`SpectoCharts`, browser + Node via a
+guarded `module.exports`):** `donut`, `area`, `bars`, `ring` as pure SVG-string builders, covered by
+`test/dashboard-charts.test.js` (path/arc math, no DOM). `area(series, labels)` is the returned
+**scope-vs-delivered curve**: a Catmull-Rom-smoothed path, gradient fill, grid + axis labels, an
+animated draw (`pathLength`), and hover tooltips — all `prefers-reduced-motion`-aware.
+
+**`runtime.history` snapshot (the one new piece of server-recorded data):** `store.recordSnapshot
+(runtime, {total, done}, date)` is a pure helper that appends/dedupes one `{date, total, done}` point
+per calendar day (updates today's entry in place, caps to the last ~60). It is **write-guarded** —
+`readProject` only persists a new snapshot when today's `{total, done}` actually differs from the last
+recorded point, so a no-op read never touches the filesystem — and **re-reads `runtime.json`
+immediately before writing**, mutating only its `history` field on the freshest copy, so a snapshot
+write can never clobber `runtime.messages` appended concurrently by a running agent. History starts
+seeded with one point (never blank) and feeds `area()` on the Board Overview.
+
+**One new endpoint, read-only:** `GET /api/agentfile?path=<rel>` → `{ content }`, strictly scoped to
+`.spectoflow/agents/**` and `.spectoflow/skills/**`, path-traversal-safe — serves the Agents & Skills
+drawer's full markdown body. `store.readAgents`/`readSkills` are extended to also parse the
+`standards`/`uses` (agents) and `inputs`/`outputs`/`standard` (skills) front-matter fields consumed by
+the enriched cards. Every other endpoint (`/api/run`, `/api/orchestrate`, granular task/workflow
+writes) is unchanged. See DECISIONS D23 and `docs/dashboard-nav-design.md`.
 
 ## Agent launcher + group-chat (v0.4 → v0.8)
 

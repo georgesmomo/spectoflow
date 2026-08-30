@@ -1,4 +1,4 @@
-# spectoflow (v0.11 — provisional name)
+# spectoflow (v0.12 — provisional name)
 
 An **agent-agnostic** spec-driven development framework with a **real-time local control plane**.
 You speak in plain language; the framework classifies your intent and runs the right workflow. No
@@ -77,17 +77,26 @@ agent never clobber each other.
 node .spectoflow/dashboard/server.js   # → http://localhost:4319
 ```
 
-Zero dependencies, updates live via SSE + file watching. Tabs: **Board** (plans/tasks, test results,
-running agents), **Workflow** (the pipeline as a diagram — click a step to enable/disable it, which
-edits `workflow.md`), **Agents & Skills**. A floating **💬 chat widget** (bottom-right) runs the
-configured agent headless and renders it as a **group chat**: a running agent identifies itself by
-printing `::spectoflow role=… kind=… msg=…` sentinels, which become labelled messages (analyst /
-developer / qa …) in `runtime.messages`; other output streams raw. The board refreshes live as it
-edits plans. The widget can also **Orchestrate** the enabled workflow: each step runs its agent,
-gated by mode + policy. The Board tab opens on a control-room **Overview** — KPI cards, a status donut,
-a workflow-at-a-glance strip, per-phase progress bars, filter chips + search — plus a right sidebar
-with **À demander** (tasks awaiting you) and the **Journal** (the group-chat activity log); charts are
-zero-dep inline SVG, and every aggregate is computed client-side.
+Zero dependencies, updates live via SSE + file watching. Seven tabs behind a dense icon-tab header
+(brand · subtitle · a slim global-progress meter · a sync dot · a **Run** quick-action): **Board**
+(the control-room Overview — KPI cards, a status donut, a **scope-vs-delivered area curve**, a
+workflow-at-a-glance strip, per-phase progress bars, filter chips + search — plus the phase board),
+**Requests** (tasks awaiting you — `to_validate`/`to_analyze`), **Backlog** (a flat sortable/filterable
+table of every task across every plan), **Workflow** (the pipeline as a diagram — click a step to
+enable/disable it, which edits `workflow.md`), **Agents & Skills** (enriched cards — capability,
+standards, uses/inputs/outputs — that open a full-body markdown drawer), **Chat** (a full-height
+group-chat panel), and **Info** (a project-at-a-glance summary). Charts are zero-dep, hand-rolled SVG
+in `dashboard/public/charts.js` (donut/area/bars/ring, animated, `prefers-reduced-motion`-aware), and
+every aggregate is computed client-side.
+
+A floating **💬 chat widget** (bottom-right, redesigned) and the **Chat** tab render the same
+`runtime.messages` log via a shared `renderChatLog()`, so they never drift. A running agent identifies
+itself by printing `::spectoflow role=… kind=… msg=…` sentinels, which become labelled messages
+(analyst / developer / qa …); other output streams raw. The board refreshes live as it edits plans.
+Either surface can also **Orchestrate** the enabled workflow: each step runs its agent, gated by mode
++ policy. The Agents & Skills drawer is served by the one read-only endpoint, `GET
+/api/agentfile?path=` (scoped to `.spectoflow/agents/**` + `.spectoflow/skills/**`,
+path-traversal-safe) — the framework's only other server surface is unchanged.
 
 ## Agents vs skills
 

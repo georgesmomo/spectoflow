@@ -289,3 +289,73 @@
   présentation change.
 - **Sections repliables (persistées en `localStorage`) et système de cartes unifié** sur tous les
   onglets (Board / Workflow / Agents & Skills), cohérent avec le nouveau langage visuel.
+
+---
+
+## Session 12 — v0.12
+
+### D23 — Navigation + chat du dashboard : header dense à onglets-icônes, Requests/Info/Backlog, Agents & Skills enrichi + tiroir, Chat en onglet, dynamisme retrouvé (courbe, `charts.js`, animations)
+- **ACTÉ.** Suite à la refonte « control-room » (D22), cette passe complète la **navigation** et le
+  **chat** sur le même socle zéro-dép, SSE, écritures granulaires — sans toucher l'orchestrateur, le
+  moteur de workflow ni les endpoints existants. Référence : `docs/dashboard-nav-design.md` (statut
+  passé à **implemented**).
+- **Header refondu.** Bandeau plus dense et délibéré : à gauche la marque + `/ <projectType>` + un
+  sous-titre (mode · langue) et un **mètre de progression globale** filiforme sous la marque ; au
+  centre la nav à **onglets-icônes** — **Board · Requests · Backlog · Workflow · Agents & Skills ·
+  Chat · Info** (soulignement ambre actif) ; à droite les chips agent actif/langue/mode, l'indicateur
+  de **sync** (point pulsant) et un bouton **Run** en accès rapide qui ouvre le widget de chat.
+- **Le bloc « À demander » de la sidebar devient l'onglet Requests, traduit en anglais.** L'UI est
+  **anglais uniquement** (le sous-titre « À demander » de D22 était la seule survivance en français
+  côté interface) ; le contenu (tâches `to_validate`/`to_analyze`) est inchangé, seulement déplacé de
+  la sidebar vers un onglet dédié pour lui donner la place de respirer.
+- **Deux nouveaux onglets :**
+  - **Info** — un panneau « à propos du projet » calme, lu depuis `config` + les agrégats déjà
+    disponibles (type de projet, mode, langue, agent actif, `runners`, compteurs tâches/spécs/agents/
+    skills/étapes de workflow activées) ; entièrement côté client via `GET /api/project`, aucune
+    nouvelle donnée serveur.
+  - **Backlog** — une **table plate** de toutes les tâches de tous les `plans/*.md` (id · titre ·
+    phase · statut · owner · niveau · 💬 commentaires), **triable** par en-tête de colonne,
+    **filtrable** (statut/owner/niveau + recherche texte, logique réutilisée du Board), une ligne
+    ouvre le **drawer** de tâche existant. Vue lecture seule, mêmes données que le Board.
+- **Agents & Skills enrichi + tiroir plein-corps.** Les cartes montrent désormais `capability` +
+  `standards` (agents) / `capability` + `standard` + `inputs`/`outputs` (skills) + `uses` en plus de
+  la description ; un clic ouvre un **tiroir** affichant le **corps markdown complet** du fichier
+  (Operating standards / Method / Quality bar / …), rendu par un **mini-moteur markdown maison**
+  (`mdLite` — titres/listes/code inline/paragraphes, HTML échappé avant tout balisage), pas de
+  librairie. Nécessite : `store.readAgents`/`readSkills` étendus pour exposer ces champs de
+  front-matter (parsing seul, aucun changement d'écriture) et **un seul nouvel endpoint**, lecture
+  seule, `GET /api/agentfile?path=` → `{ content }`, **strictement scopé** à `.spectoflow/agents/**`
+  et `.spectoflow/skills/**` et **path-traversal-safe** — le seul changement serveur de l'incrément.
+- **Chat en onglet plein-écran, à côté du widget flottant redessiné.** Les deux rendent le **même**
+  `runtime.messages` group-chat et utilisent `POST /api/run` / `POST /api/orchestrate` inchangés,
+  via un **rendu partagé** `renderChatLog(container)` — l'onglet et le widget ne peuvent jamais
+  diverger. Le widget flottant est redessiné (header plus propre, mêmes transcript/input), point
+  d'accès rapide depuis n'importe quel onglet.
+- **Le dynamisme perdu en 0.11 revient.** L'Overview du Board retrouve la **courbe d'aires**
+  scope-vs-livré (abandonnée en 0.11 faute d'historique daté) : elle lit désormais un vrai
+  **instantané** `runtime.history: [{date, total, done}]`, un point par jour calendaire, dédupliqué
+  (`store.recordSnapshot`, aujourd'hui écrasé / nouveau jour ajouté, plafonné aux ~60 derniers points,
+  seedé d'un point unique quand vide pour ne jamais laisser le panneau à blanc). **Écriture
+  garde-fou :** l'instantané n'est persisté que si `{total, done}` diffère réellement du dernier point
+  (une lecture sans changement ne touche jamais le disque), et le serveur **relit `runtime.json`
+  juste avant d'écrire** pour muter uniquement son champ `history` — sinon un instantané concurrent au
+  group-chat aurait pu écraser des `runtime.messages` fraîchement ajoutés par un run en cours (bug
+  intercepté et corrigé pendant l'implémentation, cf. commits « re-read runtime before snapshot write
+  » et « readProject snapshot must preserve runtime.messages »).
+- **`dashboard/public/charts.js` — module de graphiques, testé unitairement.** Extrait de l'ancien
+  `donut()`/`ring()`/`bars()` inline de D22 en un module `SpectoCharts` (browser + Node via
+  `module.exports` gardé) qui ajoute **`area()`** (courbe lissée Catmull-Rom, remplissage dégradé,
+  grille + axes, tracé animé via `pathLength`, points + tooltips au survol) aux côtés de `donut`,
+  `bars`, `ring` — couvert par `test/dashboard-charts.test.js` (maths de tracé/arc en pur, sans DOM).
+- **Icônes et animations, respectueuses de `prefers-reduced-motion`.** Un petit jeu d'icônes SVG
+  inline maison (pas de police/librairie d'icônes) sur chaque onglet, carte KPI et en-tête de section ;
+  animations portées de la référence (`rise` à l'entrée des cartes, tracé du donut par arc échelonné,
+  barres qui poussent avec compte-à-rebours numérique, anneau de progression en dégradé animé, point
+  de sync pulsant) — toutes désactivées quand l'utilisateur demande moins de mouvement (garde déjà en
+  place, étendue à chaque nouvelle animation).
+- **Deux petits correctifs pliés dans cette passe :** le **chevron** de repli de phase (0.11) avait sa
+  direction inversée — corrigé ; et un **`activeTab` source de vérité unique**, persistée
+  (`localStorage`), garantit que l'onglet actif reste stable à travers les re-rendus déclenchés par
+  SSE (auparavant le re-rendu pouvait faire retomber l'UI sur l'onglet Board).
+- **Aucun changement de surface serveur au-delà de `/api/agentfile`.** `/api/run`, `/api/orchestrate`,
+  les mutations granulaires de tâche/workflow, et le flux SSE restent inchangés.
