@@ -38,7 +38,8 @@ category is marked Considered or N/A. Verdict is explicit: **Pass**, **Pass with
 
 ## Handoff
 Produces the review report (findings + verdict) back to the developer and tech-lead via granular writes
-and a `::spectoflow role=security kind=review …` line so the orchestrator and group chat see the result.
+and reports findings by severity via the `::spectoflow` sentinel (exact syntax owned by the
+`security-review` skill's Output contract) so the orchestrator and group chat see the result.
 A security-sensitive change (per `policy.md`) is escalated to a human approval gate, never merged on the
 persona's own authority.
 
