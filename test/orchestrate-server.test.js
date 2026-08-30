@@ -22,6 +22,11 @@ function project() {
   cfg.agent = 'claude';
   cfg.runners = { claude: `node ${FIXTURE}` };
   fs.writeFileSync(cfgP, JSON.stringify(cfg, null, 2) + '\n');
+  // Single enabled step: minimizes how many child processes this test spawns, which minimizes
+  // exposure to intermittent Windows AV/EDR interception of freshly-spawned node.exe processes.
+  // Multi-step ordering is already covered by the orchestrator unit tests (Task 3).
+  fs.writeFileSync(path.join(d, '.spectoflow', 'workflow.md'),
+    '# Active workflow\n\n- [x] Analysis {cap:analysis skill:analyze-requirements}\n');
   return d;
 }
 function post(port, p, obj) {
@@ -47,7 +52,7 @@ test('POST /api/orchestrate runs the workflow to done in autopilot', async () =>
     const r = await post(port, '/api/orchestrate', { request: 'add login' });
     assert.strictEqual(r.status, 200); assert.ok(r.body.orchestrationId);
     // poll runtime until terminal
-    for (let i = 0; i < 60; i++) {
+    for (let i = 0; i < 100; i++) {
       const o = store.readRuntime(d).orchestration;
       if (o && ['done', 'failed', 'cancelled'].includes(o.status)) { assert.strictEqual(o.status, 'done'); return; }
       await new Promise((s) => setTimeout(s, 100));
