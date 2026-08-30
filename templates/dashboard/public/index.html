@@ -114,7 +114,18 @@
     <div class="drawer-panel" role="dialog"><button class="drawer-close" id="drawerClose">×</button><div id="drawerBody"></div></div>
   </div>
 
+  <!-- shared gradient used by SpectoCharts.ring's foreground arc (stroke="url(#grad)") -->
+  <svg width="0" height="0" style="position:absolute" aria-hidden="true">
+    <defs>
+      <linearGradient id="grad" x1="0%" y1="0%" x2="100%" y2="100%">
+        <stop offset="0%" stop-color="var(--cool)" />
+        <stop offset="100%" stop-color="var(--signal)" />
+      </linearGradient>
+    </defs>
+  </svg>
+
   <script src="stats.js"></script>
+  <script src="charts.js"></script>
   <script src="app.js"></script>
 </body>
 </html>

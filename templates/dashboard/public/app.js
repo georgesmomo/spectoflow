@@ -129,63 +129,33 @@ function renderJournal(){
   });
 }
 
-// ---- inline-SVG helpers (zero-dep charts) --------------------------------
-const SVGNS='http://www.w3.org/2000/svg';
-function svgEl(tag,attrs){ const e=document.createElementNS(SVGNS,tag); for(const k in attrs) e.setAttribute(k,attrs[k]); return e; }
+// ---- SVG helpers ----------------------------------------------------------
+// The chart *markup* (donut/ring/bars arcs & rows) is built by the pure,
+// unit-tested SpectoCharts module (charts.js); here we just wrap its
+// SVG-string output in a DOM node and, for bars, drive the count-up.
+function htmlBlock(cls,html){ const d=el('div',cls); d.innerHTML=html; return d; }
 
-// A single-value progress ring: track + amber arc, % centred.
-function ring(pct,size){
-  size=size||72; pct=Math.max(0,Math.min(100,pct||0));
-  const stroke=7, r=(size-stroke)/2, c=2*Math.PI*r;
-  const svg=svgEl('svg',{viewBox:`0 0 ${size} ${size}`,width:size,height:size,class:'ring-svg'});
-  svg.append(svgEl('circle',{cx:size/2,cy:size/2,r,fill:'none',stroke:'var(--line)','stroke-width':stroke}));
-  svg.append(svgEl('circle',{cx:size/2,cy:size/2,r,fill:'none','stroke-width':stroke,'stroke-linecap':'round',
-    'stroke-dasharray':`${c}`,'stroke-dashoffset':`${c*(1-pct/100)}`,
-    transform:`rotate(-90 ${size/2} ${size/2})`,style:'stroke:var(--signal)'}));
-  const wrap=el('div','ring-wrap'); wrap.style.width=size+'px'; wrap.style.height=size+'px';
-  wrap.append(svg); wrap.append(el('div','ring-label',pct+'%'));
-  return wrap;
+function ring(pct,size){ return htmlBlock('ring-wrap', SpectoCharts.ring(pct,{size:size||72})); }
+
+// Returns {wrap, center:null} — donut's centre label is now baked into the SVG
+// via opts.center/opts.sub (see renderOverview), so there is no DOM centre node.
+function donut(segments,size,opts){
+  const wrap=htmlBlock('donut-wrap', SpectoCharts.donut(segments,Object.assign({size:size||140},opts)));
+  return {wrap,center:null};
 }
 
-// A donut from [{value,color}]: track + stacked arcs. Returns {wrap, center} so
-// the caller can drop a total/label into the empty centre.
-function donut(segments,size){
-  size=size||140; segments=segments||[];
-  const stroke=16, r=(size-stroke)/2, c=2*Math.PI*r;
-  const total=segments.reduce((a,s)=>a+(s.value||0),0);
-  const svg=svgEl('svg',{viewBox:`0 0 ${size} ${size}`,width:size,height:size,class:'donut-svg'});
-  svg.append(svgEl('circle',{cx:size/2,cy:size/2,r,fill:'none',stroke:'var(--line)','stroke-width':stroke}));
-  let offset=0;
-  segments.forEach(s=>{
-    const v=s.value||0; if(!v) return;
-    const len=total? (v/total)*c : 0;
-    svg.append(svgEl('circle',{cx:size/2,cy:size/2,r,fill:'none','stroke-width':stroke,
-      'stroke-dasharray':`${len} ${Math.max(c-len,0)}`,'stroke-dashoffset':`${-offset}`,
-      transform:`rotate(-90 ${size/2} ${size/2})`,style:`stroke:${s.color}`}));
-    offset+=len;
-  });
-  const wrap=el('div','donut-wrap'); wrap.style.width=size+'px'; wrap.style.height=size+'px';
-  wrap.append(svg);
-  const center=el('div','donut-center'); wrap.append(center);
-  return {wrap,center};
-}
-
-// Horizontal progress bars from [{label,pct,sub}].
+// Horizontal progress bars from [{label,pct,sub}]; animates any data-count spans.
 function bars(rows){
-  const wrap=el('div','bars');
-  (rows||[]).forEach(r=>{
-    const row=el('div','bar-row');
-    const head=el('div','bar-head');
-    head.append(el('span','bar-label',r.label));
-    head.append(el('span','bar-sub',r.sub||''));
-    row.append(head);
-    const track=el('div','bar-track');
-    const fill=el('div','bar-fill'); fill.style.width=Math.max(0,Math.min(100,r.pct||0))+'%';
-    track.append(fill); row.append(track);
-    wrap.append(row);
-  });
-  if(!(rows||[]).length) wrap.append(el('div','empty','No phases yet.'));
+  const items=(rows||[]).map(r=>({label:r.label,value:r.pct,sub:r.sub,suffix:r.suffix,color:r.color}));
+  const wrap=htmlBlock('bars-block', SpectoCharts.bars(items));
+  wrap.querySelectorAll('[data-count]').forEach(countUp);
   return wrap;
+}
+function countUp(node){
+  const target=Number(node.dataset.count)||0; const suffix=node.textContent.replace(/^0*/,'');
+  let cur=0; const step=Math.max(1,Math.round(target/20));
+  const tick=()=>{ cur=Math.min(target,cur+step); node.textContent=cur+suffix; if(cur<target) requestAnimationFrame(tick); };
+  requestAnimationFrame(tick);
 }
 
 function kpiCard(label,visual,sub){
@@ -227,9 +197,7 @@ function renderOverview(){
 
   // Status donut + legend
   const segments=s.statuses.map(k=>({key:k,value:s.byStatus[k]||0,color:cssv('--s-'+k)}));
-  const d=donut(segments,140);
-  d.center.append(el('div','donut-total',String(s.total)));
-  d.center.append(el('div','donut-sub','tasks'));
+  const d=donut(segments,140,{center:String(s.total),sub:'tasks'});
   const legend=el('div','legend');
   segments.forEach(seg=>{
     const item=el('div','legend-item');
