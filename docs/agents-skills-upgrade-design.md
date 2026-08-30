@@ -1,8 +1,8 @@
 # Agents & Skills upgrade — design
 
-> Status: **proposed** (awaiting review). Target: spectoflow **0.10**. Turns the framework's
-> personas and procedures from one-line stubs into best-in-class, domain-standard playbooks.
-> Graduates to `DECISIONS.md` (D21) once implemented.
+> Status: **approved** (O1–O3 resolved by review, 2026-08-30). Target: spectoflow **0.10**. Turns the
+> framework's personas and procedures from one-line stubs into best-in-class, domain-standard
+> playbooks. Graduates to `DECISIONS.md` (D21) once implemented.
 
 ## Purpose & problem
 
@@ -141,13 +141,12 @@ the fallback if two agents must ever share a capability.)
 Rethinking which agents/capabilities exist (casting); a design/UX skill; the dashboard design pass;
 turning skills into executable code. Those are separate efforts.
 
-## Open questions
+## Resolved decisions (from review)
 
-- **O1 — new `operations` capability vs `priority` tie-break.** Proposed: add `operations` (cleaner,
-  data-only, no code change). Flag if you'd rather keep a single `implementation` capability with a
-  `priority` field (needs a one-line `resolveStep` change).
-- **O2 — `write-tests` scope.** It currently covers unit tests. Proposed: keep `write-tests` = unit,
-  add `write-e2e-tests` = Playwright E2E; the workflow's Integration/E2E steps point at the E2E skill.
-- **O3 — depth ceiling.** How long may a skill body get before it hurts? Proposed: no hard cap
-  (lazy-loaded), but each skill stays a *procedure + checklist + references*, not a textbook — if it
-  reads like a tutorial, it's too long.
+- **O1 → RESOLVED: add the `operations` capability.** `devops` becomes `capability: operations`
+  (data-only, no `resolveStep` change); `operations` is added to the `capabilities.md` palette and the
+  infra/ops project-type rows. `developer` alone holds `implementation`.
+- **O2 → RESOLVED: split unit vs E2E.** `write-tests` stays unit-only; a new `write-e2e-tests`
+  (Playwright) is added; the workflow's Integration/End-to-end steps annotate `skill:write-e2e-tests`.
+- **O3 → RESOLVED: no hard cap.** Skill bodies may be as long as needed (lazy-loaded), but each stays
+  a *procedure + checklist + references*, never a tutorial — the reviewer flags any that reads like one.
