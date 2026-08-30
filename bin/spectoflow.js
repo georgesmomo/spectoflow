@@ -16,6 +16,11 @@ const VERSION = require('../package.json').version;
 const argv = process.argv.slice(2);
 const cmd = argv[0] || 'help';
 
+// Tiny ANSI colouriser — no dependency; disabled when not a TTY or NO_COLOR is set.
+const useColor = process.stdout.isTTY && !process.env.NO_COLOR;
+const paint = (code) => (s) => (useColor ? `\x1b[${code}m${s}\x1b[0m` : String(s));
+const c = { g: paint('32'), cy: paint('36'), b: paint('34'), y: paint('33'), dim: paint('2'), bold: paint('1'), amber: paint('38;5;179') };
+
 // ---- dashboard port + running-state probe ------------------------------------
 // Precedence: --port=NNNN > SPECTOFLOW_PORT env > 4319 (matches templates/dashboard/server.js).
 function resolvePort(args) {
@@ -156,18 +161,27 @@ function update() {
   const r = require('../lib/update').runUpdate({ projectRoot: root, templatesDir: TPL, version: VERSION, dryRun });
 
   const from = r.fromVersion || 'unknown';
-  console.log(`spectoflow update — ${from} → ${r.toVersion}${dryRun ? '   (dry-run)' : ''}`);
-  const line = (label, list) => list.length && console.log(`  ${label.padEnd(10)} ${String(list.length).padStart(2)}   ${list.join(', ')}`);
-  line('refreshed', r.refreshed);
-  line('created', r.created);
-  line('adopted', r.adopted);
-  line('.new', r.newSidecar);
-  if (r.unchanged.length) console.log(`  ${'unchanged'.padEnd(10)} ${String(r.unchanged.length).padStart(2)}`);
-  console.log(`  ${'preserved'.padEnd(10)}      config.json, workflow.md, specs/, plans/, your custom agents & skills`);
-  if (r.newSidecar.length) {
-    console.log(`\n${r.newSidecar.length} file(s) you edited have a new version alongside as *.new — compare and merge by hand.`);
-  }
-  if (dryRun) console.log('\n(dry-run — nothing was written)');
+  const changed = r.refreshed.length + r.created.length + r.adopted.length + r.newSidecar.length;
+  const row = (sym, label, list, painter, note) => {
+    if (!list.length) return;
+    const n = c.dim(String(list.length).padStart(2));
+    const detail = note ? c.dim(note) : c.dim(list.slice(0, 6).join(', ') + (list.length > 6 ? ` +${list.length - 6} more` : ''));
+    console.log(`  ${sym}  ${painter(label.padEnd(9))} ${n}   ${detail}`);
+  };
+  console.log('');
+  console.log(`  ${c.bold('spectoflow update')}   ${c.dim(from)} ${c.amber('→')} ${c.bold(r.toVersion)}${dryRun ? c.dim('   (dry-run)') : ''}`);
+  console.log('');
+  row(c.g('✓'), 'refreshed', r.refreshed, c.g);
+  row(c.cy('+'), 'created', r.created, c.cy);
+  row(c.b('~'), 'adopted', r.adopted, c.b);
+  row(c.y('!'), '.new', r.newSidecar, c.y, 'you edited these — new version saved as *.new, merge by hand');
+  if (r.unchanged.length) console.log(`  ${c.dim('·')}  ${c.dim('unchanged'.padEnd(9))} ${c.dim(String(r.unchanged.length).padStart(2))}`);
+  console.log(`  ${c.dim('=')}  ${c.dim('preserved'.padEnd(9))}      ${c.dim('config.json · workflow.md · specs/ · plans/ · your custom agents & skills')}`);
+  console.log('');
+  if (dryRun) console.log(`  ${c.dim('(dry-run — nothing was written)')}`);
+  else console.log(`  ${changed ? c.g('✓ Done') : c.dim('Already up to date')}${changed ? c.dim(` · ${changed} file(s) changed`) : ''}`);
+  if (r.newSidecar.length && !dryRun) console.log(`  ${c.y('→')} ${c.dim(`${r.newSidecar.length} *.new file(s) to review and merge`)}`);
+  console.log('');
 }
 
 // THE launch command — prints the URL clearly and won't crash on EADDRINUSE: it probes first
@@ -204,11 +218,26 @@ async function status() {
   console.log(`dashboard: ${running ? `running → http://localhost:${port}` : 'not running'}`);
 }
 
-const help = () => console.log(`spectoflow — commands:
-  init [dir] [--agent=claude,codex]   install into a project
-  update [--dry-run]                  refresh framework files to this kit version
-  dashboard [--port=NNNN]             run the local control plane (default 4319, or $SPECTOFLOW_PORT)
-  status                              print progress`);
+function version() { console.log(`spectoflow v${VERSION}`); }
 
-const fns = { init, update, dashboard, status, help };
-fns[cmd] ? fns[cmd]() : help();
+const help = () => console.log(`${c.bold('spectoflow')} ${c.amber('v' + VERSION)} — agent-agnostic spec-driven development
+
+${c.dim('Usage:')} spectoflow <command> [options]
+
+${c.bold('Commands:')}
+  ${c.g('init')} [dir] [--agent=claude,codex]   scaffold a project (auto-detects installed agents)
+  ${c.g('update')} [--dry-run]                  refresh framework files to this kit version
+  ${c.g('dashboard')} [--port=NNNN]             run the local control plane (default 4319, or $SPECTOFLOW_PORT)
+  ${c.g('status')}                              print progress + whether the dashboard is running
+
+${c.bold('Options:')}
+  -v, --version                       print the version
+  -h, --help                          show this help
+
+${c.dim('Docs:')} https://github.com/georgesmomo/spectoflow`);
+
+const fns = { init, update, dashboard, status, help, version };
+if (['-v', '-V', '--version', 'version'].includes(cmd)) version();
+else if (['-h', '--help'].includes(cmd)) help();
+else if (fns[cmd]) fns[cmd]();
+else help();

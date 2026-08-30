@@ -23,8 +23,27 @@ ceremonial command to start.
 ## Install
 
 ```bash
-npm install -g spectoflow        # (once published)
-spectoflow init /path/to/project # or: node bin/spectoflow.js init .
+# npm (recommended)
+npm install -g spectoflow
+spectoflow init /path/to/project
+
+# or use it straight from a clone, no global install
+git clone https://github.com/georgesmomo/spectoflow
+node spectoflow/bin/spectoflow.js init /path/to/project
+```
+
+Every command works both ways — `spectoflow <cmd>` when installed globally, or `node
+/path/to/spectoflow/bin/spectoflow.js <cmd>` from a clone.
+
+### CLI
+
+```
+spectoflow init [dir] [--agent=claude,codex]   scaffold a project (auto-detects installed agents)
+spectoflow update [--dry-run]                  refresh framework files to this kit version
+spectoflow dashboard [--port=NNNN]             run the local control plane (default 4319)
+spectoflow status                              progress + whether the dashboard is running
+spectoflow --version   (-v)                    print the version
+spectoflow --help      (-h)                    show help
 ```
 
 `init` scaffolds:
@@ -90,20 +109,26 @@ agent never clobber each other.
 ## Dashboard (real-time)
 
 ```bash
-node .spectoflow/dashboard/server.js   # → http://localhost:4319
+spectoflow dashboard                     # → http://localhost:4319 (or --port=NNNN)
+# manual (no global install): node .spectoflow/dashboard/server.js
 ```
 
-Zero dependencies, updates live via SSE + file watching. Seven tabs behind a dense icon-tab header
-(brand · subtitle · a slim global-progress meter · a sync dot · a **Run** quick-action): **Board**
-(the control-room Overview — KPI cards, a status donut, a **scope-vs-delivered area curve**, a
+`spectoflow dashboard` is the simple way — it prints the URL and won't double-start (it detects a
+dashboard already running on the port). `spectoflow status` tells you whether one is up. Running the
+`server.js` directly still works for a manual/embedded setup. Zero dependencies, updates live via SSE +
+file watching. Eight tabs behind a dense icon-tab header (brand logo · subtitle · a slim
+global-progress meter · a sync dot · a **Run** quick-action · a **settings** gear): **Board** (the
+control-room Overview — KPI cards, a status donut, a **scope-vs-delivered area curve**, a
 workflow-at-a-glance strip, per-phase progress bars, filter chips + search — plus the phase board),
-**Requests** (tasks awaiting you — `to_validate`/`to_analyze`), **Backlog** (a flat sortable/filterable
-table of every task across every plan), **Workflow** (the pipeline as a diagram — click a step to
-enable/disable it, which edits `workflow.md`), **Agents & Skills** (enriched cards — capability,
-standards, uses/inputs/outputs — that open a full-body markdown drawer), **Chat** (a full-height
-group-chat panel), and **Info** (a project-at-a-glance summary). Charts are zero-dep, hand-rolled SVG
-in `dashboard/public/charts.js` (donut/area/bars/ring, animated, `prefers-reduced-motion`-aware), and
-every aggregate is computed client-side.
+**Requests** (tasks awaiting you — `to_validate`/`to_analyze`), **Attention** (points the agent raised
+via a `::spectoflow attention msg=…` sentinel or that you noted — edit/resolve/delete, or **validate →
+task**), **Backlog** (a flat sortable/filterable, paginated table of every task, defaulting to open
+work), **Workflow** (the pipeline as step cards — click one to enable/disable it, which edits
+`workflow.md`), **Agents & Skills** (enriched cards that open a full-body markdown drawer), **Chat** (a
+full-height group-chat panel), and **Info** (a project-at-a-glance summary). URLs are real routes
+(`/board`, `/backlog/T-012`, …). Charts are zero-dep, hand-rolled SVG in `dashboard/public/charts.js`
+(donut/area/bars/ring, animated, `prefers-reduced-motion`-aware), and every aggregate is computed
+client-side.
 
 A floating **💬 chat widget** (bottom-right, redesigned) and the **Chat** tab render the same
 `runtime.messages` log via a shared `renderChatLog()`, so they never drift. A running agent identifies
@@ -125,9 +150,14 @@ INVEST, Playwright E2E, Conventional Commits, and more — not generic one-liner
 
 ## Language
 
-`.spectoflow/config.json` → `language` (default `en`, incl. code comments). Switchable.
+`.spectoflow/config.json` → `language` (default `en`, incl. code comments). Switchable from the CLI
+(`config.json`) or the dashboard's **settings** gear (mode + language).
 
 ## Studied, not copied
 
 Structure informed by spec-kit, OpenSpec (markdown + per-agent adapters), and BMAD (agent-personas).
-spectoflow keeps the good ideas, removes the ceremony, and adds a real-time control plane. MIT.
+spectoflow keeps the good ideas, removes the ceremony, and adds a real-time control plane.
+
+## License & author
+
+MIT © 2026 [Georges MOMO](https://github.com/georgesmomo).
