@@ -5,6 +5,17 @@ framework with a real-time local control plane. This file orients you to **build
 (it is not a spectoflow-managed project). Read `docs/` before making changes:
 `docs/ARCHITECTURE.md`, `docs/DECISIONS.md` (the full rationale, D1–D23), `docs/ROADMAP.md` (what's next).
 
+## What exists (v0.13.2)
+
+**v0.13.2 — design pass (see DECISIONS D25):** violet re-skin of the default; a **multi-design system**
+(`data-design` skins registered in `dashboard/public/designs.js`, switchable in Settings, persisted per
+viewer + as `config.design`) shipping **Control Room / Obsidian Ops / Neon Command** (each light+dark);
+**self-hosted `.woff2` fonts** (offline, zero-dep intact); a decluttered header with the framework
+**version** shown; a **Settings** tab + pro **footer**; a redesigned **Workflow** (horizontal icon
+pipeline with arrows + a click **popover** of step details); mobile **hamburger** nav + responsive
+fixes; and CLI `--version`/`--help` + coloured `update`. **v0.13.1** hardened `GET /api/agentfile`
+against symlink escape.
+
 ## What exists (v0.13.0)
 
 **v0.13 — "real-use" pass (see DECISIONS D24):** configurable/auto-detected plans & specs dir

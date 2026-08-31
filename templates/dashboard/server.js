@@ -15,10 +15,22 @@ const orchestrator = require('./orchestrator');
 const PORT = process.env.SPECTOFLOW_PORT ? Number(process.env.SPECTOFLOW_PORT) : 4319;
 const PUBLIC = path.join(__dirname, 'public');
 const ROOT = process.env.SPECTOFLOW_ROOT || path.resolve(__dirname, '..', '..');
-const MIME = { '.html':'text/html; charset=utf-8', '.css':'text/css; charset=utf-8', '.js':'application/javascript; charset=utf-8', '.png':'image/png', '.svg':'image/svg+xml', '.ico':'image/x-icon' };
+const MIME = { '.html':'text/html; charset=utf-8', '.css':'text/css; charset=utf-8', '.js':'application/javascript; charset=utf-8', '.png':'image/png', '.svg':'image/svg+xml', '.ico':'image/x-icon', '.woff2':'font/woff2', '.woff':'font/woff' };
 const clients = new Set();
 
-function project(){ return store.readProject(ROOT); }
+// Installed framework version: the manifest records it at init/update time. Fallback to the kit's
+// own package.json — only reachable (and only used) when the server is run straight from templates/
+// (dev/preview), never from an installed project whose sibling package.json belongs to the user.
+function frameworkVersion(){
+  try { return JSON.parse(fs.readFileSync(path.join(ROOT, '.spectoflow', '.manifest.json'), 'utf8')).version; } catch {}
+  try { const pk = JSON.parse(fs.readFileSync(path.join(__dirname, '..', '..', 'package.json'), 'utf8')); if (pk.name === 'spectoflow') return pk.version; } catch {}
+  return null;
+}
+function project(){
+  const p = store.readProject(ROOT);
+  const v = frameworkVersion(); if (v) p.version = v;
+  return p;
+}
 function sendJSON(res,code,obj){ res.writeHead(code,{'Content-Type':'application/json; charset=utf-8'}); res.end(JSON.stringify(obj)); }
 function body(req){ return new Promise(r=>{ let b=''; req.on('data',c=>b+=c); req.on('end',()=>{ try{r(JSON.parse(b||'{}'));}catch{r({});} }); }); }
 function emit(obj){ const line='data: '+JSON.stringify(obj)+'\n\n'; for(const res of clients) res.write(line); }
@@ -30,6 +42,7 @@ function writeConfig(patch){
   const cp = configPath(); const cfg = JSON.parse(fs.readFileSync(cp, 'utf8'));
   if (patch.mode && ['autopilot','semi','manual'].includes(patch.mode)) cfg.mode = patch.mode;
   if (typeof patch.language === 'string' && patch.language.trim()) cfg.language = patch.language.trim();
+  if (typeof patch.design === 'string' && /^[a-z0-9-]{1,40}$/.test(patch.design)) cfg.design = patch.design;
   fs.writeFileSync(cp, JSON.stringify(cfg, null, 2) + '\n');
   return cfg;
 }

@@ -130,6 +130,14 @@ full-height group-chat panel), and **Info** (a project-at-a-glance summary). URL
 (donut/area/bars/ring, animated, `prefers-reduced-motion`-aware), and every aggregate is computed
 client-side.
 
+**Designs & theme.** The dashboard ships **switchable designs** (Settings → *Dashboard design*):
+**Control Room** (violet), **Obsidian Ops** (near-black lime/cyan, mono), and **Neon Command**
+(glassmorphism aurora). Each works in light and dark (the moon toggle). A design is a `data-design`
+skin — a scoped CSS token block plus a one-line entry in `dashboard/public/designs.js`, so adding one
+is trivial. Fonts are **self-hosted** (`dashboard/public/fonts/*.woff2`), keeping the dashboard fully
+offline and dependency-free. Your choice persists per viewer (localStorage) and as the project
+default (`config.design`).
+
 A floating **💬 chat widget** (bottom-right, redesigned) and the **Chat** tab render the same
 `runtime.messages` log via a shared `renderChatLog()`, so they never drift. A running agent identifies
 itself by printing `::spectoflow role=… kind=… msg=…` sentinels, which become labelled messages

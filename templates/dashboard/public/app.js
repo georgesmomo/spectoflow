@@ -6,6 +6,8 @@ let backlogFilter = { status: 'open', q: '' }; // backlog defaults to open (not-
 let backlogSort = { col: 'id', dir: 'asc' };   // backlog sort state — client-side only
 let backlogPage = 1; const BACKLOG_PAGE = 25;   // backlog pagination — client-side only
 let attnFilter = 'open';                          // attention tab filter — client-side only
+// apply the persisted design skin as early as possible (before the first paint of app-driven DOM)
+(function(){ try{ const d=localStorage.getItem('spf-design'); if(d) document.documentElement.setAttribute('data-design',d); }catch{} })();
 
 const $ = (s,r=document)=>r.querySelector(s);
 const $$ = (s,r=document)=>[...r.querySelectorAll(s)];
@@ -115,9 +117,7 @@ function flash(){ const s=$('#sync'); s.classList.add('saving'); $('#syncLabel')
 function render(){
   const c = P.config||{};
   $('#projectName').textContent = c.projectType || 'project';
-  $('#agentChip').textContent = c.agent||'claude';
-  $('#langChip').textContent = c.language||'en';
-  $('#modeChip').textContent = c.mode||'semi';
+  const bv=$('#brandVer'); if(bv){ if(P.version){ bv.textContent='v'+P.version; bv.hidden=false; } else { bv.hidden=true; } }
   $('#brandSub').textContent = (c.mode||'semi') + ' · ' + (c.language||'en');
   // agent select — widget (#runAgent) and Chat tab (#tabRunAgent) each get their own populated
   // <select>, since an id can't be shared by two elements; same option list, same source of truth.
@@ -133,7 +133,7 @@ function render(){
   if(meter) meter.title=`Global progress: ${s.pct}% (${s.done}/${s.total} tasks)`;
   renderOverview(); renderBoard(); renderBacklog(); renderWorkflow(); renderTeam();
   renderChatLog($('#chatLog')); renderChatLog($('#chatTabLog'));
-  renderSidebar(); renderRequests(); renderAttention(); renderInfo();
+  renderSidebar(); renderRequests(); renderAttention(); renderInfo(); renderSettings();
   applyActiveTab(); // re-apply the current tab so an SSE-driven re-render never resets to Board
 }
 
@@ -202,8 +202,9 @@ function countUp(node){
   requestAnimationFrame(tick);
 }
 
-function kpiCard(label,visual,sub){
+function kpiCard(label,visual,sub,accent){
   const c=el('div','kpi');
+  if(accent){ c.style.borderLeftColor=accent; c.classList.add('has-accent'); }
   c.append(el('div','kpi-label',label));
   const body=el('div','kpi-body'); body.append(visual); c.append(body);
   if(sub) c.append(el('div','kpi-sub',sub));
@@ -228,15 +229,15 @@ function renderOverview(){
 
   // KPI row
   const kpis=el('div','kpi-row');
-  kpis.append(kpiCard('Global progress', ring(s.pct,72), `${s.done}/${s.total} tasks`));
-  kpis.append(kpiCard('In progress', numBlock(s.byStatus.in_progress||0,'var(--s-in_progress)'), 'tasks'));
-  kpis.append(kpiCard('To validate', numBlock(s.byStatus.to_validate||0,'var(--s-to_validate)'), 'awaiting review'));
+  kpis.append(kpiCard('Global progress', ring(s.pct,72), `${s.done}/${s.total} tasks`, cssv('--s-done')));
+  kpis.append(kpiCard('In progress', numBlock(s.byStatus.in_progress||0,'var(--s-in_progress)'), 'tasks', cssv('--s-in_progress')));
+  kpis.append(kpiCard('To validate', numBlock(s.byStatus.to_validate||0,'var(--s-to_validate)'), 'awaiting review', cssv('--s-to_validate')));
   const r=s.running||{};
   let runVal='—', runSub='no runs yet';
   if(r.agents>0){ runVal=`${r.agents} running`; runSub='agents active'; }
   else if(r.orchestration&&r.orchestration.status){ runVal=r.orchestration.status; runSub='orchestration'; }
   else if(r.lastRun){ runVal=r.lastRun.status||'—'; runSub='last: '+(r.lastRun.tool||'—'); }
-  kpis.append(kpiCard('Running', numBlock(runVal, r.agents>0?'var(--signal)':'var(--muted)', true), runSub));
+  kpis.append(kpiCard('Running', numBlock(runVal, r.agents>0?'var(--signal)':'var(--muted)', true), runSub, cssv('--signal')));
   box.append(kpis);
 
   // Status donut + legend
@@ -469,40 +470,104 @@ function renderTask(t){
   return c;
 }
 
+// Plain-language explanation of what each workflow step does, resolved from the step name — so the
+// detail zone teaches the user what the pipeline is, not just that a step exists.
+function wfDesc(s){
+  const n=String(s.name||'').toLowerCase();
+  if(/brainstorm|idea|intake/.test(n)) return 'Explore the request before committing to it — clarify the goal, constraints and success criteria, and shape a raw idea into something worth building.';
+  if(/analy/.test(n)) return 'Break the idea down: study the existing code and requirements, surface risks and ambiguities, and pin down clear, testable acceptance criteria.';
+  if(/spec/.test(n)) return 'Write the specification — the versioned, plain-markdown source of truth for what to build and why, before any code is written.';
+  if(/plan/.test(n)) return 'Turn the spec into an ordered plan of small, checkbox tasks — each one testable and executable on its own by a developer or an agent.';
+  if(/develop|implement|\bcode\b/.test(n)) return 'Implement the plan task by task, writing the code (and the tests that pin it down) to satisfy each checkbox.';
+  if(/integration/.test(n)) return 'Check that the pieces work together — modules, services and data paths across component boundaries, not just in isolation.';
+  if(/end.?to.?end|e2e/.test(n)) return 'Exercise the whole product the way a real user would, through the actual UI and end-to-end flows.';
+  if(/unit/.test(n)||/\btest/.test(n)) return 'Verify each unit in isolation — fast, focused tests that lock in behaviour and catch regressions early.';
+  if(/review/.test(n)) return 'A final quality pass — correctness, security and standards — before the work is considered done.';
+  if(/deploy|ship|release|publish/.test(n)) return 'Release the delivered work — ship it to its target environment.';
+  return 'A step in the delivery pipeline.';
+}
+let wfPopStep=null; // name of the step whose click-popover is open (null = closed)
+
+// Workflow — a horizontal pipeline of representative icons with directional arrows. Clicking a step
+// opens a floating popover (tooltip-style, anchored to the step) with what it does, its
+// capability/agent/skill, and the enable/disable button. On narrow screens the pipeline reflows into
+// a centered wrap (no horizontal scroll).
 function renderWorkflow(){
   const box=$('#wfDiagram'); box.innerHTML='';
   const steps=P.workflow||[];
-  if(!steps.length){ box.append(el('div','empty','No workflow defined.')); return; }
+  if(!steps.length){ box.append(el('div','empty','No workflow defined.')); closeWfPop(); return; }
   const enabledCount=steps.filter(s=>s.enabled).length;
   const legend=el('div','wf-legend');
-  legend.append(el('span','wf-legend-txt',`${enabledCount}/${steps.length} steps enabled`));
+  legend.append(el('span','wf-legend-dot'));
+  legend.append(el('span','wf-legend-txt',`${enabledCount} of ${steps.length} steps enabled — click a step to see what it does`));
   box.append(legend);
-  const track=el('div','wf-track');
+  const pipe=el('div','wf-pipeline');
   steps.forEach((s,i)=>{
-    const node=el('div','wf-card'+(s.enabled?'':' off')); node.tabIndex=0; node.setAttribute('role','button');
-    node.setAttribute('aria-pressed',String(!!s.enabled));
-    const head=el('div','wf-card-head');
-    head.append(el('span','wf-num',String(i+1)));
-    head.append(el('span','wf-card-name',s.name));
-    if(s.optional) head.append(el('span','wf-opt','optional'));
-    node.append(head);
-    if(s.cap||s.skill){
-      const meta=el('div','wf-card-meta');
-      if(s.cap) meta.append(el('span','wf-cap',s.cap));
-      if(s.skill) meta.append(el('span','wf-skill',s.skill));
-      node.append(meta);
-    }
-    const toggle=el('div','wf-toggle');
-    toggle.append(el('span','wf-toggle-dot'));
-    toggle.append(el('span','wf-toggle-label',s.enabled?'enabled':'disabled'));
-    node.append(toggle);
-    const act=()=>toggleStep(s.name);
-    node.addEventListener('click',act);
-    node.addEventListener('keydown',e=>{ if(e.key==='Enter'||e.key===' '){ e.preventDefault(); act(); } });
-    track.append(node);
-    if(i<steps.length-1) track.append(el('div','wf-conn'+(s.enabled&&steps[i+1].enabled?'':' off')));
+    const step=el('div','wf-step2'+(s.enabled?' on':' off')+(s.name===wfPopStep?' is-selected':'')); step.style.setProperty('--i',i); step.dataset.idx=i;
+    step.tabIndex=0; step.setAttribute('role','button'); step.setAttribute('aria-expanded',String(s.name===wfPopStep));
+    step.title=s.name;
+    const circle=el('div','wf-circle');
+    circle.innerHTML=(typeof ICON!=='undefined'&&ICON.wf)?ICON.wf(s.name):'';
+    step.append(circle);
+    const cap=el('div','wf-caption'); cap.append(document.createTextNode(s.name));
+    if(s.optional) cap.append(el('span','wf-opt2','optional'));
+    step.append(cap);
+    const sel=(e)=>{ if(e) e.stopPropagation(); if(wfPopStep===s.name) closeWfPop(); else openWfPop(s.name); };
+    step.addEventListener('click',sel);
+    step.addEventListener('keydown',e=>{ if(e.key==='Enter'||e.key===' '){ e.preventDefault(); sel(e); } });
+    pipe.append(step);
+    if(i<steps.length-1) pipe.append(el('div','wf-link'+(s.enabled&&steps[i+1].enabled?' on':'')));
   });
-  box.append(track);
+  box.append(pipe);
+  if(wfPopStep) renderWfPop(); // re-anchor / refresh an open popover after a live re-render
+}
+function wfDetailRow(k,v){ const r=el('div','wf-detail-row'); r.append(el('span','wf-detail-k',k), el('span','wf-detail-v',v)); return r; }
+function wfPopFill(pop, s, idx){
+  const skill=(P.skills||[]).find(x=>x.name===s.skill);
+  const agent=(P.agents||[]).find(a=>a.capability===s.cap);
+  pop.innerHTML='';
+  const head=el('div','wf-detail-head');
+  head.append(el('span','wf-detail-num',String(idx+1)));
+  head.append(el('span','wf-detail-name',s.name));
+  head.append(el('span','wf-detail-status '+(s.enabled?'on':'off'), s.enabled?'enabled':'disabled'));
+  if(s.optional) head.append(el('span','wf-opt','optional'));
+  pop.append(head);
+  pop.append(el('p','wf-detail-desc', wfDesc(s)));
+  const grid=el('div','wf-detail-grid');
+  grid.append(wfDetailRow('Capability', s.cap||'—'));
+  grid.append(wfDetailRow('Handled by', agent?(agent.title||agent.name):'—'));
+  grid.append(wfDetailRow('Skill', s.skill||'—'));
+  if(skill&&skill.standard) grid.append(wfDetailRow('Standard', skill.standard));
+  if(skill&&(skill.inputs||skill.outputs)) grid.append(wfDetailRow('Flow', (skill.inputs||'—')+'  →  '+(skill.outputs||'—')));
+  pop.append(grid);
+  if(skill&&skill.description){ const sk=el('div','wf-detail-skill'); sk.append(el('b',null,'The “'+skill.name+'” skill — ')); sk.append(document.createTextNode(skill.description)); pop.append(sk); }
+  const btn=el('button','btn '+(s.enabled?'':'primary')+' wf-detail-btn', s.enabled?'Disable step':'Enable step');
+  btn.addEventListener('click',(e)=>{ e.stopPropagation(); toggleStep(s.name); });
+  const actions=el('div','wf-pop-actions'); actions.append(btn); pop.append(actions);
+}
+function openWfPop(name){ wfPopStep=name; renderWfPop(); }
+function closeWfPop(){ wfPopStep=null; const p=$('#wfPop'); if(p) p.hidden=true; $$('#wfDiagram .wf-step2.is-selected').forEach(x=>x.classList.remove('is-selected')); }
+function renderWfPop(){
+  const p=$('#wfPop'); if(!p) return;
+  const steps=P.workflow||[]; const idx=steps.findIndex(s=>s.name===wfPopStep);
+  if(idx<0){ closeWfPop(); return; }
+  const anchor=$('#wfDiagram .wf-step2[data-idx="'+idx+'"]');
+  if(!anchor){ p.hidden=true; return; }
+  $$('#wfDiagram .wf-step2.is-selected').forEach(x=>x.classList.remove('is-selected')); anchor.classList.add('is-selected');
+  wfPopFill(p, steps[idx], idx);
+  positionWfPop(anchor.querySelector('.wf-circle')||anchor, p);
+}
+function positionWfPop(anchorEl, pop){
+  const r=anchorEl.getBoundingClientRect();
+  pop.style.visibility='hidden'; pop.hidden=false; pop.classList.remove('above');
+  const pw=pop.offsetWidth, ph=pop.offsetHeight;
+  const left=Math.max(10, Math.min(r.left + r.width/2 - pw/2, window.innerWidth-pw-10));
+  let top=r.bottom + 12, above=false;
+  if(top + ph > window.innerHeight-10 && r.top - ph - 12 > 10){ top=r.top - ph - 12; above=true; }
+  pop.style.left=left+'px'; pop.style.top=top+'px';
+  pop.classList.toggle('above',above);
+  pop.style.setProperty('--caret-x', ((r.left + r.width/2) - left)+'px');
+  pop.style.visibility='';
 }
 
 // ---- Attention tab: agent/user-raised points; validate → real task ----------
@@ -552,29 +617,59 @@ async function patchAttn(id,patch){ flash(); await fetch('/api/attention/'+encod
 async function deleteAttn(id){ flash(); await fetch('/api/attention/'+encodeURIComponent(id),{method:'DELETE'}); }
 async function promoteAttn(id){ flash(); await fetch('/api/attention/'+encodeURIComponent(id)+'/promote',{method:'POST'}); }
 
-// ---- Settings popover: change autonomy mode + output language (writes config.json) ----
-function openSettings(open){
-  const pop=$('#settingsPop'); if(!pop) return;
-  if(open){ const c=P&&P.config||{}; if($('#setMode')) $('#setMode').value=c.mode||'semi'; setLangSelect(c.language||'en'); }
-  pop.hidden=!open;
-}
+// ---- Settings tab: change autonomy mode + output language (writes config.json) ----
 function setLangSelect(lang){
   const sel=$('#setLang'); if(!sel) return;
   if(![...sel.options].some(o=>o.value===lang)){ const o=document.createElement('option'); o.value=lang; o.textContent=lang; sel.append(o); }
   sel.value=lang;
 }
-async function saveSettings(){ flash(); const mode=$('#setMode').value, language=$('#setLang').value;
-  await fetch('/api/settings',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({mode,language})}); }
+// ---- design skins (data-design) — switchable, persisted per viewer + as the project default ----
+function currentDesign(){ return document.documentElement.getAttribute('data-design')||'control-room'; }
+function applyDesign(id){ document.documentElement.setAttribute('data-design',id); try{ localStorage.setItem('spf-design',id); }catch{} }
+async function saveDesign(id){ applyDesign(id); if(P) render(); /* re-read token colours into the SVG charts */ flash(); try{ await fetch('/api/settings',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({design:id})}); }catch{} }
+
+function renderSettings(){
+  const c=(P&&P.config)||{};
+  if($('#setMode')) $('#setMode').value=c.mode||'semi';
+  setLangSelect(c.language||'en');
+  // design switcher — options from the DESIGNS registry (designs.js)
+  const dsel=$('#setDesign');
+  if(dsel){
+    const designs=(typeof DESIGNS!=='undefined')?DESIGNS:[{id:'control-room',name:'Control Room'}];
+    if(dsel.options.length!==designs.length){ dsel.innerHTML=''; designs.forEach(d=>{ const o=document.createElement('option'); o.value=d.id; o.textContent=d.name; if(d.desc) o.title=d.desc; dsel.append(o); }); }
+    // reconcile: a per-viewer choice (localStorage) wins; else the project default (config.design)
+    let active; try{ active=localStorage.getItem('spf-design'); }catch{}
+    if(!active && c.design) active=c.design;
+    if(active && active!==currentDesign() && designs.some(d=>d.id===active)) document.documentElement.setAttribute('data-design',active);
+    dsel.value=currentDesign();
+  }
+  const box=$('#settingsReadonly');
+  if(box){
+    box.innerHTML='';
+    const rows=[['Active agent',c.agent||'—'],['Project type',c.projectType||'—'],
+      ['Plans folder',c.plansDir||'plans'],['Specs folder',c.specsDir||'specs'],
+      ['Framework version', P&&P.version?('v'+P.version):'—']];
+    rows.forEach(([k,v])=>{ const r=el('div','settings-ro-row'); r.append(el('span','settings-ro-k',k), el('span','settings-ro-v',String(v))); box.append(r); });
+  }
+  const fv=$('#footerVer'); if(fv) fv.textContent = (P&&P.version) ? ('v'+P.version) : '';
+}
+async function saveSettings(){
+  flash(); const mode=$('#setMode').value, language=$('#setLang').value;
+  await fetch('/api/settings',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({mode,language})});
+  const s=$('#settingsSaved'); if(s){ s.hidden=false; setTimeout(()=>{ s.hidden=true; },1500); }
+}
 
 // ---- client-side routing: /<tab>[/<taskId>] via the History API ------------
-const ROUTES=['board','requests','attention','backlog','workflow','team','chat','info'];
+const ROUTES=['board','requests','attention','backlog','workflow','team','chat','info','settings'];
 function tabFromPath(){ const s=location.pathname.split('/').filter(Boolean); return ROUTES.includes(s[0])?s[0]:null; }
 function taskFromPath(){ const s=location.pathname.split('/').filter(Boolean); return (ROUTES.includes(s[0])&&s[1])?decodeURIComponent(s[1]):null; }
 function navigateTab(t,push){
   activeTab=t; try{ localStorage.setItem('spf-tab',t); }catch{}
   if(push!==false) history.pushState(null,'','/'+t);
   applyActiveTab();
+  closeNav(); // a tab pick closes the mobile menu
 }
+function closeNav(){ document.body.classList.remove('nav-open'); const nt=$('#navToggle'); if(nt) nt.setAttribute('aria-expanded','false'); }
 
 // chip row: a small uppercase kicker label followed by one chip per item — used for
 // agent standards/uses and the skill standard.
@@ -804,6 +899,16 @@ function applyActiveTab(){
   $$('.panel').forEach(p=> p.classList.toggle('is-active', p.dataset.panel===activeTab));
 }
 $$('#tabs .tab').forEach(tab=> tab.addEventListener('click',()=> navigateTab(tab.dataset.tab)));
+// mobile hamburger — toggles the tab dropdown (body.nav-open); closes on tab pick / outside / Esc
+const navToggle=$('#navToggle');
+if(navToggle) navToggle.addEventListener('click',e=>{ e.stopPropagation(); const open=!document.body.classList.contains('nav-open'); document.body.classList.toggle('nav-open',open); navToggle.setAttribute('aria-expanded',String(open)); });
+document.addEventListener('click',e=>{ if(!document.body.classList.contains('nav-open')) return; if(e.target.closest('#tabs')||e.target.closest('#navToggle')) return; closeNav(); });
+document.addEventListener('keydown',e=>{ if(e.key==='Escape') closeNav(); });
+// workflow step popover — close on outside click / scroll / resize / Esc
+document.addEventListener('click',e=>{ if(wfPopStep && !e.target.closest('#wfPop') && !e.target.closest('.wf-step2')) closeWfPop(); });
+document.addEventListener('keydown',e=>{ if(e.key==='Escape') closeWfPop(); });
+window.addEventListener('scroll',()=>{ if(wfPopStep) closeWfPop(); },true);
+window.addEventListener('resize',()=>{ if(wfPopStep) closeWfPop(); });
 // keep the URL and the path in sync when the user uses the browser back/forward buttons
 window.addEventListener('popstate',()=>{
   activeTab = tabFromPath() || 'board'; applyActiveTab();
@@ -828,11 +933,12 @@ $$('#backlogTable thead th').forEach(th=> th.addEventListener('click', ()=>{
 $('#attnAddBtn').addEventListener('click',()=>{ const t=$('#attnInput'); const v=t.value.trim(); if(v){ addAttn(v); t.value=''; } });
 $('#attnInput').addEventListener('keydown',e=>{ if((e.metaKey||e.ctrlKey)&&e.key==='Enter'){ const v=e.target.value.trim(); if(v){ addAttn(v); e.target.value=''; } } });
 $$('.attn-filters .fchip').forEach(b=> b.addEventListener('click',()=>{ attnFilter=b.dataset.attn; renderAttention(); }));
-// settings popover
-$('#settingsBtn').addEventListener('click',e=>{ e.stopPropagation(); openSettings($('#settingsPop').hidden); });
+// settings — the footer link opens the Settings tab; selects save on change
+const footerSettingsBtn=$('#footerSettings'); if(footerSettingsBtn) footerSettingsBtn.addEventListener('click',()=>navigateTab('settings'));
+const footerLogo=$('.footer-logo'); if(footerLogo) footerLogo.addEventListener('click',e=>{ e.preventDefault(); navigateTab('board'); });
 $('#setMode').addEventListener('change',saveSettings);
 $('#setLang').addEventListener('change',saveSettings);
-document.addEventListener('click',e=>{ const pop=$('#settingsPop'); if(!pop||pop.hidden) return; if(!pop.contains(e.target) && !e.target.closest('#settingsBtn')) openSettings(false); });
+const setDesignSel=$('#setDesign'); if(setDesignSel) setDesignSel.addEventListener('change',()=>saveDesign(setDesignSel.value));
 // theme
 (function(){ const s=localStorage.getItem('spf-theme'); if(s)document.documentElement.setAttribute('data-theme',s);
   $('#themeToggle').addEventListener('click',()=>{ const c=document.documentElement.getAttribute('data-theme'); const n=c==='dark'?'light':'dark'; document.documentElement.setAttribute('data-theme',n); localStorage.setItem('spf-theme',n); }); })();

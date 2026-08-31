@@ -385,3 +385,16 @@
     extension sert `index.html`) — fini l'URL unique.
 - **Contrainte respectée :** zéro dépendance runtime, tout en anglais côté UI, SSE/écritures granulaires/orchestrateur inchangés.
 - **Non publié tel quel :** 0.13.0 est poussée sur `main` mais **pas taguée** — à valider en usage réel avant `git tag v0.13.0`.
+
+### D25 — Refonte design 0.13.2 : palette violette, système multi-designs, workflow pipeline, polices auto-hébergées
+- **ACTÉ.** Grosse passe UI issue d'un aller-retour serré avec l'utilisateur.
+  - **Re-skin violet** (control-room) : `--signal` ambre → violet #7c5cff, vert #4caf72 pour le done, teal secondaire ; le **logo ambre** reste la seule touche chaude. KPIs à liseré coloré, animations calmées, courbe conservée.
+  - **Header épuré** : suppression des chips CLAUDE/EN/SEMI et de l'engrenage (doublon avec l'onglet Settings) ; **lune** pour le thème ; **version du framework** affichée (header + footer + Settings, via `.spectoflow/.manifest.json` avec fallback kit).
+  - **Onglet Settings** (mode + langue + **design**) ; **footer** pro (nom, version, licence, GitHub/npm). Nom de l'auteur retiré du footer (reste dans `package.json`).
+  - **Workflow** refait : **pipeline horizontal** d'icônes représentatives (résolues par nom d'étape), connecteurs animés + **flèches** directionnelles, **popover** (tooltip cliquable) au clic avec description/capability/agent/skill + bouton activer/désactiver ; **reflow mobile** sans scroll horizontal.
+  - **Responsive** : header en grille `auto minmax(0,1fr) auto`, tabs qui scrollent, **menu hamburger** ≤900px, `overflow-x:hidden`. Boutons chat compacts.
+  - **Système multi-designs** (`data-design` sur `<html>`) : registre `designs.js` + blocs CSS scoped (`:root[data-design="<id>"]`) + sélecteur dans Settings + persistance (localStorage par-utilisateur, `config.design` par-projet) + re-render des charts au switch. **Ajouter un design = 1 entrée registre + 1 bloc CSS.**
+  - **3 designs** livrés : **Control Room** (violet), **Obsidian Ops** (near-black lime/cyan, mono), **Neon Command** (glassmorphism aurora violet/cyan). Chaque design gère clair **et** foncé ; le header suit toujours les tokens (jamais de couleur en dur) pour éviter logo/texte invisibles.
+  - **Polices auto-hébergées** (Space Grotesk, Sora, IBM Plex Sans, JetBrains Mono en `.woff2` sous `dashboard/public/fonts/`, ~220 Ko) → **offline préservé**, invariant Node zéro-dépendance intact ; MIME `woff2` ajouté au serveur.
+- **Correctif sécurité (0.13.1)** : `GET /api/agentfile` bloque désormais un symlink s'échappant du périmètre agents/skills.
+- **CLI (0.13.x)** : `--version`/`-v`/`version`, `--help`/`-h`, sortie `update` colorée ; publication npm automatique par tag (OIDC Trusted Publishing, provenance).

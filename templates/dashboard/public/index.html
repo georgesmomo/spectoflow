@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<html lang="en" data-theme="dark">
+<html lang="en" data-theme="dark" data-design="control-room">
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
@@ -10,6 +10,7 @@
 <body>
   <header class="topbar">
     <div class="brand">
+      <button class="nav-toggle" id="navToggle" aria-label="Toggle menu" aria-expanded="false"><span></span><span></span><span></span></button>
       <a class="brand-logo" href="/board" data-route="board" aria-label="spectoflow home">
         <img class="brand-logo-img is-dark" src="logo-white.png" alt="spectoflow" />
         <img class="brand-logo-img is-light" src="logo-dark.png" alt="spectoflow" />
@@ -17,6 +18,7 @@
       <div class="brand-text">
         <div class="brand-line">
           <span class="brand-name">spectoflow</span>
+          <span class="brand-ver" id="brandVer" hidden></span>
           <span class="brand-sep">/</span>
           <span class="brand-project" id="projectName">—</span>
         </div>
@@ -35,38 +37,12 @@
       <button class="tab" data-tab="team"><span class="tab-ico" data-icon="agents"></span><span class="tab-label">Agents &amp; Skills</span></button>
       <button class="tab" data-tab="chat"><span class="tab-ico" data-icon="chat"></span><span class="tab-label">Chat</span></button>
       <button class="tab" data-tab="info"><span class="tab-ico" data-icon="info"></span><span class="tab-label">Info</span></button>
+      <button class="tab" data-tab="settings"><span class="tab-ico" data-icon="settings"></span><span class="tab-label">Settings</span></button>
     </nav>
     <div class="top-right">
-      <span class="meta-chip" id="agentChip" title="Active agent">claude</span>
-      <span class="meta-chip" id="langChip" title="Output language">en</span>
-      <span class="mode-chip" id="modeChip" title="Autonomy mode">semi</span>
       <span class="sync" id="sync"><span class="sync-dot"></span><span id="syncLabel">live</span></span>
       <button class="btn primary run-btn" id="runQuickBtn" title="Open the run chat"><span class="tab-ico" data-icon="run"></span><span>Run</span></button>
-      <button class="icon-btn" id="settingsBtn" aria-label="Settings" title="Settings"><span class="tab-ico" data-icon="settings"></span></button>
-      <button class="theme-toggle" id="themeToggle" aria-label="Toggle theme"><span class="theme-ico"></span></button>
-    </div>
-
-    <!-- settings popover (mode + language) -->
-    <div class="settings-pop" id="settingsPop" hidden role="dialog" aria-label="Settings">
-      <div class="settings-head">Settings</div>
-      <label class="settings-row"><span>Autonomy mode</span>
-        <select id="setMode">
-          <option value="autopilot">autopilot</option>
-          <option value="semi">semi</option>
-          <option value="manual">manual</option>
-        </select>
-      </label>
-      <label class="settings-row"><span>Output language</span>
-        <select id="setLang">
-          <option value="en">en · English</option>
-          <option value="fr">fr · Français</option>
-          <option value="es">es · Español</option>
-          <option value="de">de · Deutsch</option>
-          <option value="pt">pt · Português</option>
-          <option value="it">it · Italiano</option>
-        </select>
-      </label>
-      <p class="settings-note">Writes <code>.spectoflow/config.json</code> — the agent picks it up on its next run.</p>
+      <button class="theme-toggle" id="themeToggle" aria-label="Toggle light / dark theme" title="Toggle light / dark"><span class="tab-ico" data-icon="theme"></span></button>
     </div>
   </header>
 
@@ -174,7 +150,7 @@
     <section class="panel" data-panel="workflow">
       <div class="wf-wrap">
         <h2 class="panel-title">Active workflow</h2>
-        <p class="panel-sub">Click a step to enable or disable it. This edits <code>.spectoflow/workflow.md</code>.</p>
+        <p class="panel-sub">The pipeline your requests flow through — from idea to shipped, spec-driven. <strong>Click a step</strong> to see what it does and turn it on or off (this edits <code>.spectoflow/workflow.md</code>). Enabled steps run in order; the orchestrator gates each one by your <em>mode</em> and <em>policy</em>. Optional steps stay off until you switch them on.</p>
         <div class="wf-diagram" id="wfDiagram"></div>
       </div>
     </section>
@@ -224,7 +200,60 @@
         <div class="info-grid" id="infoGrid"></div>
       </div>
     </section>
+
+    <!-- SETTINGS (change autonomy mode + output language → config.json) -->
+    <section class="panel" data-panel="settings">
+      <div class="settings-wrap">
+        <h2 class="panel-title">Settings</h2>
+        <p class="panel-sub">Change how spectoflow runs. Writes <code>.spectoflow/config.json</code> — the agent picks it up on its next run.</p>
+        <div class="settings-card">
+          <label class="settings-field">
+            <span class="settings-field-label">Dashboard design</span>
+            <select id="setDesign" class="settings-select"></select>
+          </label>
+          <label class="settings-field">
+            <span class="settings-field-label">Autonomy mode</span>
+            <select id="setMode" class="settings-select">
+              <option value="autopilot">autopilot — run freely, ask only on policy gates</option>
+              <option value="semi">semi — autopilot + policy approvals</option>
+              <option value="manual">manual — approve every step</option>
+            </select>
+          </label>
+          <label class="settings-field">
+            <span class="settings-field-label">Output language</span>
+            <select id="setLang" class="settings-select">
+              <option value="en">en · English</option>
+              <option value="fr">fr · Français</option>
+              <option value="es">es · Español</option>
+              <option value="de">de · Deutsch</option>
+              <option value="pt">pt · Português</option>
+              <option value="it">it · Italiano</option>
+            </select>
+          </label>
+          <div class="settings-saved" id="settingsSaved" hidden>✓ saved</div>
+        </div>
+        <div class="settings-readonly" id="settingsReadonly"></div>
+      </div>
+    </section>
   </main>
+
+  <footer class="app-footer">
+    <div class="footer-left">
+      <a class="footer-logo" href="/board" data-route="board" aria-label="spectoflow">
+        <img class="brand-logo-img is-dark" src="logo-white.png" alt="spectoflow" />
+        <img class="brand-logo-img is-light" src="logo-dark.png" alt="spectoflow" />
+      </a>
+      <span class="footer-name">spectoflow</span>
+      <span class="footer-ver" id="footerVer"></span>
+      <span class="footer-sep">·</span>
+      <span class="footer-lic">MIT License</span>
+    </div>
+    <div class="footer-right">
+      <a href="https://github.com/georgesmomo/spectoflow" target="_blank" rel="noopener">GitHub</a>
+      <a href="https://www.npmjs.com/package/spectoflow" target="_blank" rel="noopener">npm</a>
+      <button class="footer-link" id="footerSettings">Settings</button>
+    </div>
+  </footer>
 
   <!-- CHAT WIDGET (floating agent runner; entry point to the group-chat) -->
   <button class="chat-fab" id="chatFab" aria-label="Open run chat" title="Run an agent">💬</button>
@@ -257,6 +286,9 @@
   <!-- floating chart tooltip layer — positioned on mousemove over [data-tip] hit targets -->
   <div id="tooltip" class="tooltip" hidden></div>
 
+  <!-- workflow step popover — anchored to the clicked step, holds its details + toggle -->
+  <div id="wfPop" class="wf-pop" hidden></div>
+
   <!-- shared gradient used by SpectoCharts.ring's foreground arc (stroke="url(#grad)") -->
   <svg width="0" height="0" style="position:absolute" aria-hidden="true">
     <defs>
@@ -270,6 +302,7 @@
   <script src="stats.js"></script>
   <script src="charts.js"></script>
   <script src="icons.js"></script>
+  <script src="designs.js"></script>
   <script src="app.js"></script>
 </body>
 </html>
