@@ -420,3 +420,6 @@
   - **Script** `lib/spec-drift.js` (zéro‑dep, unit‑testé) : signaux déterministes de dérive (couplage code↔spec, couverture).
   - **Hook opt‑in** `hooks/spec-drift.js` (Stop hook Claude Code, à câbler soi‑même dans `.claude/settings.json`, jamais installé d'office pour ne pas écraser les réglages).
   - **Gate** `policy.md` : dérive non résolue **bloque à `done`/Major** (acknowledge, pas d'auto‑fix) ; jamais de blocage mid‑edit.
+
+### D30 — 0.14.2 : Phase progress compact (gros projets)
+- **ACTÉ.** Sur un gros projet, la carte « Phase progress » de l'overview rendait **une barre par phase**, y compris les `##` **sans tâche** (« Détails techniques », « Endpoints »…), soit des dizaines de barres → page interminable. Désormais : (1) on ne garde que les phases **avec des tâches** (`total>0`), (2) **hauteur plafonnée** (340px) + scroll interne quand il y en a beaucoup. Combiné au board replié par défaut (D28), le dashboard reste compact.

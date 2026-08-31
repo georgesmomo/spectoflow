@@ -287,9 +287,15 @@ function renderOverview(){
   if(!steps.length) strip.append(el('div','empty','No workflow defined.'));
   box.append(ocard('Workflow at a glance', strip));
 
-  // Per-phase progress bars
-  const rows=s.phases.map(ph=>({label:ph.title,pct:ph.pct,sub:`${ph.done}/${ph.total}`}));
-  box.append(ocard('Phase progress', bars(rows)));
+  // Per-phase progress bars — only phases that actually hold tasks (headings with no checkbox tasks
+  // are noise, not phases), and cap the list height with an internal scroll so a big project with
+  // dozens of phases can't blow up the overview.
+  const phaseRows=s.phases.filter(ph=>ph.total>0).map(ph=>({label:ph.title,pct:ph.pct,sub:`${ph.done}/${ph.total}`}));
+  if(phaseRows.length){
+    const barsEl=bars(phaseRows);
+    if(phaseRows.length>8) barsEl.classList.add('scroll-cap');
+    box.append(ocard(`Phase progress (${phaseRows.length})`, barsEl));
+  }
 }
 
 function taskMatches(t){

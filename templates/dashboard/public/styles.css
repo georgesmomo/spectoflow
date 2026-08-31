@@ -821,3 +821,6 @@ body.booting .wf-step2 { opacity:0; animation:rise .4s cubic-bezier(.2,.8,.2,1) 
 .mini-btn:hover { color:var(--ink); border-color:var(--cool); }
 .main:has(.board.is-kanban) #phaseToggleAll { display:none; }   /* phases are a List concept */
 .kanban-col-body { max-height:64vh; overflow-y:auto; }          /* keep columns compact on a big project */
+
+/* Phase progress: cap the list so a big project (many phases) doesn't dominate the overview */
+.bars-block.scroll-cap { max-height:340px; overflow-y:auto; padding-right:6px; }

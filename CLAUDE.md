@@ -5,6 +5,13 @@ framework with a real-time local control plane. This file orients you to **build
 (it is not a spectoflow-managed project). Read `docs/` before making changes:
 `docs/ARCHITECTURE.md`, `docs/DECISIONS.md` (the full rationale, D1–D23), `docs/ROADMAP.md` (what's next).
 
+## What exists (v0.14.2)
+
+**v0.14.2:** the Board Overview's **Phase progress** is redesigned for big projects — it now shows
+**only phases that hold tasks** (a `##` heading with no checkbox tasks isn't a phase, it's noise) and
+**caps the list height** with an internal scroll, so dozens of phases can't stretch the page. With
+phases collapsed by default (0.13.5), the dashboard stays compact even on a large plan.
+
 ## What exists (v0.14.1)
 
 **v0.14.1:** `spectoflow dashboard stop` (alias `spectoflow stop`) stops the running dashboard — the
