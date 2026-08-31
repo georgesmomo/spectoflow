@@ -657,8 +657,10 @@ body.booting .wf-step2 { opacity:0; animation:rise .4s cubic-bezier(.2,.8,.2,1) 
 .wf-detail-skill b { color:var(--ink); font-weight:600; }
 
 /* ---- Workflow: click-popover, connector arrows, mobile reflow (v0.13.2) ---- */
-.wf-pop { position:fixed; z-index:40; width:min(360px,92vw); background:var(--surface); border:1px solid var(--line); border-radius:var(--radius); box-shadow:var(--shadow); padding:16px 18px; }
+.wf-pop { position:fixed; z-index:40; width:min(360px,92vw); max-height:min(72vh,540px); overflow-y:auto; overscroll-behavior:contain; background:var(--surface); border:1px solid var(--line); border-radius:var(--radius); box-shadow:var(--shadow); padding:16px 18px; }
 .wf-pop[hidden] { display:none; }
+/* keep the enable/disable button visible even when the details scroll (sticky footer) */
+.wf-pop-actions { position:sticky; bottom:0; margin:15px -18px 0; padding:12px 18px; background:var(--surface); border-top:1px solid var(--line); }
 .wf-pop::before { content:""; position:absolute; top:-8px; left:var(--caret-x,50%); transform:translateX(-50%); border-left:8px solid transparent; border-right:8px solid transparent; border-bottom:8px solid var(--surface); filter:drop-shadow(0 -1px 0 var(--line)); }
 .wf-pop.above::before { top:auto; bottom:-8px; border-bottom:0; border-top:8px solid var(--surface); filter:drop-shadow(0 1px 0 var(--line)); }
 .wf-pop-actions { margin-top:15px; display:flex; }
@@ -772,4 +774,25 @@ body.booting .wf-step2 { opacity:0; animation:rise .4s cubic-bezier(.2,.8,.2,1) 
   --ink:#1a1440; --muted:#5a5486; --faint:#8b86b3;
   --signal:#6d3bff; --cool:#0891b2; --on-accent:#ffffff;
   --s-done:#0f9d63; --s-to_validate:#0891b2; --s-in_progress:#c2801e; --s-blocked:#d15168;
+}
+
+/* --- Mission Control: indigo control panel on solid slate (reproduces the init-dashboard skill) --- */
+:root[data-design="mission"] {
+  --bg:#1b1e24; --surface:#262a33; --surface-2:#2d323d; --line:#353b46;
+  --ink:#e9ebf0; --muted:#9aa2af; --faint:#6b7280;
+  --signal:#5b6cff; --cool:#22d3ee; --on-accent:#ffffff;
+  --s-todo:#6b7280; --s-in_progress:#f59e0b; --s-to_validate:#ec4899; --s-to_analyze:#a855f7; --s-done:#22c55e; --s-blocked:#ef4444;
+  --radius:14px; --shadow:0 10px 30px rgba(0,0,0,.4);
+}
+/* signature touches: a filled active tab pill + solid-indigo progress bars */
+:root[data-design="mission"] .tab.is-active { background:var(--signal); color:var(--on-accent); box-shadow:none; }
+:root[data-design="mission"] .progress-meter-fill,
+:root[data-design="mission"] .phase-bar-fill,
+:root[data-design="mission"] .bar-fill { background:var(--signal); }
+:root[data-design="mission"] .fchip.active[data-status="all"] { background:var(--signal); }
+:root[data-design="mission"][data-theme="light"] {
+  --bg:#e4e7ee; --surface:#fbfcfe; --surface-2:#eef1f6; --line:#cfd5e0;
+  --ink:#1a1f2b; --muted:#565f70; --faint:#8792a6;
+  --signal:#5b6cff; --cool:#0891b2; --on-accent:#ffffff;
+  --s-todo:#64748b; --s-in_progress:#d97706; --s-to_validate:#db2777; --s-to_analyze:#9333ea; --s-done:#16a34a; --s-blocked:#dc2626;
 }

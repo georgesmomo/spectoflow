@@ -398,3 +398,10 @@
   - **Polices auto-hébergées** (Space Grotesk, Sora, IBM Plex Sans, JetBrains Mono en `.woff2` sous `dashboard/public/fonts/`, ~220 Ko) → **offline préservé**, invariant Node zéro-dépendance intact ; MIME `woff2` ajouté au serveur.
 - **Correctif sécurité (0.13.1)** : `GET /api/agentfile` bloque désormais un symlink s'échappant du périmètre agents/skills.
 - **CLI (0.13.x)** : `--version`/`-v`/`version`, `--help`/`-h`, sortie `update` colorée ; publication npm automatique par tag (OIDC Trusted Publishing, provenance).
+
+### D26 — 0.13.3 : 4ᵉ design + fixes popover/cache
+- **ACTÉ.**
+  - **4ᵉ design « Mission Control »** — panneau indigo (#5b6cff) sur slate solide, statuts vert/ambre/rose/violet, onglet actif en pastille pleine (reproduit le thème du skill init-dashboard de l'utilisateur). Clair + foncé.
+  - **Popover Workflow** — hauteur plafonnée dynamiquement à l'espace disponible (never off-screen) + **footer sticky** pour le bouton activer/désactiver + scroll interne ; retrait du `scroll`-to-close (capture) qui fermait le popover sur son propre scroll interne.
+  - **Cache** — le serveur du dashboard envoie `Cache-Control: no-store` sur les fichiers (fonts en `max-age`), pour ne jamais servir un `app.js`/`styles.css` périmé (cause des « changements pas visibles »).
+  - **Correctif clair (0.13.3 inclut la passe 0.13.2)** : le header suit toujours les tokens du thème (jamais de couleur en dur) → logo/texte visibles dans toutes les variantes clair/foncé de tous les designs.

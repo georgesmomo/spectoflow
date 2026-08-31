@@ -5,11 +5,17 @@ framework with a real-time local control plane. This file orients you to **build
 (it is not a spectoflow-managed project). Read `docs/` before making changes:
 `docs/ARCHITECTURE.md`, `docs/DECISIONS.md` (the full rationale, D1–D23), `docs/ROADMAP.md` (what's next).
 
-## What exists (v0.13.2)
+## What exists (v0.13.3)
+
+**v0.13.3:** a **4th design — Mission Control** (indigo control panel); the Workflow step **popover**
+now caps its height to the viewport and keeps the enable/disable button reachable (sticky footer, no
+truncation); and the dashboard server sends **`Cache-Control: no-store`** so the browser never serves a
+stale `app.js`/`styles.css` (fonts stay cached).
 
 **v0.13.2 — design pass (see DECISIONS D25):** violet re-skin of the default; a **multi-design system**
 (`data-design` skins registered in `dashboard/public/designs.js`, switchable in Settings, persisted per
-viewer + as `config.design`) shipping **Control Room / Obsidian Ops / Neon Command** (each light+dark);
+viewer + as `config.design`) shipping **Control Room / Obsidian Ops / Neon Command / Mission Control**
+(each light+dark);
 **self-hosted `.woff2` fonts** (offline, zero-dep intact); a decluttered header with the framework
 **version** shown; a **Settings** tab + pro **footer**; a redesigned **Workflow** (horizontal icon
 pipeline with arrows + a click **popover** of step details); mobile **hamburger** nav + responsive

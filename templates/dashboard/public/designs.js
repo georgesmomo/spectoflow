@@ -23,7 +23,7 @@
     { id: 'control-room', name: 'Control Room', desc: 'Dark violet engineering control room — the original.' },
     { id: 'obsidian',     name: 'Obsidian Ops',  desc: 'Near-black mission-control — electric lime + cyan, mono type, Linear/Vercel precision.' },
     { id: 'neon-command', name: 'Neon Command',  desc: 'Glassmorphism — aurora violet + cyan, Space Grotesk display, control-room ambiance.' },
-    // one more from the design set coming: nord…
+    { id: 'mission',      name: 'Mission Control', desc: 'Indigo control panel on solid slate — clean, flat, status-coloured.' },
   ];
   if (typeof module !== 'undefined' && module.exports) module.exports = DESIGNS;
   else root.DESIGNS = DESIGNS;

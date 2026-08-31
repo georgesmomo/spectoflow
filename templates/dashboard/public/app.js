@@ -559,13 +559,20 @@ function renderWfPop(){
 }
 function positionWfPop(anchorEl, pop){
   const r=anchorEl.getBoundingClientRect();
+  const vpH=window.innerHeight, m=12, edge=10;
+  const below=vpH - r.bottom - m - edge;   // room below the step
+  const above=r.top - m - edge;            // room above the step
+  // Prefer below; flip above only when below is cramped and above has more room. Then cap the
+  // popover's height to the space on the chosen side so it always fits the viewport and scrolls
+  // internally (the enable/disable button stays reachable via the sticky footer).
+  const useAbove = below < 240 && above > below;
   pop.style.visibility='hidden'; pop.hidden=false; pop.classList.remove('above');
-  const pw=pop.offsetWidth, ph=pop.offsetHeight;
-  const left=Math.max(10, Math.min(r.left + r.width/2 - pw/2, window.innerWidth-pw-10));
-  let top=r.bottom + 12, above=false;
-  if(top + ph > window.innerHeight-10 && r.top - ph - 12 > 10){ top=r.top - ph - 12; above=true; }
-  pop.style.left=left+'px'; pop.style.top=top+'px';
-  pop.classList.toggle('above',above);
+  pop.style.maxHeight=Math.max(160, (useAbove?above:below))+'px';
+  const pw=pop.offsetWidth;
+  const left=Math.max(edge, Math.min(r.left + r.width/2 - pw/2, window.innerWidth-pw-edge));
+  if(useAbove){ pop.style.top=(r.top - m - pop.offsetHeight)+'px'; pop.classList.add('above'); }
+  else { pop.style.top=(r.bottom + m)+'px'; }
+  pop.style.left=left+'px';
   pop.style.setProperty('--caret-x', ((r.left + r.width/2) - left)+'px');
   pop.style.visibility='';
 }
@@ -904,10 +911,10 @@ const navToggle=$('#navToggle');
 if(navToggle) navToggle.addEventListener('click',e=>{ e.stopPropagation(); const open=!document.body.classList.contains('nav-open'); document.body.classList.toggle('nav-open',open); navToggle.setAttribute('aria-expanded',String(open)); });
 document.addEventListener('click',e=>{ if(!document.body.classList.contains('nav-open')) return; if(e.target.closest('#tabs')||e.target.closest('#navToggle')) return; closeNav(); });
 document.addEventListener('keydown',e=>{ if(e.key==='Escape') closeNav(); });
-// workflow step popover — close on outside click / scroll / resize / Esc
+// workflow step popover — close on outside click / Esc / resize. (No scroll-to-close: a capture
+// scroll listener also fires on the popover's own internal scroll, which would slam it shut.)
 document.addEventListener('click',e=>{ if(wfPopStep && !e.target.closest('#wfPop') && !e.target.closest('.wf-step2')) closeWfPop(); });
 document.addEventListener('keydown',e=>{ if(e.key==='Escape') closeWfPop(); });
-window.addEventListener('scroll',()=>{ if(wfPopStep) closeWfPop(); },true);
 window.addEventListener('resize',()=>{ if(wfPopStep) closeWfPop(); });
 // keep the URL and the path in sync when the user uses the browser back/forward buttons
 window.addEventListener('popstate',()=>{

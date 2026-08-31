@@ -131,8 +131,9 @@ full-height group-chat panel), and **Info** (a project-at-a-glance summary). URL
 client-side.
 
 **Designs & theme.** The dashboard ships **switchable designs** (Settings → *Dashboard design*):
-**Control Room** (violet), **Obsidian Ops** (near-black lime/cyan, mono), and **Neon Command**
-(glassmorphism aurora). Each works in light and dark (the moon toggle). A design is a `data-design`
+**Control Room** (violet), **Obsidian Ops** (near-black lime/cyan, mono), **Neon Command**
+(glassmorphism aurora), and **Mission Control** (indigo control panel). Each works in light and dark
+(the moon toggle). A design is a `data-design`
 skin — a scoped CSS token block plus a one-line entry in `dashboard/public/designs.js`, so adding one
 is trivial. Fonts are **self-hosted** (`dashboard/public/fonts/*.woff2`), keeping the dashboard fully
 offline and dependency-free. Your choice persists per viewer (localStorage) and as the project

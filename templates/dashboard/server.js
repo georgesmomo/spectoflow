@@ -203,17 +203,22 @@ const server = http.createServer(async (req,res)=>{
     let file=p==='/'?'/index.html':p;
     const full=path.join(PUBLIC,path.normalize(file).replace(/^(\.\.[/\\])+/,''));
     if(!full.startsWith(PUBLIC)){ res.writeHead(403); return res.end('Forbidden'); }
+    // Local tool: always serve the freshest asset — never let the browser cache a stale app.js/css.
+    const noCache = { 'Cache-Control': 'no-store, must-revalidate' };
     fs.readFile(full,(err,data)=>{
       if(err){
         if(req.method==='GET' && !path.extname(p) && !p.startsWith('/api/')){
           return fs.readFile(path.join(PUBLIC,'index.html'),(e2,d2)=>{
             if(e2){ res.writeHead(404); return res.end('Not found'); }
-            res.writeHead(200,{'Content-Type':MIME['.html']}); res.end(d2);
+            res.writeHead(200,Object.assign({'Content-Type':MIME['.html']},noCache)); res.end(d2);
           });
         }
         res.writeHead(404); return res.end('Not found');
       }
-      res.writeHead(200,{'Content-Type':MIME[path.extname(full)]||'application/octet-stream'}); res.end(data);
+      const ext=path.extname(full);
+      // fonts are content-hashed by name and safe to cache long-term; everything else is no-store
+      const headers = ext==='.woff2'||ext==='.woff' ? { 'Cache-Control':'public, max-age=604800' } : noCache;
+      res.writeHead(200,Object.assign({'Content-Type':MIME[ext]||'application/octet-stream'},headers)); res.end(data);
     });
   }catch(e){ sendJSON(res,500,{error:String(e&&e.message||e)}); }
 });
