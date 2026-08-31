@@ -222,4 +222,10 @@ const server = http.createServer(async (req,res)=>{
     });
   }catch(e){ sendJSON(res,500,{error:String(e&&e.message||e)}); }
 });
-server.listen(PORT,()=>{ console.log(`spectoflow · dashboard → http://localhost:${PORT}`); console.log(`project root: ${ROOT}`); });
+// pidfile so `spectoflow dashboard stop` can find and stop this server; cleared on exit.
+const LOCK = path.join(ROOT, '.spectoflow', '.dashboard.lock');
+function writeLock(){ try{ fs.mkdirSync(path.dirname(LOCK),{recursive:true}); fs.writeFileSync(LOCK, JSON.stringify({ pid:process.pid, port:PORT, url:`http://localhost:${PORT}`, startedAt:new Date().toISOString() })+'\n'); }catch{} }
+function clearLock(){ try{ const l=JSON.parse(fs.readFileSync(LOCK,'utf8')); if(l.pid===process.pid) fs.unlinkSync(LOCK); }catch{} }
+process.on('exit', clearLock);
+['SIGINT','SIGTERM'].forEach((s)=> process.on(s, ()=>{ clearLock(); process.exit(0); }));
+server.listen(PORT,()=>{ writeLock(); console.log(`spectoflow · dashboard → http://localhost:${PORT}`); console.log(`project root: ${ROOT}`); });

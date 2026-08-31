@@ -5,6 +5,13 @@ framework with a real-time local control plane. This file orients you to **build
 (it is not a spectoflow-managed project). Read `docs/` before making changes:
 `docs/ARCHITECTURE.md`, `docs/DECISIONS.md` (the full rationale, D1–D23), `docs/ROADMAP.md` (what's next).
 
+## What exists (v0.14.1)
+
+**v0.14.1:** `spectoflow dashboard stop` (alias `spectoflow stop`) stops the running dashboard — the
+server writes a pidfile (`.spectoflow/.dashboard.lock`) on start and clears it on exit; `stop` reads
+it, verifies the port responds, terminates the process, and removes the lock (safe against a stale
+lock). Complements `spectoflow dashboard` / `status`.
+
 ## What exists (v0.14.0)
 
 **v0.14.0 — Spec Source Guardian (see DECISIONS D29):** a new **`governance` capability** and agent

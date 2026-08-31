@@ -135,9 +135,9 @@ function init() {
 
   // gitignore the volatile runtime
   const gi = path.join(target, '.gitignore');
-  const line = '.spectoflow/runtime.json';
-  if (!fs.existsSync(gi) || !fs.readFileSync(gi, 'utf8').includes(line)) {
-    fs.appendFileSync(gi, (fs.existsSync(gi) ? '\n' : '') + line + '\n');
+  const giText = fs.existsSync(gi) ? fs.readFileSync(gi, 'utf8') : '';
+  for (const line of ['.spectoflow/runtime.json', '.spectoflow/.dashboard.lock']) {
+    if (!giText.includes(line)) fs.appendFileSync(gi, ((fs.existsSync(gi) && fs.readFileSync(gi, 'utf8').length) ? '\n' : '') + line + '\n');
   }
 
   console.log('spectoflow installed in', target);
@@ -187,6 +187,7 @@ function update() {
 // THE launch command — prints the URL clearly and won't crash on EADDRINUSE: it probes first
 // and, if a dashboard is already up on that port, just reports it instead of spawning a second one.
 async function dashboard() {
+  if (argv[1] === 'stop' || argv.includes('stop')) return stopDashboard();
   const port = resolvePort(argv);
   const url = `http://localhost:${port}`;
   if (await probeDashboard(port)) {
@@ -198,6 +199,30 @@ async function dashboard() {
   const env = Object.assign({}, process.env, { SPECTOFLOW_PORT: String(port) });
   spawn('node', [fs.existsSync(local) ? local : bundled], { stdio: 'inherit', env });
   console.log(`spectoflow dashboard → ${url}`);
+}
+
+// Stop the running dashboard: read the pidfile it wrote, verify it's actually up, then terminate it
+// and clear the lock. Safe against a stale lock (a recycled pid) because it only kills when the port
+// still responds.
+async function stopDashboard() {
+  const root = process.cwd();
+  const lock = path.join(root, '.spectoflow', '.dashboard.lock');
+  let info = null;
+  try { info = JSON.parse(fs.readFileSync(lock, 'utf8')); } catch {}
+  const port = (info && info.port) || resolvePort(argv);
+  const running = await probeDashboard(port);
+  if (!running) {
+    if (info) { try { fs.unlinkSync(lock); } catch {} }   // stale lock
+    return console.log('No spectoflow dashboard is running.');
+  }
+  if (info && info.pid) {
+    try {
+      process.kill(info.pid);                  // SIGTERM → server clears its own lock (POSIX)
+      try { fs.unlinkSync(lock); } catch {}     // and we clear it too (Windows has no real signals)
+      return console.log(`spectoflow dashboard stopped (pid ${info.pid}, was on http://localhost:${port}).`);
+    } catch {}
+  }
+  console.log(`A dashboard is responding on http://localhost:${port} but isn't stoppable via the lock file — stop it where you launched it (Ctrl+C).`);
 }
 
 async function status() {
@@ -228,6 +253,7 @@ ${c.bold('Commands:')}
   ${c.g('init')} [dir] [--agent=claude,codex]   scaffold a project (auto-detects installed agents)
   ${c.g('update')} [--dry-run]                  refresh framework files to this kit version
   ${c.g('dashboard')} [--port=NNNN]             run the local control plane (default 4319, or $SPECTOFLOW_PORT)
+  ${c.g('dashboard stop')}                      stop the running dashboard (alias: ${c.g('stop')})
   ${c.g('status')}                              print progress + whether the dashboard is running
 
 ${c.bold('Options:')}
@@ -236,7 +262,7 @@ ${c.bold('Options:')}
 
 ${c.dim('Docs:')} https://github.com/georgesmomo/spectoflow`);
 
-const fns = { init, update, dashboard, status, help, version };
+const fns = { init, update, dashboard, stop: stopDashboard, status, help, version };
 if (['-v', '-V', '--version', 'version'].includes(cmd)) version();
 else if (['-h', '--help'].includes(cmd)) help();
 else if (fns[cmd]) fns[cmd]();

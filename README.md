@@ -41,6 +41,7 @@ Every command works both ways — `spectoflow <cmd>` when installed globally, or
 spectoflow init [dir] [--agent=claude,codex]   scaffold a project (auto-detects installed agents)
 spectoflow update [--dry-run]                  refresh framework files to this kit version
 spectoflow dashboard [--port=NNNN]             run the local control plane (default 4319)
+spectoflow dashboard stop   (or: stop)         stop the running dashboard
 spectoflow status                              progress + whether the dashboard is running
 spectoflow --version   (-v)                    print the version
 spectoflow --help      (-h)                    show help
