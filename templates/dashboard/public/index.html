@@ -61,6 +61,10 @@
             <button class="fchip" data-status="done">Done</button>
             <button class="fchip" data-status="blocked">Blocked</button>
           </div>
+          <div class="view-toggle" id="boardViewToggle" role="group" aria-label="Board view">
+            <button class="vt-btn active" data-view="list" title="Grouped by phase"><span class="tab-ico" data-icon="backlog"></span><span>List</span></button>
+            <button class="vt-btn" data-view="kanban" title="Columns by status"><span class="tab-ico" data-icon="board"></span><span>Kanban</span></button>
+          </div>
           <input type="search" id="search" class="search" placeholder="Filter tasks…" autocomplete="off" />
         </div>
         <div class="board" id="board"></div>

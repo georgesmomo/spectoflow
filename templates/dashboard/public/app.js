@@ -2,6 +2,7 @@
 const STATUS = { todo:'To do', in_progress:'In progress', to_validate:'To validate', to_analyze:'To analyze', done:'Done', blocked:'Blocked' };
 let P = null, openTaskId = null;
 let filter = { status: 'all', q: '' }; // board filter state — client-side only, read-only
+let boardView = (()=>{ try{ return localStorage.getItem('spf-board-view')||'list'; }catch{ return 'list'; } })(); // 'list' | 'kanban'
 let backlogFilter = { status: 'open', q: '' }; // backlog defaults to open (not-done) tasks
 let backlogSort = { col: 'id', dir: 'asc' };   // backlog sort state — client-side only
 let backlogPage = 1; const BACKLOG_PAGE = 25;   // backlog pagination — client-side only
@@ -315,6 +316,10 @@ function renderBoard(){
   running.forEach(a=>{ const e=li('run-live',''); e.innerHTML=`<b>${a.tool}</b> · ${a.task||'—'}`; rl.append(e); });
 
   const board=$('#board'); board.innerHTML='';
+  updateBoardViewToggle();
+  board.classList.toggle('is-kanban', boardView==='kanban');
+  if(!tasks.length){ board.append(emptyState()); return; }
+  if(boardView==='kanban'){ renderKanban(board, tasks); return; } // columns by status
   let shown=0;
   (P.plans||[]).forEach(pl=> pl.phases.forEach(ph=>{
     const filtered=ph.tasks.filter(taskMatches);
@@ -322,9 +327,28 @@ function renderBoard(){
     if(!filtered.length) return; // hide phases with zero matching tasks
     board.append(renderPhase(ph,pl.file,filtered));
   }));
-  if(!tasks.length) board.append(emptyState());
-  else if(!shown) board.append(noMatchState());
+  if(!shown) board.append(noMatchState());
 }
+// Kanban view — one column per status, filtered by the text search (columns already are the statuses).
+function renderKanban(board, tasks){
+  const q=filter.q.trim().toLowerCase();
+  const match=(t)=> !q || (t.title+' '+t.id).toLowerCase().includes(q);
+  const cols=el('div','kanban');
+  Object.keys(STATUS).forEach(st=>{
+    const colTasks=tasks.filter(t=> t.status===st && match(t));
+    const col=el('div','kanban-col');
+    const head=el('div','kanban-col-head');
+    const dot=el('span','kanban-dot'); dot.style.background='var(--s-'+st+')';
+    head.append(dot, el('span','kanban-col-title',STATUS[st]||st), el('span','kanban-col-count',String(colTasks.length)));
+    col.append(head);
+    const body=el('div','kanban-col-body');
+    if(!colTasks.length) body.append(el('div','kanban-empty','—'));
+    colTasks.forEach(t=> body.append(renderTask(t)));
+    col.append(body); cols.append(col);
+  });
+  board.append(cols);
+}
+function updateBoardViewToggle(){ $$('#boardViewToggle .vt-btn').forEach(b=> b.classList.toggle('active', b.dataset.view===boardView)); }
 function li(cls,txt){ const e=el('li',cls); e.textContent=txt; return e; }
 function emptyState(){ const d=el('div','empty'); d.style.padding='40px'; d.textContent='No plans yet. Ask your agent to build something — it will run Intake and write plans/*.md.'; return d; }
 function noMatchState(){ const d=el('div','empty'); d.style.padding='40px'; d.textContent='No tasks match this filter.'; return d; }
@@ -927,6 +951,8 @@ applyActiveTab(); // sync to the resolved tab before the first render
 // filters (status chips + search) — client-side only, does not write anything
 $$('#statusChips .fchip').forEach(b=> b.addEventListener('click', ()=>{ filter.status=b.dataset.status; renderBoard(); }));
 $('#search').addEventListener('input', e=>{ filter.q=e.target.value; renderBoard(); });
+// board view switch — List (phase-grouped) vs Kanban (columns by status), persisted per viewer
+$$('#boardViewToggle .vt-btn').forEach(b=> b.addEventListener('click', ()=>{ boardView=b.dataset.view; try{ localStorage.setItem('spf-board-view',boardView); }catch{} renderBoard(); }));
 // backlog: independent filters + sortable column headers — client-side only (reset to page 1 on change)
 $$('#backlogStatusChips .fchip').forEach(b=> b.addEventListener('click', ()=>{ backlogFilter.status=b.dataset.status; backlogPage=1; renderBacklog(); }));
 $('#backlogSearch').addEventListener('input', e=>{ backlogFilter.q=e.target.value; backlogPage=1; renderBacklog(); });

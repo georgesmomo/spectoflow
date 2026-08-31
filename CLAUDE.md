@@ -5,7 +5,12 @@ framework with a real-time local control plane. This file orients you to **build
 (it is not a spectoflow-managed project). Read `docs/` before making changes:
 `docs/ARCHITECTURE.md`, `docs/DECISIONS.md` (the full rationale, D1–D23), `docs/ROADMAP.md` (what's next).
 
-## What exists (v0.13.3)
+## What exists (v0.13.4)
+
+**v0.13.4:** the Board's task list gains a **List / Kanban** view toggle — *List* keeps the
+phase-grouped collapsible sections; *Kanban* shows one column per status (To do / In progress / To
+validate / To analyze / Done / Blocked) with the same task cards. The choice persists per viewer
+(`localStorage`), and the status chips hide in Kanban (the columns already are the statuses).
 
 **v0.13.3:** a **4th design — Mission Control** (indigo control panel); the Workflow step **popover**
 now caps its height to the viewport and keeps the enable/disable button reachable (sticky footer, no

@@ -1,6 +1,6 @@
 {
   "name": "spectoflow",
-  "version": "0.13.3",
+  "version": "0.13.4",
   "description": "Agent-agnostic spec-driven development framework + real-time local control plane. Markdown artifacts, intent router, workflow-by-scope.",
   "keywords": [
     "spec-driven-development",

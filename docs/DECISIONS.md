@@ -405,3 +405,6 @@
   - **Popover Workflow** — hauteur plafonnée dynamiquement à l'espace disponible (never off-screen) + **footer sticky** pour le bouton activer/désactiver + scroll interne ; retrait du `scroll`-to-close (capture) qui fermait le popover sur son propre scroll interne.
   - **Cache** — le serveur du dashboard envoie `Cache-Control: no-store` sur les fichiers (fonts en `max-age`), pour ne jamais servir un `app.js`/`styles.css` périmé (cause des « changements pas visibles »).
   - **Correctif clair (0.13.3 inclut la passe 0.13.2)** : le header suit toujours les tokens du thème (jamais de couleur en dur) → logo/texte visibles dans toutes les variantes clair/foncé de tous les designs.
+
+### D27 — 0.13.4 : vue Board List / Kanban
+- **ACTÉ.** Le board (liste des tâches) offre un **toggle de vue** : **List** (sections repliables par phase, l'existant) et **Kanban** (une colonne par statut, mêmes cartes de tâches). Persistant par-utilisateur (`localStorage spf-board-view`) ; les chips de statut sont masqués en Kanban (les colonnes *sont* les statuts). Client-side, aucune écriture ni endpoint nouveau.

@@ -796,3 +796,22 @@ body.booting .wf-step2 { opacity:0; animation:rise .4s cubic-bezier(.2,.8,.2,1) 
   --signal:#5b6cff; --cool:#0891b2; --on-accent:#ffffff;
   --s-todo:#64748b; --s-in_progress:#d97706; --s-to_validate:#db2777; --s-to_analyze:#9333ea; --s-done:#16a34a; --s-blocked:#dc2626;
 }
+
+/* ---- Board view toggle (List / Kanban) + Kanban view (v0.13.4) ---- */
+.view-toggle { display:inline-flex; gap:2px; padding:2px; border:1px solid var(--line); border-radius:999px; background:var(--surface); flex-shrink:0; }
+.vt-btn { display:inline-flex; align-items:center; gap:6px; font:inherit; font-size:12px; padding:5px 12px; border:0; border-radius:999px; background:transparent; color:var(--muted); cursor:pointer; }
+.vt-btn .tab-ico { width:14px; height:14px; }
+.vt-btn:hover { color:var(--ink); }
+.vt-btn.active { background:var(--signal); color:var(--on-accent); font-weight:600; }
+/* the status chips are redundant in Kanban (columns already are the statuses) */
+.main:has(.board.is-kanban) #statusChips { display:none; }
+
+.kanban { display:grid; grid-auto-flow:column; grid-auto-columns:minmax(228px,1fr); gap:12px; overflow-x:auto; padding:4px 2px 14px; align-items:start; }
+.kanban-col { background:var(--surface); border:1px solid var(--line); border-radius:var(--radius); display:flex; flex-direction:column; min-height:84px; }
+.kanban-col-head { display:flex; align-items:center; gap:8px; padding:11px 13px; border-bottom:1px solid var(--line); border-radius:var(--radius) var(--radius) 0 0; }
+.kanban-dot { width:8px; height:8px; border-radius:50%; flex-shrink:0; }
+.kanban-col-title { font-size:11.5px; font-weight:700; text-transform:uppercase; letter-spacing:.04em; color:var(--ink); }
+.kanban-col-count { margin-left:auto; font-family:var(--mono); font-size:11px; color:var(--muted); border:1px solid var(--line); border-radius:999px; padding:0 7px; }
+.kanban-col-body { display:flex; flex-direction:column; gap:8px; padding:10px; }
+.kanban-empty { color:var(--faint); font-size:12px; text-align:center; padding:10px 0; }
+.kanban .task { width:auto; }
