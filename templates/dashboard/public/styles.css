@@ -815,3 +815,9 @@ body.booting .wf-step2 { opacity:0; animation:rise .4s cubic-bezier(.2,.8,.2,1) 
 .kanban-col-body { display:flex; flex-direction:column; gap:8px; padding:10px; }
 .kanban-empty { color:var(--faint); font-size:12px; text-align:center; padding:10px 0; }
 .kanban .task { width:auto; }
+
+/* ---- board compactness: expand/collapse-all button + kanban column scroll (v0.13.5) ---- */
+.mini-btn { font:inherit; font-size:11.5px; padding:5px 12px; border:1px solid var(--line); border-radius:999px; background:var(--surface); color:var(--muted); cursor:pointer; flex-shrink:0; }
+.mini-btn:hover { color:var(--ink); border-color:var(--cool); }
+.main:has(.board.is-kanban) #phaseToggleAll { display:none; }   /* phases are a List concept */
+.kanban-col-body { max-height:64vh; overflow-y:auto; }          /* keep columns compact on a big project */

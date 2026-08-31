@@ -408,3 +408,6 @@
 
 ### D27 — 0.13.4 : vue Board List / Kanban
 - **ACTÉ.** Le board (liste des tâches) offre un **toggle de vue** : **List** (sections repliables par phase, l'existant) et **Kanban** (une colonne par statut, mêmes cartes de tâches). Persistant par-utilisateur (`localStorage spf-board-view`) ; les chips de statut sont masqués en Kanban (les colonnes *sont* les statuts). Client-side, aucune écriture ni endpoint nouveau.
+
+### D28 — 0.13.5 : board compact par défaut (gros projets)
+- **ACTÉ.** Sur un gros projet, toutes les phases étaient dépliées → board interminable. Désormais les phases sont **repliées par défaut** (on suit un set `expandedPhases`, vide = tout replié ; persistance `localStorage spf-expanded`), avec un bouton **Expand all / Collapse all**. Les colonnes **Kanban scrollent** en interne (hauteur plafonnée). Client-side, aucun endpoint nouveau.

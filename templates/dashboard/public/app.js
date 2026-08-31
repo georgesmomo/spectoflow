@@ -328,6 +328,7 @@ function renderBoard(){
     board.append(renderPhase(ph,pl.file,filtered));
   }));
   if(!shown) board.append(noMatchState());
+  updatePhaseToggleAll();
 }
 // Kanban view — one column per status, filtered by the text search (columns already are the statuses).
 function renderKanban(board, tasks){
@@ -435,16 +436,26 @@ function backlogRow(r){
   return tr;
 }
 
-// ---- collapsed-phase state (persisted per phase title, guarded for private mode) ----
-function loadCollapsed(){
-  try{ const raw=localStorage.getItem('spf-collapsed'); const arr=raw?JSON.parse(raw):[]; return new Set(Array.isArray(arr)?arr:[]); }
+// ---- phase expand state: we track which phases are EXPANDED (default = none), so on a big
+// project the board opens compact — just phase headers with progress — and the user opens what
+// they need. Persisted per phase title (guarded for private mode). ----
+function loadExpanded(){
+  try{ const raw=localStorage.getItem('spf-expanded'); const arr=raw?JSON.parse(raw):[]; return new Set(Array.isArray(arr)?arr:[]); }
   catch{ return new Set(); }
 }
-function saveCollapsed(set){ try{ localStorage.setItem('spf-collapsed', JSON.stringify([...set])); }catch{} }
-let collapsedPhases=loadCollapsed();
+function saveExpanded(set){ try{ localStorage.setItem('spf-expanded', JSON.stringify([...set])); }catch{} }
+let expandedPhases=loadExpanded();
+function allPhaseTitles(){ const t=new Set(); (P.plans||[]).forEach(pl=> pl.phases.forEach(ph=> t.add(ph.title))); return [...t]; }
+function updatePhaseToggleAll(){
+  const btn=$('#phaseToggleAll'); if(!btn) return;
+  const titles=allPhaseTitles();
+  const allOpen = titles.length>0 && titles.every(t=> expandedPhases.has(t));
+  btn.textContent = allOpen ? 'Collapse all' : 'Expand all';
+  btn.dataset.state = allOpen ? 'open' : 'closed';
+}
 
 function renderPhase(ph,file,filteredTasks){
-  const isCollapsed=collapsedPhases.has(ph.title);
+  const isCollapsed=!expandedPhases.has(ph.title);
   const sec=el('section','phase'+(isCollapsed?' is-collapsed':''));
   const head=el('div','phase-head'); head.tabIndex=0; head.setAttribute('role','button'); head.setAttribute('aria-expanded',String(!isCollapsed));
   head.append(el('span','chevron'));
@@ -458,8 +469,8 @@ function renderPhase(ph,file,filteredTasks){
   const toggle=()=>{
     const now=sec.classList.toggle('is-collapsed');
     head.setAttribute('aria-expanded',String(!now));
-    if(now) collapsedPhases.add(ph.title); else collapsedPhases.delete(ph.title);
-    saveCollapsed(collapsedPhases);
+    if(now) expandedPhases.delete(ph.title); else expandedPhases.add(ph.title);
+    saveExpanded(expandedPhases); updatePhaseToggleAll();
   };
   head.addEventListener('click',toggle);
   head.addEventListener('keydown',e=>{ if(e.key==='Enter'||e.key===' '){ e.preventDefault(); toggle(); } });
@@ -953,6 +964,14 @@ $$('#statusChips .fchip').forEach(b=> b.addEventListener('click', ()=>{ filter.s
 $('#search').addEventListener('input', e=>{ filter.q=e.target.value; renderBoard(); });
 // board view switch — List (phase-grouped) vs Kanban (columns by status), persisted per viewer
 $$('#boardViewToggle .vt-btn').forEach(b=> b.addEventListener('click', ()=>{ boardView=b.dataset.view; try{ localStorage.setItem('spf-board-view',boardView); }catch{} renderBoard(); }));
+// expand / collapse all phases (List view) — keeps a big board compact by default
+const phaseToggleAllBtn=$('#phaseToggleAll');
+if(phaseToggleAllBtn) phaseToggleAllBtn.addEventListener('click', ()=>{
+  const titles=allPhaseTitles();
+  const allOpen = titles.length>0 && titles.every(t=> expandedPhases.has(t));
+  if(allOpen) expandedPhases.clear(); else titles.forEach(t=> expandedPhases.add(t));
+  saveExpanded(expandedPhases); renderBoard();
+});
 // backlog: independent filters + sortable column headers — client-side only (reset to page 1 on change)
 $$('#backlogStatusChips .fchip').forEach(b=> b.addEventListener('click', ()=>{ backlogFilter.status=b.dataset.status; backlogPage=1; renderBacklog(); }));
 $('#backlogSearch').addEventListener('input', e=>{ backlogFilter.q=e.target.value; backlogPage=1; renderBacklog(); });

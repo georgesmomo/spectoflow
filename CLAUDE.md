@@ -5,6 +5,12 @@ framework with a real-time local control plane. This file orients you to **build
 (it is not a spectoflow-managed project). Read `docs/` before making changes:
 `docs/ARCHITECTURE.md`, `docs/DECISIONS.md` (the full rationale, D1–D23), `docs/ROADMAP.md` (what's next).
 
+## What exists (v0.13.5)
+
+**v0.13.5:** the Board opens **compact on big projects** — phases are **collapsed by default** (just
+headers + progress), with an **Expand all / Collapse all** button; and Kanban columns scroll
+internally (capped height). Fixes the "dashboard is too long" problem when every phase was expanded.
+
 ## What exists (v0.13.4)
 
 **v0.13.4:** the Board's task list gains a **List / Kanban** view toggle — *List* keeps the
