@@ -411,3 +411,12 @@
 
 ### D28 — 0.13.5 : board compact par défaut (gros projets)
 - **ACTÉ.** Sur un gros projet, toutes les phases étaient dépliées → board interminable. Désormais les phases sont **repliées par défaut** (on suit un set `expandedPhases`, vide = tout replié ; persistance `localStorage spf-expanded`), avec un bouton **Expand all / Collapse all**. Les colonnes **Kanban scrollent** en interne (hauteur plafonnée). Client-side, aucun endpoint nouveau.
+
+### D29 — 0.14.0 : agent Spec Source Guardian (capability `governance`)
+- **ACTÉ.** Suite à une recherche sur le débat « spec vs code comme source de vérité » (2025‑2026) : le consensus pragmatique est **spec‑anchored** (la spec = intention/décisions/critères ; le code + les tests restent la vérité applicable, les tests = enforcer). On ajoute donc un gardien de **cohérence**, pas un dévot de la prose.
+- **Nom retenu : `spec-source-guardian`** (pas « alignment »). Nouvelle capability **`governance`** — **advisory, hors workflow** :
+  - **Agent** `spec-source-guardian` + **skill** `audit-source` : audit spec ↔ plan ↔ code ↔ tests dans les deux sens (travail orphelin / spec morte), vérifie que les critères d'acceptation sont encodés par un test. **Ne corrige jamais** (pas de sync auto — le langage naturel est trop ambigu, cf. « drift‑trap »), il **signale**.
+  - **Sorties** → onglet **Attention** (via `::spectoflow attention`), l'utilisateur édite/résout/valide→tâche.
+  - **Script** `lib/spec-drift.js` (zéro‑dep, unit‑testé) : signaux déterministes de dérive (couplage code↔spec, couverture).
+  - **Hook opt‑in** `hooks/spec-drift.js` (Stop hook Claude Code, à câbler soi‑même dans `.claude/settings.json`, jamais installé d'office pour ne pas écraser les réglages).
+  - **Gate** `policy.md` : dérive non résolue **bloque à `done`/Major** (acknowledge, pas d'auto‑fix) ; jamais de blocage mid‑edit.

@@ -5,7 +5,14 @@ framework with a real-time local control plane. This file orients you to **build
 (it is not a spectoflow-managed project). Read `docs/` before making changes:
 `docs/ARCHITECTURE.md`, `docs/DECISIONS.md` (the full rationale, D1–D23), `docs/ROADMAP.md` (what's next).
 
-## What exists (v0.13.5)
+## What exists (v0.14.0)
+
+**v0.14.0 — Spec Source Guardian (see DECISIONS D29):** a new **`governance` capability** and agent
+**`spec-source-guardian`** (skill `audit-source`) that keeps the spec (intent) and the code/tests
+(reality) coherent — it flags drift in both directions (orphan work / dead spec), never auto-fixes,
+posts findings to the **Attention** tab, and gates only at `done`/Major (`policy.md`). Backed by a
+zero-dep, unit-tested drift helper (`.spectoflow/lib/spec-drift.js`) and an **opt-in** Claude Code
+`Stop` hook (`.spectoflow/hooks/spec-drift.js`) you can wire into `.claude/settings.json`.
 
 **v0.13.5:** the Board opens **compact on big projects** — phases are **collapsed by default** (just
 headers + progress), with an **Expand all / Collapse all** button; and Kanban columns scroll

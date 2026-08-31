@@ -157,6 +157,11 @@ runs a skill. Improve a skill without touching the agent.
 Agents and skills follow real domain standards, cited in-file — TDD, OWASP ASVS/Top 10, C4/ADR,
 INVEST, Playwright E2E, Conventional Commits, and more — not generic one-liners.
 
+A `governance` capability adds a **Spec Source Guardian** (skill `audit-source`): it keeps the spec
+(intent) and the code/tests (reality) coherent — flagging drift in both directions, never auto-fixing,
+surfacing findings to the Attention tab, and gating only at `done`/Major. It ships with a zero-dep
+drift helper (`lib/spec-drift.js`) and an opt-in Claude Code `Stop` hook (`hooks/spec-drift.js`).
+
 ## Language
 
 `.spectoflow/config.json` → `language` (default `en`, incl. code comments). Switchable from the CLI

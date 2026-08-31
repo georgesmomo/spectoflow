@@ -3,7 +3,11 @@
 A capability is a role; an agent implements it; a skill is the procedure it runs. Workflows ask for a
 capability, never a named agent — this keeps spectoflow agent-agnostic.
 
-Palette: intake · research · analysis · architecture · planning · testing · implementation · security · quality · design · operations.
+Palette: intake · research · analysis · architecture · planning · testing · implementation · security · quality · design · operations · governance.
+
+`governance` is the odd one out: it is **advisory, not a workflow step**. The `spec-source-guardian`
+(skill `audit-source`) watches that the spec (intent) and the code/tests (reality) stay coherent, and
+surfaces drift to the Attention tab; it gates only at `done`/Major (see `policy.md`), never mid-edit.
 
 | Project type | Active capabilities |
 |---|---|
