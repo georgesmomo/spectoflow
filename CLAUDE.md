@@ -5,6 +5,12 @@ framework with a real-time local control plane. This file orients you to **build
 (it is not a spectoflow-managed project). Read `docs/` before making changes:
 `docs/ARCHITECTURE.md`, `docs/DECISIONS.md` (the full rationale, D1–D23), `docs/ROADMAP.md` (what's next).
 
+## What exists (v0.14.3)
+
+**v0.14.3:** `init` now drops a detailed **`.spectoflow/README.md`** into every project — it explains
+what spectoflow is, what each file/folder in `.spectoflow/` does, the day-to-day commands, and the
+core principles, so anyone opening the folder is oriented. (Framework-owned, refreshed by `update`.)
+
 ## What exists (v0.14.2)
 
 **v0.14.2:** the Board Overview's **Phase progress** is redesigned for big projects — it now shows
