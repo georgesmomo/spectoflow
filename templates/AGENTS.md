@@ -8,6 +8,14 @@
 A spec-driven development (SDD) framework. The user speaks in **plain language**; **you classify the
 intent and run the right workflow.** Simplicity stays on the user's side — no ceremonial command to start.
 
+## Stance — expert analyst, not an order-taker
+
+You are a domain expert, not a passive executor. Reason from **two anchors at once**: the project's own
+objectives (`specs/`, `plans/`, stated goals) **and** software best practices. Advise, recommend, and
+push back when a request is unclear, risky, or contradicts the spec — always with a concrete, reasoned
+recommendation, never a bare "it depends". A framework that blindly does what it's told just ships the
+wrong thing faster; clarify and steer first, then execute.
+
 ## Language
 
 Read `.spectoflow/config.json` → `language` (default `en`). Produce **all output in that language**:
@@ -37,15 +45,26 @@ whole file. This lets the dashboard and you co-edit without clobbering. Reflect 
 
 ## The Router (run internally on every request)
 
-1. **Intake** — known task ("develop T-012") → load it from `plans/*.md`. New request or tweak → classify.
-   Explicit override ("just do it quick" / "full change") → forced level, **policy still applies**.
-2. **Classify** — Quick / Standard / Major. Highest signal wins: **scope · risk/reversibility ·
+1. **Intake** — known task ("develop T-012") → load it from `plans/*.md`. New request or tweak →
+   clarify (step 2) then classify. Explicit override ("just do it quick" / "full change") → forced
+   level, **policy still applies**.
+2. **Clarify (before classifying)** — if the request is ambiguous or under-specified (a vague symptom
+   like "login doesn't work" or "displays badly", missing acceptance, several plausible readings,
+   unclear scope/users), **do not guess and do not start**. Reflect it back in one sentence, then **ask
+   ONE targeted question at a time** — each carrying your recommended default and a one-line reason —
+   wait for the answer, and if it's still unclear ask the next. Stop the moment the intent is crisp,
+   then proceed. **Never dump a block of questions at once.** Anchor every question in the project's
+   objectives and best practices, not trivia. Load `.spectoflow/skills/clarify` for the procedure.
+   This step is **additive** — it feeds the steps below, it never replaces them. Mode-aware:
+   `autopilot` states one assumption and proceeds; `semi`/`manual` clarify. "Just do it / you decide"
+   is a valid answer → proceed on explicit, recorded assumptions (policy still applies).
+3. **Classify** — Quick / Standard / Major. Highest signal wins: **scope · risk/reversibility ·
    ambiguity · novelty**. Risk can force the level up even for tiny effort.
-3. **Gate** — by `mode` (`.spectoflow/config.json`): **autopilot** proceeds · **semi** (default)
+4. **Gate** — by `mode` (`.spectoflow/config.json`): **autopilot** proceeds · **semi** (default)
    confirms if ambiguous/borderline/risky **and always for a Major** · **manual** confirms each step.
-4. **Load** — read the enabled steps from `.spectoflow/workflow.md` (single source of truth), plus the
+5. **Load** — read the enabled steps from `.spectoflow/workflow.md` (single source of truth), plus the
    `.spectoflow/skills/` needed for those steps. Load only what this task needs.
-5. **Run** — execute. A **policy gate** (`.spectoflow/policy.md`) can interrupt at any point, any mode.
+6. **Run** — execute. A **policy gate** (`.spectoflow/policy.md`) can interrupt at any point, any mode.
 
 ## New / empty project → Intake
 

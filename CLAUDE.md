@@ -5,6 +5,22 @@ framework with a real-time local control plane. This file orients you to **build
 (it is not a spectoflow-managed project). Read `docs/` before making changes:
 `docs/ARCHITECTURE.md`, `docs/DECISIONS.md` (the full rationale, D1–D23), `docs/ROADMAP.md` (what's next).
 
+## What exists (v0.15.0)
+
+**v0.15.0 — Clarify reflex + Playwright MCP (see DECISIONS D31/D32):** two additions.
+**(1) Clarify** — spectoflow now behaves like an **expert analyst, not an order-taker**. A new
+always-on **Clarify reflex** lives in the agent's memory (`templates/AGENTS.md` Router step 0 + a
+"Stance" block, reinforced by one line in every root shim), backed by a new **`clarify` skill**
+(capability `intake`, `product-manager`): on any ambiguous request it reflects it back and asks **one
+targeted question at a time** (each with a recommendation, anchored in the project's goals + best
+practices) until the need is crisp — then executes. It is **additive** (feeds the existing
+Router/workflow, replaces nothing) and mode-aware.
+**(2) Playwright MCP** — `init` **idempotently wires** a `playwright` entry into the target project's
+`.mcp.json` (+`.cursor/mcp.json` when Cursor is selected) so the E2E agent (`qa-engineer`) can drive a
+real browser and generate/run tests. Zero-dep-safe (`npx` fetches the server; it's the user's project,
+not spectoflow). Backed by unit-tested `lib/mcp.js`; `write-e2e-tests` documents the full fallback
+ladder (MCP → native browser tooling → local Playwright → write-spec-and-raise-a-need).
+
 ## What exists (v0.14.3)
 
 **v0.14.3:** `init` now drops a detailed **`.spectoflow/README.md`** into every project — it explains

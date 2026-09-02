@@ -14,6 +14,10 @@ sit at the project root and just point back here.
 - **Just say what you want** to your agent ("add a login feature", "fix T-042"). The router in
   `AGENTS.md` classifies it (quick / standard / major), gates it by your **mode** and **policy**, and
   runs the matching workflow — no ceremonial command.
+- **When your ask is vague, it clarifies first.** spectoflow behaves like an expert analyst, not an
+  order-taker: on an ambiguous request ("login displays badly") it reflects it back and asks **one
+  targeted question at a time** (each with a recommendation) until the need is crisp, then executes
+  (skill `clarify`, wired into the agent's memory in `AGENTS.md`).
 - **Watch it live** in the dashboard:
   ```
   spectoflow dashboard          # → http://localhost:4319   (or: node .spectoflow/dashboard/server.js)
@@ -44,7 +48,7 @@ Your **artifacts are markdown, and they live at the project root, not in here**:
 | `policy.md` | **Non-negotiable gates** — actions that need explicit human approval regardless of mode (prod deploy, destructive migration, security change, spend, source-of-truth drift at done/Major). |
 | `config.json` | Your settings: `mode`, `language`, active `agent`, `runners`, `design`, plans/specs dir. **Yours to edit** — `update` never overwrites it. |
 | `agents/` | **Stable team personas** (product-manager, developer, qa-engineer, code-reviewer, spec-source-guardian…) — the *who*. |
-| `skills/` | **Evolving procedures** (write-spec, write-plan, implement, code-review, audit-source…) — the *how*. A workflow step → a capability → its agent → runs a skill. |
+| `skills/` | **Evolving procedures** (clarify, brainstorm, write-spec, write-plan, implement, write-e2e-tests, code-review, audit-source…) — the *how*. A workflow step → a capability → its agent → runs a skill. |
 | `dashboard/` | The zero-dependency control plane: `server.js` (SSE + file-watch), `runner.js`, `orchestrator.js`, and `public/` (the UI, charts, designs, fonts). |
 | `lib/` | The markdown storage engine (`store.js`) and helpers (e.g. `spec-drift.js` for the spec-source-guardian). |
 | `hooks/` | Optional Claude Code hooks you can wire in yourself (e.g. `spec-drift.js`, a `Stop` hook that surfaces source-of-truth drift to the Attention tab). |

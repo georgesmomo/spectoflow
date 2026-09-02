@@ -9,6 +9,11 @@ Palette: intake · research · analysis · architecture · planning · testing �
 (skill `audit-source`) watches that the spec (intent) and the code/tests (reality) stay coherent, and
 surfaces drift to the Attention tab; it gates only at `done`/Major (see `policy.md`), never mid-edit.
 
+`clarify` is a **reflex under `intake`, not a workflow step** either: on *any* ambiguous request the
+agent reflects it back and asks **one targeted question at a time** (each with a recommendation) until
+the need is crisp, then proceeds — it feeds the workflow, never replaces it. See `skills/clarify` and
+the Clarify step in `AGENTS.md`.
+
 | Project type | Active capabilities |
 |---|---|
 | app / web / API | all |

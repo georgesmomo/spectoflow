@@ -9,6 +9,7 @@ const adapters = require('../lib/adapters');
 const detect = require('../lib/detect');
 const ownership = require('../lib/ownership');
 const manifest = require('../lib/manifest');
+const mcp = require('../lib/mcp');
 
 const KIT = path.resolve(__dirname, '..');
 const TPL = path.join(KIT, 'templates');
@@ -132,6 +133,19 @@ function init() {
 
   // per-agent shims
   const written = adapters.generate(target, agents);
+
+  // wire Playwright MCP into the project's MCP config so the E2E agent can drive a real browser and
+  // generate/run Playwright tests. Idempotent + non-destructive: never touches an existing entry.
+  // npx fetches the server on first use, so this config IS the whole install — spectoflow stays
+  // zero-dep (this writes into the user's project, never into spectoflow).
+  const mcpTargets = [path.join(target, '.mcp.json')];
+  if (agents.includes('cursor')) mcpTargets.push(path.join(target, '.cursor', 'mcp.json'));
+  for (const fp of mcpTargets) {
+    const rel = path.relative(target, fp).split(path.sep).join('/');
+    const r = mcp.mergeMcpServer(fp, 'playwright', mcp.PLAYWRIGHT_MCP);
+    if (r === 'created' || r === 'added') notes.push(`Wired Playwright MCP into ${rel} (npx @playwright/mcp — for the E2E agent; commit it to share).`);
+    else if (r === 'skipped') notes.push(`Left ${rel} as-is (couldn't parse it) — add a 'playwright' MCP server yourself for browser-driven E2E.`);
+  }
 
   // gitignore the volatile runtime
   const gi = path.join(target, '.gitignore');

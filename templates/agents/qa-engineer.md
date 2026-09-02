@@ -32,6 +32,11 @@ after-the-fact check. Owns the test suite's health (signal, speed, isolation), n
   edge cases and failure paths — not just the happy path. Prefer the fastest level (unit) that gives
   real confidence; escalate to integration or `write-e2e-tests` only when the behaviour crosses a
   boundary (network, DB, filesystem, another service) that a unit test cannot honestly exercise.
+- **For end-to-end flows, drive the browser via Playwright MCP when available** (wired into the
+  project's `.mcp.json` by `spectoflow init`), falling back down the `write-e2e-tests` capability
+  ladder (native browser tooling → local Playwright headed/codegen → write the spec and raise a
+  `need`). The committed Playwright spec is always the deliverable; live driving is only the means, and
+  a flow you couldn't actually run is reported as such, never as a pass.
 
 ## Definition of done
 Every acceptance criterion has a corresponding test, plus its meaningful edge cases (empty/null,

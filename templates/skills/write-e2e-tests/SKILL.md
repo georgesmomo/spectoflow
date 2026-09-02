@@ -44,12 +44,22 @@ Practices below are current Playwright guidance (see References for exact source
 8. **Keep specs scoped to one flow each**, named for the behavior under test, and placed under
    `tests/e2e/*.spec.ts` in the user's project.
 
-**Live/exploratory verification is not this skill's output.** When an agent needs to *see* a change work
-right now (e.g. eyeballing a UI during development), it uses its native browser tooling (for Claude Code,
-the Chrome extension / `claude-in-chrome`) to drive the real browser interactively. If that tooling is
-unavailable, the fallback is Playwright in headed mode or `playwright codegen` for a quick, throwaway
-look — never a substitute for the committed suite. Either way, the durable, CI-runnable artifact this
-skill produces is always the Playwright spec file, not the live session.
+**Driving the browser (live repro + test generation) — use the best available, in this order:**
+1. **Playwright MCP** (`@playwright/mcp`, wired into the project's `.mcp.json` by `spectoflow init`):
+   the **agent-agnostic** way to drive a real browser and **generate** a spec from a recorded flow.
+   Works in any MCP client (Claude Code, Codex, Cursor, …). `npx` fetches it on first use — nothing to
+   install; if it isn't wired yet, add it or run `spectoflow init` again (idempotent).
+2. **The client's native browser tooling** (for Claude Code, the Chrome extension / `claude-in-chrome`)
+   for live/exploratory checks when MCP isn't wired.
+3. **Local Playwright** — `npx playwright codegen` / headed mode for a quick, throwaway look;
+   `npx playwright install` provides the browsers. Needs `@playwright/test` as the project's devDependency.
+4. **If no browser can run at all** (restricted CI, no browsers installed): still **write the durable
+   spec** (the artifact that lasts), then raise a `need` / Attention item with the exact commands to
+   enable it — never report a pass you couldn't actually observe.
+
+**Live/exploratory verification is not this skill's output.** Whichever rung above you're on, the
+durable, CI-runnable artifact this skill produces is always the Playwright **spec file**, not the live
+session — the live drive is only the means to write and check it.
 
 **Playwright is a dependency of the user's project, never of spectoflow.** This skill authors tests
 against whatever Playwright version the target project has (or proposes adding `@playwright/test` as a

@@ -158,6 +158,20 @@ runs a skill. Improve a skill without touching the agent.
 Agents and skills follow real domain standards, cited in-file — TDD, OWASP ASVS/Top 10, C4/ADR,
 INVEST, Playwright E2E, Conventional Commits, and more — not generic one-liners.
 
+**Clarify before acting.** spectoflow is an **expert analyst, not an order-taker**. When a request is
+vague ("login displays badly, users can't sign in"), an always-on **Clarify reflex** — in the agent's
+memory (`AGENTS.md`) and backed by the `clarify` skill — reflects it back and asks **one targeted
+question at a time**, each with a recommendation anchored in the project's goals and best practices,
+until the need is crisp; then it runs the normal workflow. It's additive: it feeds the router, never
+replaces it, and it's mode-aware.
+
+**End-to-end tests via Playwright MCP.** `init` idempotently wires a `playwright` entry into the target
+project's `.mcp.json` (and `.cursor/mcp.json` for Cursor) so the QA agent can drive a real browser and
+generate/run Playwright specs — `npx` fetches the server on first use, so spectoflow stays zero-dep
+(the config lives in *your* project). If the MCP isn't available, `write-e2e-tests` falls back down a
+ladder (native browser tooling → local Playwright → write the spec and raise a `need`), never faking a
+pass. The durable artifact is always the committed `*.spec.ts`.
+
 A `governance` capability adds a **Spec Source Guardian** (skill `audit-source`): it keeps the spec
 (intent) and the code/tests (reality) coherent — flagging drift in both directions, never auto-fixing,
 surfacing findings to the Attention tab, and gating only at `done`/Major. It ships with a zero-dep
