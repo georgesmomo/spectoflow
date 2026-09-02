@@ -18,12 +18,16 @@ sit at the project root and just point back here.
   order-taker: on an ambiguous request ("login displays badly") it reflects it back and asks **one
   targeted question at a time** (each with a recommendation) until the need is crisp, then executes
   (skill `clarify`, wired into the agent's memory in `AGENTS.md`).
-- **Watch it live** in the dashboard:
+- **Watch it live** in the dashboard (it starts in the background and hands the prompt back):
   ```
   spectoflow dashboard          # → http://localhost:4319   (or: node .spectoflow/dashboard/server.js)
+  spectoflow dashboard status   # is it running? (url + pid)
   spectoflow dashboard stop     # stop it        (alias: spectoflow stop)
+  spectoflow dashboard restart  # stop then start
   spectoflow status             # progress + whether the dashboard is running
   ```
+- **See what you got:** `spectoflow list` (agents, skills & workflow at a glance), or `spectoflow
+  agents` / `spectoflow skills` / `spectoflow workflow`. Append `-h` to any command for its help.
 - **Change how it runs** in the dashboard's **Settings** tab (autonomy mode, output language, and the
   dashboard **design**), or by editing `config.json`.
 - **Update the framework** to a newer kit: `spectoflow update` (preserves your edits; a file you

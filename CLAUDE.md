@@ -5,6 +5,20 @@ framework with a real-time local control plane. This file orients you to **build
 (it is not a spectoflow-managed project). Read `docs/` before making changes:
 `docs/ARCHITECTURE.md`, `docs/DECISIONS.md` (the full rationale, D1–D23), `docs/ROADMAP.md` (what's next).
 
+## What exists (v0.16.0)
+
+**v0.16.0 — CLI UX pass (see DECISIONS D33):** an ASCII **logo banner** (self-contained box-drawing
+wordmark) on `init`, `update`, `help` and `list`; **new explore commands** — `spectoflow list`
+(agents + skills + workflow at a glance), `agents`, `skills`, `workflow` (read from the project's
+`.spectoflow/`, or the bundled kit when run outside one, via a tiny zero-dep frontmatter reader);
+**per-command help** — appending `-h`/`--help` to any command prints that command's help instead of
+running it; **`spectoflow dashboard` now starts detached and hands the prompt back** (spawn
+`detached+unref`), printing a commands panel, with new **`dashboard status`** and **`dashboard
+restart`** subcommands beside the existing `stop`; and a **redesigned, grouped, coloured help**
+(Project · Dashboard · Explore · Options). The **clarify** skill's tone is refined to be natural and
+immersive (acknowledge → reflect → one question), explicitly **not** a fixed template, and to flow a
+complex/new-build request into the normal path instead of over-questioning.
+
 ## What exists (v0.15.0)
 
 **v0.15.0 — Clarify reflex + Playwright MCP (see DECISIONS D31/D32):** two additions.

@@ -25,8 +25,11 @@ Whenever a request is ambiguous or under-specified and acting on it would mean g
 Skip it when the request is already unambiguous and testable — over-questioning is its own failure.
 
 ## Method — reflect, then one question at a time
-1. **Reflect it back.** Restate the request in one sentence and name the goal as you understand it.
-   Surface your assumptions explicitly so a wrong one is easy to correct.
+1. **Acknowledge, then reflect it back — warmly and naturally.** Open by showing you've taken the
+   request on board, then lead into the clarification as a way to serve it *better* — never as an
+   interrogation. Restate the request in one sentence, name the goal as you understand it, and surface
+   your assumptions so a wrong one is easy to correct. Vary the wording every time (see **Tone**);
+   never a fixed opener, never a heavy bordered form.
 2. **Ask ONE question — the highest-value one first.** The single question that most reduces
    uncertainty about what to build. Carry **your recommended default and a one-line reason** ("I'd
    assume the layout breaks on mobile, since that's the common case — is that it?"). Prefer a small set
@@ -43,6 +46,20 @@ Skip it when the request is already unambiguous and testable — over-questionin
    before running: "So: <need>, for <users>, done when <acceptance>. Correct?"
 6. **Then hand off** the confirmed need to the normal Router flow (Classify → Gate → Load → Run), or to
    `brainstorm` / `analyze-requirements` for a new build. Clarify **replaces nothing** downstream.
+
+## Tone — natural and immersive, never templated
+Sound like a thoughtful colleague, not a form. Acknowledge the ask, then segue into the question as a
+way to get it right — in your own words **each time**. The *spirit* is fixed (acknowledge → reflect →
+one question, with a recommendation); the *phrasing* is never fixed. Do **not** copy these sentences
+verbatim — they only show the register:
+> "Got it — I'm with you on <request>. One thing I'd like to nail down before I start: …"
+> "Taken on board. To make sure I build the right thing rather than guess: …"
+> "Understood. So I aim at the real need here, quick check: …"
+
+Match the depth to the request: a small tweak needs at most a light one-line confirm; a genuinely
+complex or new-build request, once the core intent is clear, simply **flows into the normal path**
+(`brainstorm` → analysis → spec → plan) — you already know that road, so don't keep interrogating.
+Keep it light: prose and a question, not a bordered panel of options unless options genuinely help.
 
 ## Guardrails
 - **One question at a time** — never a wall of questions. This is the whole point.

@@ -22,6 +22,60 @@ const useColor = process.stdout.isTTY && !process.env.NO_COLOR;
 const paint = (code) => (s) => (useColor ? `\x1b[${code}m${s}\x1b[0m` : String(s));
 const c = { g: paint('32'), cy: paint('36'), b: paint('34'), y: paint('33'), dim: paint('2'), bold: paint('1'), amber: paint('38;5;179') };
 
+// ---- branding ---------------------------------------------------------------
+const LOGO = [
+  '┌─┐┌─┐┌─┐┌─┐┌┬┐┌─┐┌─┐┬  ┌─┐┬ ┬',
+  '└─┐├─┘├┤ │   │ │ │├┤ │  │ ││││',
+  '└─┘┴  └─┘└─┘ ┴ └─┘┴  ┴─┘└─┘└┴┘',
+];
+const TAGLINE = 'agent-agnostic spec-driven development · real-time control plane';
+// Full logo block — for init and help (the moments a human is reading, not scripting).
+const banner = () => `\n${LOGO.map((l) => '  ' + c.amber(l)).join('\n')}\n  ${c.dim('v' + VERSION + ' · ' + TAGLINE)}\n`;
+// One-line brand — for the header of secondary command outputs.
+const brandLine = () => `${c.amber('spectoflow')} ${c.dim('v' + VERSION)}`;
+
+// ---- framework introspection (list agents / skills / workflow) --------------
+// Read from the project's .spectoflow when present, else the bundled kit — so `list` works anywhere.
+function frameworkSource() {
+  const local = path.resolve('.spectoflow');
+  return fs.existsSync(local) ? { dir: local, scope: 'project' } : { dir: TPL, scope: 'kit' };
+}
+// Tiny frontmatter reader — a few scalar keys, no YAML dependency.
+function frontmatter(file) {
+  let txt = '';
+  try { txt = fs.readFileSync(file, 'utf8'); } catch { return {}; }
+  const m = txt.match(/^---\n([\s\S]*?)\n---/);
+  if (!m) return {};
+  const out = {};
+  for (const line of m[1].split('\n')) {
+    const mm = line.match(/^([A-Za-z_]+):\s*(.*)$/);
+    if (mm) out[mm[1]] = mm[2].replace(/^["']|["']$/g, '').trim();
+  }
+  return out;
+}
+function listAgents(dir) {
+  const d = path.join(dir, 'agents');
+  if (!fs.existsSync(d)) return [];
+  return fs.readdirSync(d).filter((f) => f.endsWith('.md')).map((f) => {
+    const fm = frontmatter(path.join(d, f));
+    return { name: fm.name || f.replace(/\.md$/, ''), capability: fm.capability || '', description: fm.description || '' };
+  }).sort((a, b) => a.name.localeCompare(b.name));
+}
+function listSkills(dir) {
+  const d = path.join(dir, 'skills');
+  if (!fs.existsSync(d)) return [];
+  return fs.readdirSync(d, { withFileTypes: true }).filter((e) => e.isDirectory()).map((e) => {
+    const fm = frontmatter(path.join(d, e.name, 'SKILL.md'));
+    return { name: fm.name || e.name, capability: fm.capability || '', description: fm.description || '' };
+  }).sort((a, b) => a.name.localeCompare(b.name));
+}
+function readWorkflowSteps(dir) {
+  let txt = '';
+  try { txt = fs.readFileSync(path.join(dir, 'workflow.md'), 'utf8'); } catch { return []; }
+  return txt.split('\n').map((l) => l.match(/^- \[([ xX])\]\s+(.+?)\s*(\{.*\})?\s*$/))
+    .filter(Boolean).map((m) => ({ on: m[1].toLowerCase() === 'x', name: m[2] }));
+}
+
 // ---- dashboard port + running-state probe ------------------------------------
 // Precedence: --port=NNNN > SPECTOFLOW_PORT env > 4319 (matches templates/dashboard/server.js).
 function resolvePort(args) {
@@ -154,16 +208,18 @@ function init() {
     if (!giText.includes(line)) fs.appendFileSync(gi, ((fs.existsSync(gi) && fs.readFileSync(gi, 'utf8').length) ? '\n' : '') + line + '\n');
   }
 
-  console.log('spectoflow installed in', target);
-  console.log('  .spectoflow/   framework (brain, workflow, agents, skills, policy, dashboard, config)');
-  console.log('  specs/ plans/  markdown artifacts (your source of truth)');
-  written.forEach((w) => console.log('  + ' + w));
-  notes.forEach((n) => console.log('  ! ' + n));
+  console.log(banner());
+  console.log(`${c.g('✓')} installed in ${c.bold(target)}`);
+  console.log(`  ${c.dim('.spectoflow/')}   framework — brain, workflow, agents, skills, policy, dashboard, config`);
+  console.log(`  ${c.dim('specs/ plans/')}  markdown artifacts (your source of truth)`);
+  written.forEach((w) => console.log(`  ${c.cy('+')} ${w}`));
+  notes.forEach((n) => console.log(`  ${c.y('!')} ${c.dim(n)}`));
   const port = resolvePort(argv);
-  console.log('\nNext:');
-  console.log('  1) Open your agent here — or just say what you want to build.');
-  console.log('  2) spectoflow dashboard');
-  console.log(`     → http://localhost:${port}`);
+  console.log(`\n${c.bold('Next')}`);
+  console.log(`  ${c.dim('1)')} Open your agent here — or just say what you want to build.`);
+  console.log(`  ${c.dim('2)')} ${c.g('spectoflow dashboard')}  ${c.dim('→ http://localhost:' + port)}`);
+  console.log(`  ${c.dim('3)')} ${c.g('spectoflow list')}       ${c.dim('see the agents, skills & workflow you got')}`);
+  console.log('');
 }
 
 function update() {
@@ -182,7 +238,7 @@ function update() {
     const detail = note ? c.dim(note) : c.dim(list.slice(0, 6).join(', ') + (list.length > 6 ? ` +${list.length - 6} more` : ''));
     console.log(`  ${sym}  ${painter(label.padEnd(9))} ${n}   ${detail}`);
   };
-  console.log('');
+  console.log(banner());
   console.log(`  ${c.bold('spectoflow update')}   ${c.dim(from)} ${c.amber('→')} ${c.bold(r.toVersion)}${dryRun ? c.dim('   (dry-run)') : ''}`);
   console.log('');
   row(c.g('✓'), 'refreshed', r.refreshed, c.g);
@@ -198,21 +254,55 @@ function update() {
   console.log('');
 }
 
-// THE launch command — prints the URL clearly and won't crash on EADDRINUSE: it probes first
-// and, if a dashboard is already up on that port, just reports it instead of spawning a second one.
+// THE launch command — routes the subcommands, then starts. Starting spawns the server DETACHED and
+// hands the prompt straight back (no foreground blocking), then prints the commands to drive it.
 async function dashboard() {
-  if (argv[1] === 'stop' || argv.includes('stop')) return stopDashboard();
+  const sub = argv[1];
+  if (sub === 'stop') return stopDashboard();
+  if (sub === 'status') return dashboardStatus();
+  if (sub === 'restart') return restartDashboard();
+  return startDashboard();
+}
+
+// Start in the background and return control. Probes first so a second start just reports the running
+// one instead of spawning a duplicate (and never crashes on EADDRINUSE).
+async function startDashboard() {
   const port = resolvePort(argv);
   const url = `http://localhost:${port}`;
   if (await probeDashboard(port)) {
-    console.log(`spectoflow dashboard already running → ${url}`);
-    return;
+    console.log(`${c.g('●')} dashboard already running → ${c.bold(url)}`);
+    return printDashboardCommands();
   }
   const local = path.resolve('.spectoflow', 'dashboard', 'server.js');
   const bundled = path.join(TPL, 'dashboard', 'server.js');
   const env = Object.assign({}, process.env, { SPECTOFLOW_PORT: String(port) });
-  spawn('node', [fs.existsSync(local) ? local : bundled], { stdio: 'inherit', env });
-  console.log(`spectoflow dashboard → ${url}`);
+  const child = spawn('node', [fs.existsSync(local) ? local : bundled], { detached: true, stdio: 'ignore', env });
+  child.unref();                                   // let this CLI exit while the server keeps running
+  console.log(`${c.g('✓')} dashboard started → ${c.bold(url)}  ${c.dim('(pid ' + child.pid + ')')}`);
+  printDashboardCommands();
+}
+
+function printDashboardCommands() {
+  console.log('');
+  console.log(`  ${c.dim('status ')}  ${c.g('spectoflow dashboard status')}   ${c.dim('is it up? (url + pid)')}`);
+  console.log(`  ${c.dim('stop   ')}  ${c.g('spectoflow dashboard stop')}     ${c.dim('(alias: spectoflow stop)')}`);
+  console.log(`  ${c.dim('restart')}  ${c.g('spectoflow dashboard restart')}  ${c.dim('stop then start')}`);
+  console.log('');
+}
+
+async function dashboardStatus() {
+  const port = resolvePort(argv);
+  const running = await probeDashboard(port);
+  let pid = null;
+  try { pid = JSON.parse(fs.readFileSync(path.join(process.cwd(), '.spectoflow', '.dashboard.lock'), 'utf8')).pid; } catch {}
+  if (running) console.log(`${c.g('●')} dashboard running → ${c.bold('http://localhost:' + port)}${pid ? c.dim(' (pid ' + pid + ')') : ''}`);
+  else console.log(`${c.dim('○')} dashboard not running`);
+}
+
+async function restartDashboard() {
+  await stopDashboard();
+  await new Promise((r) => setTimeout(r, 400));     // let the port free up before rebinding
+  return startDashboard();
 }
 
 // Stop the running dashboard: read the pidfile it wrote, verify it's actually up, then terminate it
@@ -259,25 +349,107 @@ async function status() {
 
 function version() { console.log(`spectoflow v${VERSION}`); }
 
-const help = () => console.log(`${c.bold('spectoflow')} ${c.amber('v' + VERSION)} — agent-agnostic spec-driven development
+// ---- explore commands -------------------------------------------------------
+function printAgents(withBrand = true) {
+  const { dir, scope } = frameworkSource();
+  const rows = listAgents(dir);
+  if (withBrand) console.log(`${brandLine()} ${c.dim('· agents (' + scope + ')')}`);
+  const w = Math.max(4, ...rows.map((r) => r.name.length));
+  rows.forEach((r) => console.log(`  ${c.g(r.name.padEnd(w))}  ${c.dim((r.capability || '').padEnd(14))} ${r.description}`));
+  if (!rows.length) console.log(c.dim('  (none found)'));
+}
+function printSkills(withBrand = true) {
+  const { dir, scope } = frameworkSource();
+  const rows = listSkills(dir);
+  if (withBrand) console.log(`${brandLine()} ${c.dim('· skills (' + scope + ')')}`);
+  const w = Math.max(4, ...rows.map((r) => r.name.length));
+  rows.forEach((r) => console.log(`  ${c.cy(r.name.padEnd(w))}  ${c.dim((r.capability || '').padEnd(14))} ${r.description}`));
+  if (!rows.length) console.log(c.dim('  (none found)'));
+}
+function printWorkflow(withBrand = true) {
+  const { dir, scope } = frameworkSource();
+  const steps = readWorkflowSteps(dir);
+  if (withBrand) console.log(`${brandLine()} ${c.dim('· workflow (' + scope + ')')}`);
+  steps.forEach((s) => console.log(`  ${s.on ? c.g('●') : c.dim('○')} ${s.on ? s.name : c.dim(s.name + '  (disabled)')}`));
+  if (!steps.length) console.log(c.dim('  (no workflow.md)'));
+}
+function listAll() {
+  const { scope } = frameworkSource();
+  console.log(banner());
+  console.log(`${c.bold('Agents')} ${c.dim('— stable team personas (' + scope + ')')}`);
+  printAgents(false);
+  console.log(`\n${c.bold('Skills')} ${c.dim('— evolving procedures')}`);
+  printSkills(false);
+  console.log(`\n${c.bold('Workflow')} ${c.dim('— enabled pipeline steps')}`);
+  printWorkflow(false);
+  console.log('');
+}
 
-${c.dim('Usage:')} spectoflow <command> [options]
+// ---- help (global + per-command) --------------------------------------------
+const help = () => console.log(`${banner()}
+${c.dim('Usage:')} spectoflow ${c.g('<command>')} ${c.dim('[options]')}   ${c.dim('· append -h to any command for its help')}
 
-${c.bold('Commands:')}
-  ${c.g('init')} [dir] [--agent=claude,codex]   scaffold a project (auto-detects installed agents)
-  ${c.g('update')} [--dry-run]                  refresh framework files to this kit version
-  ${c.g('dashboard')} [--port=NNNN]             run the local control plane (default 4319, or $SPECTOFLOW_PORT)
-  ${c.g('dashboard stop')}                      stop the running dashboard (alias: ${c.g('stop')})
-  ${c.g('status')}                              print progress + whether the dashboard is running
+${c.bold('Project')}
+  ${c.g('init')} ${c.dim('[dir] [--agent=a,b]')}    scaffold a project (auto-detects agents; wires Playwright MCP)
+  ${c.g('update')} ${c.dim('[--dry-run]')}          refresh framework files to this kit version
+  ${c.g('status')}                      progress + whether the dashboard is running
 
-${c.bold('Options:')}
-  -v, --version                       print the version
-  -h, --help                          show this help
+${c.bold('Dashboard')}
+  ${c.g('dashboard')} ${c.dim('[--port=NNNN]')}     start the control plane in the background (default 4319)
+  ${c.g('dashboard status')}             is it running? (url + pid)
+  ${c.g('dashboard stop')}               stop it ${c.dim('(alias: stop)')}
+  ${c.g('dashboard restart')}            stop then start
+
+${c.bold('Explore')}
+  ${c.g('list')}                        agents, skills and the workflow at a glance
+  ${c.g('agents')}                      list the team personas
+  ${c.g('skills')}                      list the procedures
+  ${c.g('workflow')}                    show the enabled pipeline steps
+
+${c.bold('Options')}
+  ${c.g('-v')}, ${c.g('--version')}                print the version
+  ${c.g('-h')}, ${c.g('--help')}                   show this help
 
 ${c.dim('Docs:')} https://github.com/georgesmomo/spectoflow`);
 
-const fns = { init, update, dashboard, stop: stopDashboard, status, help, version };
+// Per-command help — shown when -h/--help follows a command (e.g. `spectoflow dashboard -h`).
+const HELP = {
+  init: `${c.bold('spectoflow init')} ${c.dim('[dir] [--agent=a,b]')}\n
+  Scaffold spectoflow into <dir> (default: current directory).
+  Auto-detects installed agents (${c.dim('claude, codex, cursor, gemini')}) and writes their entry
+  shims; override with ${c.g('--agent=claude,codex')}. Also wires ${c.bold('Playwright MCP')} into the
+  project's ${c.dim('.mcp.json')} (idempotent — never touches an existing entry).
+  ${c.dim('An existing CLAUDE.md is preserved as CLAUDE.md.tomerge for you to merge on first run.')}`,
+  update: `${c.bold('spectoflow update')} ${c.dim('[--dry-run]')}\n
+  Refresh framework-owned files (engine, dashboard, default agents & skills, AGENTS.md, policy…)
+  to this CLI's version, ${c.bold('preserving your work')}: config.json, workflow.md, specs/, plans/
+  and any agent/skill you edited are never overwritten (an edited file's new version lands as
+  ${c.dim('*.new')} for you to merge). ${c.g('--dry-run')} previews without writing.`,
+  dashboard: `${c.bold('spectoflow dashboard')} ${c.dim('[--port=NNNN] [status|stop|restart]')}\n
+  Start the local control plane in the ${c.bold('background')} (default ${c.dim('4319')} or
+  ${c.dim('$SPECTOFLOW_PORT')}) and hand the prompt back. Subcommands:
+    ${c.g('status')}    is it running? (url + pid)
+    ${c.g('stop')}      stop it            ${c.dim('(alias: spectoflow stop)')}
+    ${c.g('restart')}   stop then start`,
+  status: `${c.bold('spectoflow status')}\n
+  Print project progress from ${c.dim('plans/*.md')} (tasks done, specs, agents, skills, in-progress
+  items) and whether the dashboard is currently running.`,
+  list: `${c.bold('spectoflow list')}\n
+  Show the ${c.g('agents')}, ${c.cy('skills')} and ${c.bold('workflow')} of the current project
+  (or the bundled kit when run outside a project) at a glance.`,
+  agents: `${c.bold('spectoflow agents')}\n  List the stable team personas (name · capability · role).`,
+  skills: `${c.bold('spectoflow skills')}\n  List the evolving procedures (name · capability · what it does).`,
+  workflow: `${c.bold('spectoflow workflow')}\n  Show the pipeline steps, marking which are enabled (●) or disabled (○).`,
+  stop: `${c.bold('spectoflow stop')}\n  Stop the running dashboard (alias for ${c.g('spectoflow dashboard stop')}).`,
+};
+const showHelp = (name) => console.log('\n' + HELP[name].trim() + '\n');
+
+// ---- dispatch ---------------------------------------------------------------
+const fns = { init, update, dashboard, stop: stopDashboard, status, list: listAll, agents: () => printAgents(), skills: () => printSkills(), workflow: () => printWorkflow(), help, version };
+const wantsHelp = argv.slice(1).some((a) => a === '-h' || a === '--help');
+
 if (['-v', '-V', '--version', 'version'].includes(cmd)) version();
-else if (['-h', '--help'].includes(cmd)) help();
+else if (['-h', '--help', 'help'].includes(cmd)) help();
+else if (fns[cmd] && wantsHelp && HELP[cmd]) showHelp(cmd);
 else if (fns[cmd]) fns[cmd]();
 else help();

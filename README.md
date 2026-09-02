@@ -38,13 +38,22 @@ Every command works both ways — `spectoflow <cmd>` when installed globally, or
 ### CLI
 
 ```
-spectoflow init [dir] [--agent=claude,codex]   scaffold a project (auto-detects installed agents)
+spectoflow init [dir] [--agent=claude,codex]   scaffold a project (auto-detects agents; wires Playwright MCP)
 spectoflow update [--dry-run]                  refresh framework files to this kit version
-spectoflow dashboard [--port=NNNN]             run the local control plane (default 4319)
-spectoflow dashboard stop   (or: stop)         stop the running dashboard
 spectoflow status                              progress + whether the dashboard is running
+
+spectoflow dashboard [--port=NNNN]             start the control plane in the background (hands the prompt back)
+spectoflow dashboard status                    is it running? (url + pid)
+spectoflow dashboard stop   (or: stop)         stop the running dashboard
+spectoflow dashboard restart                   stop then start
+
+spectoflow list                                agents, skills and the workflow at a glance
+spectoflow agents                              list the team personas
+spectoflow skills                              list the procedures
+spectoflow workflow                            show the enabled pipeline steps
+
 spectoflow --version   (-v)                    print the version
-spectoflow --help      (-h)                    show help
+spectoflow --help      (-h)                    show help   (append -h to any command for its help)
 ```
 
 `init` scaffolds:
