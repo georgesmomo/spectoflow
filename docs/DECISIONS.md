@@ -463,3 +463,6 @@
 ### D37 — 0.16.4 : welcome à l'install (postinstall) + brand factorisé
 - **ACTÉ.** `npm install -g spectoflow` n'exécute pas le code de la CLI → le logo ne s'affichait pas à l'install. Ajout d'un **script `postinstall`** (`bin/postinstall.js`) qui imprime le logo (hexagone blanc + nom ambre) + « Get started ». **Garde-fous** : ne s'affiche que sur un install **global + TTY** (`npm_config_global==='true'` && `process.stdout.isTTY`), tout est **try/catch** (un banner ne doit jamais casser un install), muet en CI/dépendance. Réserve connue : npm 7+ peut **bufferiser** la sortie des scripts de cycle de vie (sinon `spectoflow` sans args ou `spectoflow init` montrent le même brand).
 - **Refactor** : l'art ASCII part dans **`lib/brand.js`** (LOGO, NAME, `logo(c,version)`, `wordmark(c,version)`), partagé par `bin/spectoflow.js` et `bin/postinstall.js` → une seule source, rendu identique partout.
+
+### D38 — 0.16.5 : favicon du dashboard visible (logo noir par défaut, theme-aware)
+- **ACTÉ.** Le `<link rel="icon">` pointait sur `logo-white.png` (logo blanc) → **invisible sur un onglet clair**. Corrigé : favicon = **`logo-dark.png`** (noir) par défaut, plus une variante `media="(prefers-color-scheme: dark)"` → `logo-white.png` en dark mode navigateur. Arrive aux projets via `spectoflow update`.
