@@ -114,9 +114,27 @@
     if (searchBtn) { searchBtn.remove(); searchBtn = null; }
   }
 
+  // The topbar has a backdrop-filter, which makes it the containing block of any position:fixed
+  // descendant — so a "fixed" rail inside it would be clipped to the header's height and scroll
+  // away. Dock the tab nav directly under <body> while this design is on; put it back on leave.
+  var tabsHome = null;
+  function dockRail() {
+    var t = document.getElementById('tabs');
+    if (!t || t.parentElement === document.body) return;
+    tabsHome = { parent: t.parentElement, next: t.nextSibling };
+    document.body.appendChild(t);
+  }
+  function undockRail() {
+    var t = document.getElementById('tabs');
+    if (!t || !tabsHome) return;
+    tabsHome.parent.insertBefore(t, tabsHome.next);
+    tabsHome = null;
+  }
+
   function activate() {
     if (active) return;
     active = true;
+    dockRail();
     injectButton();
     document.addEventListener('keydown', onKeydown);
   }
@@ -126,6 +144,7 @@
     active = false;
     close();
     removeButton();
+    undockRail();
     document.removeEventListener('keydown', onKeydown);
   }
 

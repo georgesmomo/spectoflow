@@ -46,7 +46,7 @@ html[data-design="console"] .stage { position:relative; z-index:1; }
 
 /* ============ LEFT ICON RAIL ============ */
 html[data-design="console"] nav.tabs#tabs {
-  position:fixed; left:0; top:0; bottom:0; z-index:30; width:var(--cx-rail-w);
+  position:fixed; left:0; top:0; bottom:0; height:100vh; z-index:30; width:var(--cx-rail-w);
   display:flex; flex-direction:column; align-items:center; gap:6px;
   padding:16px 10px; overflow-y:auto; overflow-x:hidden; max-width:none;
   background:color-mix(in srgb,var(--surface) 84%,transparent); backdrop-filter:blur(10px);
@@ -191,3 +191,7 @@ html[data-design="console"][data-theme="light"] .cx-cmdk { background:rgba(15,23
   html[data-design="console"] .wf-strip .wf-arrow::after,
   html[data-design="console"] .flatlist li.run-live::before { animation:none; display:none; }
 }
+
+/* chat FAB — solid brand accent so it reads on the light set too (was surface-2, near-invisible) */
+html[data-design="console"] .chat-fab { background:var(--signal); color:var(--on-accent); border-color:transparent; box-shadow:0 10px 26px color-mix(in srgb,var(--signal) 40%,transparent); }
+html[data-design="console"] .chat-fab:hover { transform:translateY(-2px) scale(1.04); }

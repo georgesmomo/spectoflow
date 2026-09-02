@@ -205,3 +205,10 @@ html[data-design="orbit"] .ob-item .ob-bd {
   }
   html[data-design="orbit"] .ob-item { opacity:1; transform:rotate(var(--a)) translate(98px) rotate(calc(-1*var(--a))); }
 }
+
+/* chat FAB — amber brand accent (the teal is the dial's); readable on both sets */
+html[data-design="orbit"] .chat-fab { background:var(--cool); color:#1a1206; border-color:transparent; box-shadow:0 10px 26px color-mix(in srgb,var(--cool) 40%,transparent); }
+html[data-design="orbit"] .chat-fab:hover { transform:translateY(-2px) scale(1.04); }
+/* pipeline connectors — keep the line itself visible on the dark set (it was line-on-ground, too faint) */
+html[data-design="orbit"] .wf-arrow { background:color-mix(in srgb,var(--signal) 35%,var(--line)); }
+html[data-design="orbit"] .wf-arrow.off { background:var(--line); }

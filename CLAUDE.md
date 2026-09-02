@@ -5,6 +5,14 @@ framework with a real-time local control plane. This file orients you to **build
 (it is not a spectoflow-managed project). Read `docs/` before making changes:
 `docs/ARCHITECTURE.md`, `docs/DECISIONS.md` (the full rationale, D1–D23), `docs/ROADMAP.md` (what's next).
 
+## What exists (v0.17.1)
+
+**v0.17.1 (see DECISIONS D40):** real-browser QA pass of both templates (all views, light + dark, ⌘K,
+radial menu). Fixes: the Console rail was clipped to the header because the topbar's `backdrop-filter`
+is the containing block of a fixed descendant → `console.js` now **docks `#tabs` under `<body>`**
+while the design is on (and restores it on leave); the chat FAB uses the solid brand accent so it
+reads on the light sets; Orbit's pipeline connectors are tinted so the line stays visible in dark.
+
 ## What exists (v0.17.0)
 
 **v0.17.0 — dashboard redesign, 2 new templates (see DECISIONS D39):** two prototypes were validated
