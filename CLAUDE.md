@@ -5,10 +5,16 @@ framework with a real-time local control plane. This file orients you to **build
 (it is not a spectoflow-managed project). Read `docs/` before making changes:
 `docs/ARCHITECTURE.md`, `docs/DECISIONS.md` (the full rationale, D1–D23), `docs/ROADMAP.md` (what's next).
 
+## What exists (v0.16.1)
+
+**v0.16.1 (see DECISIONS D34):** the ASCII logo is now the **real brand mark** — a flat-top **hexagon
+around the "S"** (flow), rasterized to 41×17 with the **`s p e c t o f l o w` wordmark centered
+below** — shown on `init`, `help` and `list` (`update` uses a compact header). Replaces the 0.16.0
+box-drawing wordmark.
+
 ## What exists (v0.16.0)
 
-**v0.16.0 — CLI UX pass (see DECISIONS D33):** an ASCII **logo banner** (self-contained box-drawing
-wordmark) on `init`, `update`, `help` and `list`; **new explore commands** — `spectoflow list`
+**v0.16.0 — CLI UX pass (see DECISIONS D33):** an ASCII **logo banner** on `init`, `help` and `list`; **new explore commands** — `spectoflow list`
 (agents + skills + workflow at a glance), `agents`, `skills`, `workflow` (read from the project's
 `.spectoflow/`, or the bundled kit when run outside one, via a tiny zero-dep frontmatter reader);
 **per-command help** — appending `-h`/`--help` to any command prints that command's help instead of

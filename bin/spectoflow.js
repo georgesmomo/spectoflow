@@ -23,14 +23,36 @@ const paint = (code) => (s) => (useColor ? `\x1b[${code}m${s}\x1b[0m` : String(s
 const c = { g: paint('32'), cy: paint('36'), b: paint('34'), y: paint('33'), dim: paint('2'), bold: paint('1'), amber: paint('38;5;179') };
 
 // ---- branding ---------------------------------------------------------------
+// The spectoflow mark in ASCII: a flat-top hexagon around the angular "S" (flow), rasterized to fit
+// a terminal. Shown at the reading moments (init / help / list); secondary outputs use brandLine().
 const LOGO = [
-  '┌─┐┌─┐┌─┐┌─┐┌┬┐┌─┐┌─┐┬  ┌─┐┬ ┬',
-  '└─┐├─┘├┤ │   │ │ │├┤ │  │ ││││',
-  '└─┘┴  └─┘└─┘ ┴ └─┘┴  ┴─┘└─┘└┴┘',
+  '       ###########################',
+  '       ###########################',
+  '      ##                         ##',
+  '     ##        ###########        ##',
+  '    ###        ###########        ###',
+  '   ###         ###                 ###',
+  '  ###          ###                  ###',
+  ' ###           ###########           ###',
+  '###            ###########            ###',
+  ' ###                   ###           ###',
+  '  ###                  ###          ###',
+  '   ###         ###########         ###',
+  '    ###        ###########        ###',
+  '     ##                           ##',
+  '      ##                         ##',
+  '       ###########################',
+  '       ###########################',
 ];
+const LOGO_W = 41;                       // widest logo line, for centering the wordmark under it
+const NAME = 's p e c t o f l o w';
 const TAGLINE = 'agent-agnostic spec-driven development · real-time control plane';
-// Full logo block — for init and help (the moments a human is reading, not scripting).
-const banner = () => `\n${LOGO.map((l) => '  ' + c.amber(l)).join('\n')}\n  ${c.dim('v' + VERSION + ' · ' + TAGLINE)}\n`;
+// Full logo block — hexagon mark + centered wordmark + version. For init, help and list.
+function logo() {
+  const art = LOGO.map((l) => '  ' + c.amber(l)).join('\n');
+  const pad = ' '.repeat(Math.max(0, Math.round((2 + LOGO_W - NAME.length) / 2)));
+  return `\n${art}\n\n${pad}${c.bold(c.amber(NAME))}\n  ${c.dim('v' + VERSION + ' · ' + TAGLINE)}\n`;
+}
 // One-line brand — for the header of secondary command outputs.
 const brandLine = () => `${c.amber('spectoflow')} ${c.dim('v' + VERSION)}`;
 
@@ -208,7 +230,7 @@ function init() {
     if (!giText.includes(line)) fs.appendFileSync(gi, ((fs.existsSync(gi) && fs.readFileSync(gi, 'utf8').length) ? '\n' : '') + line + '\n');
   }
 
-  console.log(banner());
+  console.log(logo());
   console.log(`${c.g('✓')} installed in ${c.bold(target)}`);
   console.log(`  ${c.dim('.spectoflow/')}   framework — brain, workflow, agents, skills, policy, dashboard, config`);
   console.log(`  ${c.dim('specs/ plans/')}  markdown artifacts (your source of truth)`);
@@ -238,7 +260,7 @@ function update() {
     const detail = note ? c.dim(note) : c.dim(list.slice(0, 6).join(', ') + (list.length > 6 ? ` +${list.length - 6} more` : ''));
     console.log(`  ${sym}  ${painter(label.padEnd(9))} ${n}   ${detail}`);
   };
-  console.log(banner());
+  console.log('');
   console.log(`  ${c.bold('spectoflow update')}   ${c.dim(from)} ${c.amber('→')} ${c.bold(r.toVersion)}${dryRun ? c.dim('   (dry-run)') : ''}`);
   console.log('');
   row(c.g('✓'), 'refreshed', r.refreshed, c.g);
@@ -375,7 +397,7 @@ function printWorkflow(withBrand = true) {
 }
 function listAll() {
   const { scope } = frameworkSource();
-  console.log(banner());
+  console.log(logo());
   console.log(`${c.bold('Agents')} ${c.dim('— stable team personas (' + scope + ')')}`);
   printAgents(false);
   console.log(`\n${c.bold('Skills')} ${c.dim('— evolving procedures')}`);
@@ -386,7 +408,7 @@ function listAll() {
 }
 
 // ---- help (global + per-command) --------------------------------------------
-const help = () => console.log(`${banner()}
+const help = () => console.log(`${logo()}
 ${c.dim('Usage:')} spectoflow ${c.g('<command>')} ${c.dim('[options]')}   ${c.dim('· append -h to any command for its help')}
 
 ${c.bold('Project')}
