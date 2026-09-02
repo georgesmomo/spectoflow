@@ -1,6 +1,6 @@
 ---
 name: write-e2e-tests
-description: Author durable, CI-runnable end-to-end tests with Playwright — locators over selectors, web-first assertions, no hard waits.
+description: Author durable, CI-runnable Playwright end-to-end tests — run headed, directly in the browser, by default; falls back to MCP, native browser tooling or headless, always telling the user why.
 capability: testing
 inputs: The user-visible flow(s) under test (spec acceptance criteria or a plan task), the running app under test, and its existing `tests/e2e/` suite and Playwright config if any.
 outputs: Committed Playwright spec files under `tests/e2e/*.spec.ts`, runnable in CI.
@@ -44,22 +44,59 @@ Practices below are current Playwright guidance (see References for exact source
 8. **Keep specs scoped to one flow each**, named for the behavior under test, and placed under
    `tests/e2e/*.spec.ts` in the user's project.
 
-**Driving the browser (live repro + test generation) — use the best available, in this order:**
-1. **Playwright MCP** (`@playwright/mcp`, wired into the project's `.mcp.json` by `spectoflow init`):
-   the **agent-agnostic** way to drive a real browser and **generate** a spec from a recorded flow.
-   Works in any MCP client (Claude Code, Codex, Cursor, …). `npx` fetches it on first use — nothing to
-   install; if it isn't wired yet, add it or run `spectoflow init` again (idempotent).
-2. **The client's native browser tooling** (for Claude Code, the Chrome extension / `claude-in-chrome`)
-   for live/exploratory checks when MCP isn't wired.
-3. **Local Playwright** — `npx playwright codegen` / headed mode for a quick, throwaway look;
-   `npx playwright install` provides the browsers. Needs `@playwright/test` as the project's devDependency.
-4. **If no browser can run at all** (restricted CI, no browsers installed): still **write the durable
-   spec** (the artifact that lasts), then raise a `need` / Attention item with the exact commands to
-   enable it — never report a pass you couldn't actually observe.
+## Running the tests — headed, in the real browser, by default
 
-**Live/exploratory verification is not this skill's output.** Whichever rung above you're on, the
-durable, CI-runnable artifact this skill produces is always the Playwright **spec file**, not the live
-session — the live drive is only the means to write and check it.
+**Default: Playwright lib, headed.** When this skill's own agent runs the suite — while authoring it,
+verifying a flow, or investigating a failure — run it **directly in a visible browser window**:
+`npx playwright test --headed`. Watching the browser act out the flow, rather than reading a bare
+pass/fail line, is the whole point: it is how you (and the user, if watching) catch a flow that
+"passes" for the wrong reason. This is the default **local run mode** — not a suggestion to try once
+in a while.
+
+**`--ui` mode for authoring and debugging.** Reach for `npx playwright test --ui` when writing a new
+flow or chasing a failure: it steps through each action with time-travel, showing the DOM/network at
+every point, and is the fastest way to build a flow interactively before locking it into a spec.
+
+**CI stays headless — that is not a fallback, it is a different job.** The committed suite still runs
+`npx playwright test` (no `--headed`) in the project's CI pipeline, per the Quality bar below: most CI
+runners have no real display, and headless is faster and the industry-standard way to gate a merge.
+The headed-by-default rule governs *this skill's own local run loop*, not the CI config it authors.
+
+**Switch away from headed only when:**
+- **the user explicitly asked for something else** (headless, `--ui`, a specific project/browser) —
+  honor it, no need to justify; or
+- **headed genuinely cannot run** (no display / sandboxed or remote environment / browsers not
+  installed) — then step down the ladder below.
+
+Whenever you step down for the second reason, **say so** — don't silently swap to a quieter mode:
+
+```
+::spectoflow role=testing kind=progress msg=Running headless — no display available in this environment (would default to --headed)
+```
+
+or, if it blocks the task entirely, raise it as a `need` (see Output contract).
+
+### The fallback ladder
+1. **Playwright lib, headed** (default) — `npx playwright test --headed`. Needs `@playwright/test` as
+   the project's devDependency and `npx playwright install` for the browsers.
+2. **Playwright lib, `--ui`** — for interactively authoring or debugging one flow before committing it.
+3. **Playwright lib, headless** — same lib, just invisible: use when headed can't launch, or the user
+   asked for headless. Still the lib — nothing else changes.
+4. **Playwright MCP** (`@playwright/mcp`, wired into the project's `.mcp.json` by `spectoflow init`):
+   the **agent-agnostic** way to drive a real browser and **generate** a spec from a recorded flow —
+   reach for this to explore an unfamiliar app or reproduce a bug, or when the project has no
+   Playwright lib set up yet. Works in any MCP client (Claude Code, Codex, Cursor, …); `npx` fetches
+   the server on first use — nothing to install; if it isn't wired, add it or re-run `spectoflow init`
+   (idempotent).
+5. **The client's native browser tooling** (for Claude Code, the Chrome extension / `claude-in-chrome`)
+   for live/exploratory checks when neither the local lib nor MCP is usable.
+6. **If no browser can run at all** (restricted CI, no browsers installed, nothing wired): still
+   **write the durable spec** (the artifact that lasts), then raise a `need` / Attention item with the
+   exact commands to enable it — never report a pass you couldn't actually observe.
+
+**Live/exploratory verification is not this skill's output.** Whichever rung you're on, the durable,
+CI-runnable artifact this skill produces is always the Playwright **spec file**, not the live session —
+the live browser (headed, `--ui`, MCP, or the extension) is only the means to write and check it.
 
 **Playwright is a dependency of the user's project, never of spectoflow.** This skill authors tests
 against whatever Playwright version the target project has (or proposes adding `@playwright/test` as a
@@ -78,6 +115,14 @@ project devDependency when none exists) — spectoflow itself stays at zero runt
 ::spectoflow role=testing kind=result msg=<spec file> <pass|fail> (<n> tests)
 ::spectoflow role=testing kind=done msg=<flow name> e2e suite committed at tests/e2e/<file>
 ```
+- Any step down the fallback ladder away from **Playwright lib, headed** (the default) is reported the
+  moment it happens, with the reason — never a silent switch:
+
+```
+::spectoflow role=testing kind=progress msg=Running headless — <reason> (would default to --headed)
+::spectoflow role=testing kind=progress msg=Falling back to Playwright MCP — <reason>
+::spectoflow role=testing kind=need msg=No browser can run here — spec written, needs <exact command> to verify
+```
 
 ## Quality bar
 - [ ] Each spec asserts user-visible behavior (text/role/state), not internal implementation.
@@ -90,6 +135,10 @@ project devDependency when none exists) — spectoflow itself stays at zero runt
 - [ ] `trace: 'on-first-retry'` (or equivalent) is set so a CI failure is debuggable without tracing
       every run.
 - [ ] No spectoflow file declares Playwright as a dependency — only the user project's `package.json`.
+- [ ] The local run defaulted to **Playwright lib, headed** (`--headed`), not headless, unless the user
+      asked otherwise or headed genuinely could not launch.
+- [ ] Any step away from the headed default (headless, MCP, native browser tooling) was **announced**
+      with its reason via the `::spectoflow` sentinel — never a silent switch.
 
 ## References
 - Playwright — Best Practices — https://playwright.dev/docs/best-practices (test user-visible behavior;
@@ -107,3 +156,9 @@ project devDependency when none exists) — spectoflow itself stays at zero runt
   matching configuration).
 - Playwright — Trace viewer — https://playwright.dev/docs/trace-viewer (`trace: 'on-first-retry'` for
   CI).
+- Playwright — Running and debugging tests — https://playwright.dev/docs/running-tests (headed mode is
+  the default way to watch a run locally).
+- Playwright — UI Mode — https://playwright.dev/docs/test-ui-mode (`--ui`, time-travel debugging for
+  authoring and chasing failures).
+- Playwright MCP — https://github.com/microsoft/playwright-mcp (agent-driven browser automation and
+  spec generation, agent-agnostic via MCP).

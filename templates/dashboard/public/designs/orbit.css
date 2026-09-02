@@ -45,6 +45,12 @@ html[data-design="orbit"] .kpi-num { font-weight:700; }
 
 /* navigation is the radial menu — the tab bar is hidden, content runs full width */
 html[data-design="orbit"] nav.tabs { display:none; }
+
+/* The hub (orbit.js) takes over the brand mark's visual role, so the original logo link is hidden;
+   the "spectoflow" text becomes the dashboard link in its place (see orbit.js's brand-name handler). */
+html[data-design="orbit"] .brand-logo { display:none; }
+html[data-design="orbit"] .brand-name { cursor:pointer; transition:opacity .15s; }
+html[data-design="orbit"] .brand-name:hover { opacity:.72; text-decoration:underline; text-underline-offset:3px; }
 html[data-design="orbit"] .topbar { grid-template-columns:auto 1fr auto; }
 
 /* pills + rounder cards */
@@ -88,24 +94,30 @@ html[data-design="orbit"] body.booting .card { animation: ob-rise .45s cubic-bez
  * THE HUB — round brand button in the header; shows live global progress %, doubles as the
  * radial-menu trigger. Injected by orbit.js as the first child of .brand.
  * ============================================================================================ */
+/* The hub IS the brand mark: the original .brand-logo link is hidden (see below) and this button
+   takes over both roles it used to split — visual identity AND, now, the menu trigger. The ring is a
+   conic-gradient driven by --ob-pct (set in orbit.js on every progress update): a live "how much of
+   the project shipped" reading at a glance, without needing a text percentage on the closed hub. */
 html[data-design="orbit"] .ob-hub {
-  position:relative; width:46px; height:46px; border-radius:50%; flex-shrink:0;
-  background:var(--signal); color:var(--on-accent); display:grid; place-items:center;
-  box-shadow:0 8px 20px color-mix(in srgb, var(--signal) 40%, transparent);
-  transition:transform .18s; cursor:pointer; border:0; font:inherit;
+  position:relative; width:46px; height:46px; border-radius:50%; flex-shrink:0; padding:3px;
+  background:conic-gradient(var(--signal) calc(var(--ob-pct,0) * 1%), var(--surface-3) 0);
+  display:grid; place-items:center; box-shadow:0 6px 16px color-mix(in srgb, var(--signal) 28%, transparent);
+  transition:transform .18s,box-shadow .18s; cursor:pointer; border:0; font:inherit;
 }
-html[data-design="orbit"] .ob-hub:hover { transform:scale(1.06); }
-html[data-design="orbit"] .ob-hub .ob-pct { font-family:var(--display); font-size:12px; font-weight:700; letter-spacing:-.02em; }
-html[data-design="orbit"] .ob-hub::after {
-  content:""; position:absolute; inset:-5px; border-radius:50%; border:2px solid var(--signal); opacity:.35;
-  animation: ob-breathe 2.6s ease-in-out infinite;
+html[data-design="orbit"] .ob-hub::before {
+  content:""; position:absolute; inset:3px; border-radius:50%; background:var(--surface); z-index:0;
 }
-@keyframes ob-breathe { 0%,100%{ transform:scale(1); opacity:.35; } 50%{ transform:scale(1.08); opacity:.12; } }
+/* No `display` here: the theme-toggle rule (.brand-logo-img.is-dark/.is-light in styles.css) must stay
+   in control of which of the two cloned <img>s is shown — an explicit display:block on this class
+   used to outrank it (higher specificity) and forced BOTH clones visible at once, a ghosted double
+   logo most visible in dark mode (the two assets differ more there than in light mode). */
+html[data-design="orbit"] .ob-hub .ob-hub-logo { position:relative; z-index:1; height:21px; width:auto; }
+html[data-design="orbit"] .ob-hub:hover { transform:scale(1.07); box-shadow:0 8px 20px color-mix(in srgb, var(--signal) 38%, transparent); }
 
 /* ---- fixed bottom-left FAB on small screens ---- */
 @media (max-width:900px) {
-  html[data-design="orbit"] .ob-hub { position:fixed; left:16px; bottom:18px; z-index:42; width:56px; height:56px; }
-  html[data-design="orbit"] .ob-hub .ob-pct { font-size:14px; }
+  html[data-design="orbit"] .ob-hub { position:fixed; left:16px; bottom:18px; z-index:42; width:56px; height:56px; padding:4px; }
+  html[data-design="orbit"] .ob-hub .ob-hub-logo { height:25px; }
 }
 
 /* ============================================================================================
@@ -149,21 +161,26 @@ html[data-design="orbit"] .ob-chev.ob-left:hover { transform:translateY(-50%) sc
 html[data-design="orbit"] .ob-chev.ob-right { top:50%; right:-4px; transform:translateY(-50%); }
 html[data-design="orbit"] .ob-chev.ob-right:hover { transform:translateY(-50%) scale(1.12); }
 
+/* The dial's center repeats the brand mark alone — the same logo as the hub, at a size that makes it
+   the clear focal point of the whole dial, so identity carries through from closed button to open
+   menu. The % is already encoded by the ring around it (.ob-prog); repeating it as text here would
+   only compete with the logo instead of framing it. */
 html[data-design="orbit"] .ob-center {
   position:absolute; left:50%; top:50%; width:76px; height:76px; transform:translate(-50%,-50%);
-  border-radius:50%; display:grid; place-items:center; background:var(--signal); color:var(--on-accent);
-  box-shadow:0 10px 24px color-mix(in srgb, var(--signal) 40%, transparent); text-align:center; line-height:1;
+  border-radius:50%; display:grid; place-items:center;
+  background:var(--signal); color:var(--on-accent);
+  box-shadow:0 10px 24px color-mix(in srgb, var(--signal) 40%, transparent);
   border:0; cursor:pointer;
 }
-html[data-design="orbit"] .ob-center .ob-pct { font-family:var(--display); font-size:22px; font-weight:700; letter-spacing:-.03em; }
-html[data-design="orbit"] .ob-center .ob-lbl { font:500 9.5px var(--mono); opacity:.85; margin-top:2px; letter-spacing:.06em; text-transform:uppercase; }
+html[data-design="orbit"] .ob-center .ob-center-logo { height:34px; width:auto; }
 html[data-design="orbit"] .ob-center::after {
   content:""; position:absolute; inset:-6px; border-radius:50%; border:2px solid var(--signal); opacity:.35;
   animation: ob-breathe 2.6s ease-in-out infinite;
 }
+@keyframes ob-breathe { 0%,100%{ transform:scale(1); opacity:.35; } 50%{ transform:scale(1.08); opacity:.12; } }
 @media (max-width:900px) {
   html[data-design="orbit"] .ob-center { width:60px; height:60px; }
-  html[data-design="orbit"] .ob-center .ob-pct { font-size:17px; }
+  html[data-design="orbit"] .ob-center .ob-center-logo { height:27px; }
 }
 
 html[data-design="orbit"] .ob-item {

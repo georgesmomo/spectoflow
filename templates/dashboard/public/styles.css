@@ -26,7 +26,20 @@ body { background:var(--bg); color:var(--ink); font-family:var(--sans); font-siz
 .brand-text { display:flex; flex-direction:column; gap:2px; min-width:0; }
 .brand-line { display:flex; align-items:center; gap:7px; min-width:0; }
 .brand-name { font-weight:700; } .brand-sep{ color:var(--faint); } .brand-project{ color:var(--muted); font-weight:500; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
-.brand-sub { font-family:var(--mono); font-size:9.5px; text-transform:uppercase; letter-spacing:.08em; color:var(--faint); }
+.brand-sub { display:flex; align-items:center; gap:4px; font-family:var(--mono); font-size:9.5px; text-transform:uppercase; letter-spacing:.08em; color:var(--faint); }
+.brand-sub-sep { color:var(--faint); }
+/* Quick mode/language switch, right on the bar — same source of truth as Settings (renderSettings()
+   keeps both pairs synced; a change here saves via the same /api/settings call). Kept visually quiet
+   (transparent, no border) until hovered/focused, so it reads as bar text until you reach for it. */
+.brand-mini-select {
+  appearance:none; -webkit-appearance:none; border:1px solid transparent; border-radius:5px;
+  background:transparent; color:inherit; font:inherit; text-transform:inherit; letter-spacing:inherit;
+  padding:1px 14px 1px 3px; cursor:pointer;
+  background-image:linear-gradient(45deg,transparent 50%,currentColor 50%),linear-gradient(135deg,currentColor 50%,transparent 50%);
+  background-position:right 5px top 55%,right 2px top 55%; background-size:3px 3px,3px 3px; background-repeat:no-repeat;
+}
+.brand-mini-select:hover,.brand-mini-select:focus-visible { color:var(--ink); border-color:var(--line); background-color:var(--surface-2); outline:none; }
+.brand-mini-select option { color:var(--ink); background:var(--surface); text-transform:none; }
 .progress-meter { width:76px; height:5px; border-radius:999px; background:var(--surface-2); overflow:hidden; flex-shrink:0; margin-left:4px; }
 .progress-meter-fill { height:100%; width:0%; background:linear-gradient(90deg,var(--cool),var(--signal)); border-radius:999px; transition:width .5s ease; }
 .tabs { justify-self:center; display:flex; gap:2px; min-width:0; max-width:100%; overflow-x:auto; overflow-y:hidden; scrollbar-width:none; }
@@ -818,6 +831,7 @@ body.booting .wf-step2 { opacity:0; animation:rise .4s cubic-bezier(.2,.8,.2,1) 
 
 /* ---- board compactness: expand/collapse-all button + kanban column scroll (v0.13.5) ---- */
 .mini-btn { font:inherit; font-size:11.5px; padding:5px 12px; border:1px solid var(--line); border-radius:999px; background:var(--surface); color:var(--muted); cursor:pointer; flex-shrink:0; }
+.journal-more { display:block; width:100%; margin-top:8px; text-align:center; }
 .mini-btn:hover { color:var(--ink); border-color:var(--cool); }
 .main:has(.board.is-kanban) #phaseToggleAll { display:none; }   /* phases are a List concept */
 .kanban-col-body { max-height:64vh; overflow-y:auto; }          /* keep columns compact on a big project */

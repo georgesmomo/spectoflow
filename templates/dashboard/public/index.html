@@ -13,7 +13,7 @@
 <body>
   <header class="topbar">
     <div class="brand">
-      <button class="nav-toggle" id="navToggle" aria-label="Toggle menu" aria-expanded="false"><span></span><span></span><span></span></button>
+      <button class="nav-toggle" id="navToggle" data-i18n-aria="topbar.navToggle" aria-label="Toggle menu" aria-expanded="false"><span></span><span></span><span></span></button>
       <a class="brand-logo" href="/board" data-route="board" aria-label="spectoflow home">
         <img class="brand-logo-img is-dark" src="logo-white.png" alt="spectoflow" />
         <img class="brand-logo-img is-light" src="logo-dark.png" alt="spectoflow" />
@@ -25,27 +25,42 @@
           <span class="brand-sep">/</span>
           <span class="brand-project" id="projectName">—</span>
         </div>
-        <div class="brand-sub" id="brandSub">semi · en</div>
+        <div class="brand-sub" id="brandSub">
+          <select id="topMode" class="brand-mini-select" data-i18n-title="topbar.mode.title" data-i18n-aria="field.mode" aria-label="Autonomy mode" title="Autonomy mode — change from here or in Settings">
+            <option value="autopilot">autopilot</option>
+            <option value="semi">semi</option>
+            <option value="manual">manual</option>
+          </select>
+          <span class="brand-sub-sep">·</span>
+          <select id="topLang" class="brand-mini-select" data-i18n-title="topbar.lang.title" data-i18n-aria="field.lang" aria-label="Output language" title="Output language — change from here or in Settings">
+            <option value="en">en</option>
+            <option value="fr">fr</option>
+            <option value="es">es</option>
+            <option value="de">de</option>
+            <option value="pt">pt</option>
+            <option value="it">it</option>
+          </select>
+        </div>
       </div>
       <div class="progress-meter" id="globalMeter" title="Global progress">
         <div class="progress-meter-fill" id="globalMeterFill"></div>
       </div>
     </div>
     <nav class="tabs" id="tabs">
-      <button class="tab is-active" data-tab="board"><span class="tab-ico" data-icon="board"></span><span class="tab-label">Board</span></button>
-      <button class="tab" data-tab="requests"><span class="tab-ico" data-icon="requests"></span><span class="tab-label">Requests</span></button>
-      <button class="tab" data-tab="attention"><span class="tab-ico" data-icon="attention"></span><span class="tab-label">Attention</span><span class="tab-badge" id="attnBadge" hidden>0</span></button>
-      <button class="tab" data-tab="backlog"><span class="tab-ico" data-icon="backlog"></span><span class="tab-label">Backlog</span></button>
-      <button class="tab" data-tab="workflow"><span class="tab-ico" data-icon="workflow"></span><span class="tab-label">Workflow</span></button>
-      <button class="tab" data-tab="team"><span class="tab-ico" data-icon="agents"></span><span class="tab-label">Agents &amp; Skills</span></button>
-      <button class="tab" data-tab="chat"><span class="tab-ico" data-icon="chat"></span><span class="tab-label">Chat</span></button>
-      <button class="tab" data-tab="info"><span class="tab-ico" data-icon="info"></span><span class="tab-label">Info</span></button>
-      <button class="tab" data-tab="settings"><span class="tab-ico" data-icon="settings"></span><span class="tab-label">Settings</span></button>
+      <button class="tab is-active" data-tab="board"><span class="tab-ico" data-icon="board"></span><span class="tab-label" data-i18n="nav.board">Board</span></button>
+      <button class="tab" data-tab="chat"><span class="tab-ico" data-icon="chat"></span><span class="tab-label" data-i18n="nav.chat">Chat</span></button>
+      <button class="tab" data-tab="requests"><span class="tab-ico" data-icon="requests"></span><span class="tab-label" data-i18n="nav.requests">Requests</span></button>
+      <button class="tab" data-tab="attention"><span class="tab-ico" data-icon="attention"></span><span class="tab-label" data-i18n="nav.attention">Attention</span><span class="tab-badge" id="attnBadge" hidden>0</span></button>
+      <button class="tab" data-tab="backlog"><span class="tab-ico" data-icon="backlog"></span><span class="tab-label" data-i18n="nav.backlog">Backlog</span></button>
+      <button class="tab" data-tab="workflow"><span class="tab-ico" data-icon="workflow"></span><span class="tab-label" data-i18n="nav.workflow">Workflow</span></button>
+      <button class="tab" data-tab="team"><span class="tab-ico" data-icon="agents"></span><span class="tab-label" data-i18n="nav.team">Agents &amp; Skills</span></button>
+      <button class="tab" data-tab="info"><span class="tab-ico" data-icon="info"></span><span class="tab-label" data-i18n="nav.info">Info</span></button>
+      <button class="tab" data-tab="settings"><span class="tab-ico" data-icon="settings"></span><span class="tab-label" data-i18n="nav.settings">Settings</span></button>
     </nav>
     <div class="top-right">
       <span class="sync" id="sync"><span class="sync-dot"></span><span id="syncLabel">live</span></span>
-      <button class="btn primary run-btn" id="runQuickBtn" title="Open the run chat"><span class="tab-ico" data-icon="run"></span><span>Run</span></button>
-      <button class="theme-toggle" id="themeToggle" aria-label="Toggle light / dark theme" title="Toggle light / dark"><span class="tab-ico" data-icon="theme"></span></button>
+      <button class="btn primary run-btn" id="runQuickBtn" data-i18n-title="topbar.run.title" title="Open the run chat"><span class="tab-ico" data-icon="run"></span><span data-i18n="action.run">Run</span></button>
+      <button class="theme-toggle" id="themeToggle" data-i18n-aria="topbar.theme.toggle" data-i18n-title="topbar.theme.toggle.title" aria-label="Toggle light / dark theme" title="Toggle light / dark"><span class="tab-ico" data-icon="theme"></span></button>
     </div>
   </header>
 
@@ -56,34 +71,35 @@
         <div class="overview" id="overview"></div>
         <div class="filters" id="filters">
           <div class="chip-list" id="statusChips">
-            <button class="fchip active" data-status="all">All</button>
-            <button class="fchip" data-status="todo">To do</button>
-            <button class="fchip" data-status="in_progress">In progress</button>
-            <button class="fchip" data-status="to_validate">To validate</button>
-            <button class="fchip" data-status="to_analyze">To analyze</button>
-            <button class="fchip" data-status="done">Done</button>
-            <button class="fchip" data-status="blocked">Blocked</button>
+            <button class="fchip active" data-status="all" data-i18n="filter.all">All</button>
+            <button class="fchip" data-status="todo" data-i18n="status.todo">To do</button>
+            <button class="fchip" data-status="in_progress" data-i18n="status.in_progress">In progress</button>
+            <button class="fchip" data-status="to_validate" data-i18n="status.to_validate">To validate</button>
+            <button class="fchip" data-status="to_analyze" data-i18n="status.to_analyze">To analyze</button>
+            <button class="fchip" data-status="done" data-i18n="status.done">Done</button>
+            <button class="fchip" data-status="blocked" data-i18n="status.blocked">Blocked</button>
           </div>
           <div class="view-toggle" id="boardViewToggle" role="group" aria-label="Board view">
-            <button class="vt-btn active" data-view="list" title="Grouped by phase"><span class="tab-ico" data-icon="backlog"></span><span>List</span></button>
-            <button class="vt-btn" data-view="kanban" title="Columns by status"><span class="tab-ico" data-icon="board"></span><span>Kanban</span></button>
+            <button class="vt-btn active" data-view="list" data-i18n-title="board.viewList.title" title="Grouped by phase"><span class="tab-ico" data-icon="backlog"></span><span data-i18n="board.viewList">List</span></button>
+            <button class="vt-btn" data-view="kanban" data-i18n-title="board.viewKanban.title" title="Columns by status"><span class="tab-ico" data-icon="board"></span><span data-i18n="board.viewKanban">Kanban</span></button>
           </div>
-          <button class="mini-btn" id="phaseToggleAll" title="Expand or collapse all phases">Expand all</button>
-          <input type="search" id="search" class="search" placeholder="Filter tasks…" autocomplete="off" />
+          <button class="mini-btn" id="phaseToggleAll" data-i18n-title="board.expandAllTitle" data-i18n="board.expandAll" title="Expand or collapse all phases">Expand all</button>
+          <input type="search" id="search" class="search" data-i18n-ph="board.filterPlaceholder" placeholder="Filter tasks…" autocomplete="off" />
         </div>
         <div class="board" id="board"></div>
       </div>
       <aside class="side" id="side">
         <div class="rail-block rail-block-journal">
-          <h2 class="rail-title">Journal <span class="count" id="journalCount">0</span></h2>
+          <h2 class="rail-title"><span data-i18n="rail.journal">Journal</span> <span class="count" id="journalCount">0</span></h2>
           <div class="journal" id="journal"></div>
+          <button class="mini-btn journal-more" id="journalMore" hidden></button>
         </div>
         <div class="rail-block">
-          <h2 class="rail-title">Specs <span class="count" id="specsCount">0</span></h2>
+          <h2 class="rail-title"><span data-i18n="rail.specs">Specs</span> <span class="count" id="specsCount">0</span></h2>
           <ul class="flatlist" id="specs"></ul>
         </div>
         <div class="rail-block">
-          <h2 class="rail-title">Running <span class="count" id="runCount">0</span></h2>
+          <h2 class="rail-title"><span data-i18n="rail.running">Running</span> <span class="count" id="runCount">0</span></h2>
           <ul class="flatlist" id="running"></ul>
         </div>
       </aside>
@@ -92,8 +108,8 @@
     <!-- REQUESTS (tasks awaiting review: to_validate / to_analyze) -->
     <section class="panel" data-panel="requests">
       <div class="requests-wrap">
-        <h2 class="panel-title">Requests <span class="count" id="requestsCount">0</span></h2>
-        <p class="panel-sub">Tasks awaiting your input — status <em>to validate</em> or <em>to analyze</em>.</p>
+        <h2 class="panel-title"><span data-i18n="nav.requests">Requests</span> <span class="count" id="requestsCount">0</span></h2>
+        <p class="panel-sub" data-i18n-html="requests.sub">Tasks awaiting your input — status <em>to validate</em> or <em>to analyze</em>.</p>
         <ul class="flatlist requests-list" id="requestsList"></ul>
       </div>
     </section>
@@ -101,16 +117,16 @@
     <!-- ATTENTION (points raised by the agent or by you; validate → task) -->
     <section class="panel" data-panel="attention">
       <div class="attn-wrap">
-        <h2 class="panel-title">Points of attention <span class="count" id="attnCount">0</span></h2>
-        <p class="panel-sub">Things the agent flagged during work — or you noted — that deserve a look. <em>Validate</em> one to turn it into a task.</p>
+        <h2 class="panel-title"><span data-i18n="attn.title">Points of attention</span> <span class="count" id="attnCount">0</span></h2>
+        <p class="panel-sub" data-i18n-html="attn.sub">Things the agent flagged during work — or you noted — that deserve a look. <em>Validate</em> one to turn it into a task.</p>
         <div class="attn-add">
-          <textarea id="attnInput" class="chat-ta" placeholder="Note something to keep an eye on…"></textarea>
-          <button id="attnAddBtn" class="btn primary">Add note</button>
+          <textarea id="attnInput" class="chat-ta" data-i18n-ph="attn.inputPlaceholder" placeholder="Note something to keep an eye on…"></textarea>
+          <button id="attnAddBtn" class="btn primary" data-i18n="attn.addNote">Add note</button>
         </div>
         <div class="attn-filters">
-          <button class="fchip active" data-attn="open">Open</button>
-          <button class="fchip" data-attn="all">All</button>
-          <button class="fchip" data-attn="resolved">Resolved</button>
+          <button class="fchip active" data-attn="open" data-i18n="filter.open">Open</button>
+          <button class="fchip" data-attn="all" data-i18n="filter.all">All</button>
+          <button class="fchip" data-attn="resolved" data-i18n="filter.resolved">Resolved</button>
         </div>
         <div class="attn-list" id="attnList"></div>
       </div>
@@ -119,31 +135,31 @@
     <!-- BACKLOG (flat, sortable, filterable table of every task) -->
     <section class="panel" data-panel="backlog">
       <div class="backlog-wrap">
-        <h2 class="panel-title">Backlog <span class="count" id="backlogCount">0</span></h2>
-        <p class="panel-sub">Every task, across every plan, in one flat table.</p>
+        <h2 class="panel-title"><span data-i18n="nav.backlog">Backlog</span> <span class="count" id="backlogCount">0</span></h2>
+        <p class="panel-sub" data-i18n="backlog.sub">Every task, across every plan, in one flat table.</p>
         <div class="filters" id="backlogFilters">
           <div class="chip-list" id="backlogStatusChips">
-            <button class="fchip active" data-status="open">Open</button>
-            <button class="fchip" data-status="all">All</button>
-            <button class="fchip" data-status="todo">To do</button>
-            <button class="fchip" data-status="in_progress">In progress</button>
-            <button class="fchip" data-status="to_validate">To validate</button>
-            <button class="fchip" data-status="to_analyze">To analyze</button>
-            <button class="fchip" data-status="done">Done</button>
-            <button class="fchip" data-status="blocked">Blocked</button>
+            <button class="fchip active" data-status="open" data-i18n="filter.open">Open</button>
+            <button class="fchip" data-status="all" data-i18n="filter.all">All</button>
+            <button class="fchip" data-status="todo" data-i18n="status.todo">To do</button>
+            <button class="fchip" data-status="in_progress" data-i18n="status.in_progress">In progress</button>
+            <button class="fchip" data-status="to_validate" data-i18n="status.to_validate">To validate</button>
+            <button class="fchip" data-status="to_analyze" data-i18n="status.to_analyze">To analyze</button>
+            <button class="fchip" data-status="done" data-i18n="status.done">Done</button>
+            <button class="fchip" data-status="blocked" data-i18n="status.blocked">Blocked</button>
           </div>
-          <input type="search" id="backlogSearch" class="search" placeholder="Filter by id or title…" autocomplete="off" />
+          <input type="search" id="backlogSearch" class="search" data-i18n-ph="backlog.searchPlaceholder" placeholder="Filter by id or title…" autocomplete="off" />
         </div>
         <div class="table-scroll">
           <table class="backlog-table" id="backlogTable">
             <thead>
               <tr>
-                <th data-col="id">ID</th>
-                <th data-col="title">Title</th>
-                <th data-col="phase">Phase</th>
-                <th data-col="status">Status</th>
-                <th data-col="owner">Owner</th>
-                <th data-col="level">Level</th>
+                <th data-col="id" data-i18n="col.id">ID</th>
+                <th data-col="title" data-i18n="col.title">Title</th>
+                <th data-col="phase" data-i18n="col.phase">Phase</th>
+                <th data-col="status" data-i18n="col.status">Status</th>
+                <th data-col="owner" data-i18n="col.owner">Owner</th>
+                <th data-col="level" data-i18n="col.level">Level</th>
                 <th data-col="comments">💬</th>
               </tr>
             </thead>
@@ -157,8 +173,8 @@
     <!-- WORKFLOW -->
     <section class="panel" data-panel="workflow">
       <div class="wf-wrap">
-        <h2 class="panel-title">Active workflow</h2>
-        <p class="panel-sub">The pipeline your requests flow through — from idea to shipped, spec-driven. <strong>Click a step</strong> to see what it does and turn it on or off (this edits <code>.spectoflow/workflow.md</code>). Enabled steps run in order; the orchestrator gates each one by your <em>mode</em> and <em>policy</em>. Optional steps stay off until you switch them on.</p>
+        <h2 class="panel-title" data-i18n="workflow.title">Active workflow</h2>
+        <p class="panel-sub" data-i18n-html="workflow.sub">The pipeline your requests flow through — from idea to shipped, spec-driven. <strong>Click a step</strong> to see what it does and turn it on or off (this edits <code>.spectoflow/workflow.md</code>). Enabled steps run in order; the orchestrator gates each one by your <em>mode</em> and <em>policy</em>. Optional steps stay off until you switch them on.</p>
         <div class="wf-diagram" id="wfDiagram"></div>
       </div>
     </section>
@@ -166,11 +182,11 @@
     <!-- AGENTS & SKILLS -->
     <section class="panel" data-panel="team">
       <div class="team-wrap">
-        <h2 class="panel-title">Agents <span class="count" id="agentsCount">0</span></h2>
-        <p class="panel-sub">Stable team personas — the <em>who</em>.</p>
+        <h2 class="panel-title"><span data-i18n="team.agentsTitle">Agents</span> <span class="count" id="agentsCount">0</span></h2>
+        <p class="panel-sub" data-i18n-html="team.agentsSub">Stable team personas — the <em>who</em>.</p>
         <div class="cards" id="agents"></div>
-        <h2 class="panel-title" style="margin-top:28px">Skills <span class="count" id="skillsCount">0</span></h2>
-        <p class="panel-sub">Evolving procedures — the <em>how</em>.</p>
+        <h2 class="panel-title" style="margin-top:28px"><span data-i18n="team.skillsTitle">Skills</span> <span class="count" id="skillsCount">0</span></h2>
+        <p class="panel-sub" data-i18n-html="team.skillsSub">Evolving procedures — the <em>how</em>.</p>
         <div class="cards" id="skills"></div>
       </div>
     </section>
@@ -180,31 +196,31 @@
       <div class="chat-tab-wrap">
         <div class="chat-tab-head">
           <div>
-            <h2 class="panel-title">Chat</h2>
-            <p class="panel-sub">Full conversation with the runner — the same run as the widget, more room to read it.</p>
+            <h2 class="panel-title" data-i18n="nav.chat">Chat</h2>
+            <p class="panel-sub" data-i18n="chat.tabSub">Full conversation with the runner — the same run as the widget, more room to read it.</p>
           </div>
           <select id="tabRunAgent" class="chat-agent" title="Agent"></select>
         </div>
         <div class="chat-tab-log" id="chatTabLog">
-          <div class="chat-idle">Type a request — the agent runs headless in this project with full memory
+          <div class="chat-idle" data-i18n-html="chat.idle">Type a request — the agent runs headless in this project with full memory
             (<code>CLAUDE.md → AGENTS.md</code>) and updates the board live.</div>
         </div>
         <div class="chat-tab-input">
-          <textarea id="tabRunPrompt" class="chat-ta" placeholder="e.g. Add a login feature with email + password"></textarea>
+          <textarea id="tabRunPrompt" class="chat-ta" data-i18n-ph="chat.inputPlaceholder" placeholder="e.g. Add a login feature with email + password"></textarea>
           <div class="chat-tab-actions">
-            <button id="tabRunBtn" class="btn primary chat-send">Send</button>
-            <button id="tabOrchBtn" class="btn chat-send" title="Walk the enabled workflow">Orchestrate</button>
+            <button id="tabRunBtn" class="btn primary chat-send" data-i18n="action.send">Send</button>
+            <button id="tabOrchBtn" class="btn chat-send" data-i18n-title="chat.orchestrateTitle" data-i18n="action.orchestrate" title="Walk the enabled workflow">Orchestrate</button>
           </div>
         </div>
-        <p class="chat-warn">⚠ Launches a real agent (<code>config.json → runners</code>) that can modify files &amp; run commands.</p>
+        <p class="chat-warn" data-i18n-html="chat.warn">⚠ Launches a real agent (<code>config.json → runners</code>) that can modify files &amp; run commands.</p>
       </div>
     </section>
 
     <!-- INFO (project overview — filled by renderInfo() in app.js) -->
     <section class="panel" data-panel="info">
       <div class="info-wrap">
-        <h2 class="panel-title">Info</h2>
-        <p class="panel-sub">Project overview — configuration, counts, specs and active workflow.</p>
+        <h2 class="panel-title" data-i18n="info.title">Info</h2>
+        <p class="panel-sub" data-i18n="info.sub">Project overview — configuration, counts, specs and active workflow.</p>
         <div class="info-grid" id="infoGrid"></div>
       </div>
     </section>
@@ -212,23 +228,23 @@
     <!-- SETTINGS (change autonomy mode + output language → config.json) -->
     <section class="panel" data-panel="settings">
       <div class="settings-wrap">
-        <h2 class="panel-title">Settings</h2>
-        <p class="panel-sub">Change how spectoflow runs. Writes <code>.spectoflow/config.json</code> — the agent picks it up on its next run.</p>
+        <h2 class="panel-title" data-i18n="nav.settings">Settings</h2>
+        <p class="panel-sub" data-i18n-html="settings.sub">Change how spectoflow runs. Writes <code>.spectoflow/config.json</code> — the agent picks it up on its next run.</p>
         <div class="settings-card">
           <label class="settings-field">
-            <span class="settings-field-label">Dashboard design</span>
+            <span class="settings-field-label" data-i18n="field.design">Dashboard design</span>
             <select id="setDesign" class="settings-select"></select>
           </label>
           <label class="settings-field">
-            <span class="settings-field-label">Autonomy mode</span>
+            <span class="settings-field-label" data-i18n="field.mode">Autonomy mode</span>
             <select id="setMode" class="settings-select">
-              <option value="autopilot">autopilot — run freely, ask only on policy gates</option>
-              <option value="semi">semi — autopilot + policy approvals</option>
-              <option value="manual">manual — approve every step</option>
+              <option value="autopilot" data-i18n="mode.autopilot.desc">autopilot — run freely, ask only on policy gates</option>
+              <option value="semi" data-i18n="mode.semi.desc">semi — autopilot + policy approvals</option>
+              <option value="manual" data-i18n="mode.manual.desc">manual — approve every step</option>
             </select>
           </label>
           <label class="settings-field">
-            <span class="settings-field-label">Output language</span>
+            <span class="settings-field-label" data-i18n="field.lang">Output language</span>
             <select id="setLang" class="settings-select">
               <option value="en">en · English</option>
               <option value="fr">fr · Français</option>
@@ -238,7 +254,7 @@
               <option value="it">it · Italiano</option>
             </select>
           </label>
-          <div class="settings-saved" id="settingsSaved" hidden>✓ saved</div>
+          <div class="settings-saved" id="settingsSaved" data-i18n="settings.saved" hidden>✓ saved</div>
         </div>
         <div class="settings-readonly" id="settingsReadonly"></div>
       </div>
@@ -259,31 +275,31 @@
     <div class="footer-right">
       <a href="https://github.com/georgesmomo/spectoflow" target="_blank" rel="noopener">GitHub</a>
       <a href="https://www.npmjs.com/package/spectoflow" target="_blank" rel="noopener">npm</a>
-      <button class="footer-link" id="footerSettings">Settings</button>
+      <button class="footer-link" id="footerSettings" data-i18n="nav.settings">Settings</button>
     </div>
   </footer>
 
   <!-- CHAT WIDGET (floating agent runner; entry point to the group-chat) -->
-  <button class="chat-fab" id="chatFab" aria-label="Open run chat" title="Run an agent">💬</button>
+  <button class="chat-fab" id="chatFab" data-i18n-title="chat.widgetTitle" aria-label="Open run chat" title="Run an agent">💬</button>
   <div class="chat" id="chat" aria-hidden="true" role="dialog" aria-label="Run an agent">
     <div class="chat-head">
       <div class="chat-head-text">
-        <span class="chat-title">Run an agent</span>
-        <span class="chat-sub">Quick access · full view in the Chat tab</span>
+        <span class="chat-title" data-i18n="chat.widgetTitle">Run an agent</span>
+        <span class="chat-sub" data-i18n="chat.widgetSub">Quick access · full view in the Chat tab</span>
       </div>
       <select id="runAgent" class="chat-agent" title="Agent"></select>
       <button class="chat-close" id="chatClose" aria-label="Close">×</button>
     </div>
     <div class="chat-log" id="chatLog">
-      <div class="chat-idle">Type a request — the agent runs headless in this project with full memory
+      <div class="chat-idle" data-i18n-html="chat.idle">Type a request — the agent runs headless in this project with full memory
         (<code>CLAUDE.md → AGENTS.md</code>) and updates the board live.</div>
     </div>
     <div class="chat-input">
-      <textarea id="runPrompt" class="chat-ta" placeholder="e.g. Add a login feature with email + password"></textarea>
-      <button id="runBtn" class="btn primary chat-send">Send</button>
-      <button id="orchBtn" class="btn chat-send" title="Walk the enabled workflow">Orchestrate</button>
+      <textarea id="runPrompt" class="chat-ta" data-i18n-ph="chat.inputPlaceholder" placeholder="e.g. Add a login feature with email + password"></textarea>
+      <button id="runBtn" class="btn primary chat-send" data-i18n="action.send">Send</button>
+      <button id="orchBtn" class="btn chat-send" data-i18n-title="chat.orchestrateTitle" data-i18n="action.orchestrate" title="Walk the enabled workflow">Orchestrate</button>
     </div>
-    <p class="chat-warn">⚠ Launches a real agent (<code>config.json → runners</code>) that can modify files &amp; run commands.</p>
+    <p class="chat-warn" data-i18n-html="chat.warn">⚠ Launches a real agent (<code>config.json → runners</code>) that can modify files &amp; run commands.</p>
   </div>
 
   <div class="drawer" id="drawer" aria-hidden="true">
@@ -311,6 +327,7 @@
   <script src="charts.js"></script>
   <script src="icons.js"></script>
   <script src="designs.js"></script>
+  <script src="i18n.js"></script>
   <script src="app.js"></script>
   <script src="designs/console.js"></script>
   <script src="designs/orbit.js"></script>

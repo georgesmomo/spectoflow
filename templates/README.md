@@ -66,6 +66,10 @@ Your **artifacts are markdown, and they live at the project root, not in here**:
 - **The framework lives here**; per-agent entry files are thin shims that point back — never duplicate
   framework content per agent.
 - **Agents are stable personas; skills are the evolving procedures.** Workflow → capability → agent → skill.
+- **End-to-end tests run headed, in the real browser, by default** (`write-e2e-tests`) — Playwright lib
+  with `--headed`, `--ui` for authoring/debugging, stepping down (headless → Playwright MCP → native
+  browser tooling → write-and-raise-a-need) only when asked or blocked, always saying why. CI stays
+  headless — see the Workflow tab's End-to-end step for the details.
 - **Mode ≠ policy.** Mode is routine friction; policy is approvals required regardless of mode.
 - **Spec-anchored:** the spec is the intent of record; the code and tests are the enforced reality; the
   `spec-source-guardian` keeps them from drifting apart (it flags, it never silently auto-fixes).

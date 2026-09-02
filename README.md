@@ -174,12 +174,18 @@ question at a time**, each with a recommendation anchored in the project's goals
 until the need is crisp; then it runs the normal workflow. It's additive: it feeds the router, never
 replaces it, and it's mode-aware.
 
-**End-to-end tests via Playwright MCP.** `init` idempotently wires a `playwright` entry into the target
-project's `.mcp.json` (and `.cursor/mcp.json` for Cursor) so the QA agent can drive a real browser and
-generate/run Playwright specs — `npx` fetches the server on first use, so spectoflow stays zero-dep
-(the config lives in *your* project). If the MCP isn't available, `write-e2e-tests` falls back down a
-ladder (native browser tooling → local Playwright → write the spec and raise a `need`), never faking a
-pass. The durable artifact is always the committed `*.spec.ts`.
+**End-to-end tests run headed, in the real browser, by default.** `write-e2e-tests` defaults to
+**Playwright lib, `--headed`** for its own local runs — the browser window is visible so a flow that
+"passes" for the wrong reason gets caught, not just a bare pass/fail line. `--ui` mode is used for
+authoring a flow or chasing a failure interactively. It only steps down — to headless, then
+**Playwright MCP**, then the client's native browser tooling (e.g. Claude Code's Chrome extension), then
+writing the spec and raising a `need` — when you asked for something else or headed genuinely can't
+launch, and it **always says why** via the `::spectoflow` sentinel, never a silent switch. CI keeps
+running the committed suite headless — that's the pipeline's job, not a fallback. `init` idempotently
+wires a `playwright` entry into the target project's `.mcp.json` (and `.cursor/mcp.json` for Cursor) so
+the MCP rung works out of the box — `npx` fetches the server on first use, so spectoflow stays zero-dep
+(the config lives in *your* project). The durable artifact is always the committed `*.spec.ts`; the
+Workflow tab's End-to-end step shows this policy in its dashboard popover.
 
 A `governance` capability adds a **Spec Source Guardian** (skill `audit-source`): it keeps the spec
 (intent) and the code/tests (reality) coherent — flagging drift in both directions, never auto-fixing,

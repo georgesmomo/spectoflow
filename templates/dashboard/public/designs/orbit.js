@@ -20,7 +20,21 @@
     return '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="' + d + '"/></svg>';
   }
 
-  /* ---- hub button (injected into .brand) ---- */
+  /* ---- the brand mark, reused wherever Orbit needs a logo ----
+     Clones the header's own theme-aware <img> pair (.brand-logo-img.is-dark/.is-light) rather than
+     hardcoding a filename, so a custom-uploaded logo or a future asset change is picked up for free.
+     The light/dark swap rule is written purely against the shared class names (no ancestor scoping),
+     so it keeps working no matter where these clones end up (hub button, dial center). */
+  function logoImgsHtml(extraClass) {
+    var imgs = document.querySelectorAll('.brand > .brand-logo .brand-logo-img');
+    if (!imgs.length) return '';
+    return Array.prototype.map.call(imgs, function (img) {
+      var variant = img.className.replace('brand-logo-img', '').trim();
+      return '<img class="brand-logo-img' + (variant ? ' ' + variant : '') + (extraClass ? ' ' + extraClass : '') + '" src="' + img.getAttribute('src') + '" alt="" />';
+    }).join('');
+  }
+
+  /* ---- hub button (injected into .brand) — the logo itself, ringed with live progress ---- */
   function buildHub() {
     if (hubEl) return;
     var brand = document.querySelector('.brand');
@@ -30,11 +44,18 @@
     hubEl.className = 'ob-hub';
     hubEl.title = 'Menu (M)';
     hubEl.setAttribute('aria-haspopup', 'dialog');
-    hubEl.innerHTML = '<span class="ob-pct">0%</span>';
+    hubEl.setAttribute('aria-label', 'Open menu');
+    hubEl.innerHTML = logoImgsHtml('ob-hub-logo');
     brand.insertBefore(hubEl, brand.firstChild);
     hubEl.addEventListener('click', toggleOverlay);
   }
   function removeHub() { if (hubEl) { hubEl.remove(); hubEl = null; } }
+
+  /* ---- "spectoflow" text next to the hub opens the dashboard (the hub itself opens the menu) ---- */
+  function onBrandNameClick() {
+    var board = tabs().filter(function (t) { return t.dataset.tab === 'board'; })[0];
+    if (board) board.click();
+  }
 
   /* ---- global progress % — read #globalMeterFill's width, kept live ---- */
   function updatePct() {
@@ -42,9 +63,9 @@
     var pct = 0;
     if (fill && fill.style && fill.style.width) pct = parseFloat(fill.style.width) || 0;
     pct = Math.max(0, Math.min(100, Math.round(pct)));
-    if (hubEl) { var hp = hubEl.querySelector('.ob-pct'); if (hp) hp.textContent = pct + '%'; }
+    if (hubEl) hubEl.style.setProperty('--ob-pct', pct); // drives the hub's conic-gradient ring
     if (ovEl) {
-      var cp = ovEl.querySelector('.ob-center .ob-pct'); if (cp) cp.textContent = pct + '%';
+      // the center is the logo alone; progress is read from the ring around it, not repeated as text
       var prog = ovEl.querySelector('.ob-prog');
       if (prog) { var C = 804.2, len = (pct / 100 * C).toFixed(1); prog.setAttribute('stroke-dasharray', len + ' ' + C); }
     }
@@ -80,7 +101,7 @@
         '<button type="button" class="ob-chev ob-down" title="Next (Down)">' + chevSvg('down') + '</button>' +
         '<button type="button" class="ob-chev ob-left" title="Search / Board">' + chevSvg('left') + '</button>' +
         '<button type="button" class="ob-chev ob-right" title="Run">' + chevSvg('right') + '</button>' +
-        '<button type="button" class="ob-center" title="Close (Esc)"><span class="ob-pct">0%</span><span class="ob-lbl">Delivered</span></button>' +
+        '<button type="button" class="ob-center" title="Close (Esc)" aria-label="Close menu">' + logoImgsHtml('ob-center-logo') + '</button>' +
         items +
       '</div>';
     document.body.appendChild(ovEl);
@@ -179,12 +200,16 @@
       fillObserver = new MutationObserver(updatePct);
       fillObserver.observe(fill, { attributes: true, attributeFilter: ['style'] });
     }
+    var bn = document.querySelector('.brand-name');
+    if (bn) bn.addEventListener('click', onBrandNameClick);
   }
   function leave() {
     closeOverlay();
     removeHub();
     if (pctInterval) { clearInterval(pctInterval); pctInterval = null; }
     if (fillObserver) { fillObserver.disconnect(); fillObserver = null; }
+    var bn = document.querySelector('.brand-name');
+    if (bn) bn.removeEventListener('click', onBrandNameClick);
   }
   function sync() {
     var on = isOrbit();

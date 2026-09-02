@@ -5,6 +5,57 @@ framework with a real-time local control plane. This file orients you to **build
 (it is not a spectoflow-managed project). Read `docs/` before making changes:
 `docs/ARCHITECTURE.md`, `docs/DECISIONS.md` (the full rationale, D1–D23), `docs/ROADMAP.md` (what's next).
 
+## What exists (v0.17.4 — see DECISIONS D44)
+
+Two Orbit logo fixes from real-browser QA. A stray `display:block` on the hub's logo clone outranked
+the theme-toggle rule (`.brand-logo-img.is-dark/.is-light`) and forced both light/dark logo variants
+visible at once — a ghosted double mark, most visible in dark mode. Removed; the theme toggle is back
+in control. And the dial's center button, which used to cram logo + % + "Delivered" into 76px, now
+shows **the logo alone**, bigger (34px) and well-centered — the ring around it already carries the
+progress reading, so nothing is lost by dropping the repeated text.
+
+## What exists (v0.17.5 — see DECISIONS D45)
+
+**The dashboard UI now translates, not just the agent's output.** `config.json → language` used to
+govern only what the agent writes (specs/plans/comments, per AGENTS.md) — the dashboard chrome itself
+stayed English regardless. New `templates/dashboard/public/i18n.js`: a 179-key dictionary across all
+6 languages (en/fr/es/de/pt/it, verified key-complete), `t(key, vars)` with `{placeholder}`
+substitution and an en → raw-key fallback, `applyI18nStatic()` walking `data-i18n*` attributes. Fully
+reactive through the existing `render()` pipeline — `i18nSetLang()`/`updateStatusLabels()` at the top,
+`applyI18nStatic()` at the end — so a language change applies on the next SSE tick, no extra wiring.
+`openDrawer`'s local task variable was renamed `t`→`task` (it would have shadowed the new global `t()`
+translation function). Also: the sidebar **Journal is capped to 5 entries** by default with a "See
+more/less" toggle; and **Chat moved to the 2nd nav position** (right after Board).
+
+## What exists (v0.17.3 — see DECISIONS D43)
+
+Three fixes to the shared bar (all designs, unless noted): the **project's real folder name** is now
+shown (`server.js` adds `projectName`; the client no longer falls back to the generic `projectType`);
+**mode and language are editable right from the bar** via two compact selects (`#topMode`/`#topLang`)
+kept in sync with the Settings tab; and, **Orbit only**, the hub button that opens the radial menu is
+now **the logo itself** (theme-aware, ringed with a live conic-gradient progress indicator) — the
+original header logo is hidden, the "spectoflow" name becomes the dashboard link in its place, and the
+dial's center also shows the logo above the % / "Delivered" caption.
+
+## What exists (v0.17.2, cont'd — see DECISIONS D42)
+
+Two more Console fixes from real-project visual QA: the header brand logo (26px base) reads too small
+against this design's darker, denser topbar — bumped to 34px, scoped to `.topbar` only. And the footer
+was losing its left edge ("ctoflow" instead of "spectoflow") because `.app-footer` is a sibling of
+`.stage`, not a child — the icon rail is `position:fixed` to the viewport, so `.stage`'s `margin-left`
+never reached it. `.app-footer` now gets the same rail-width margin (reset under 820px).
+
+## What exists (v0.17.2)
+
+**v0.17.2 (see DECISIONS D41):** `write-e2e-tests` now states an explicit hierarchy between Playwright
+lib, Playwright MCP and native browser tooling. **Default: Playwright lib, `--headed`** — local runs
+happen directly in a visible browser (`--ui` for interactive authoring/debugging); it steps down (to
+headless, then MCP, then native tooling, then write-and-raise-a-need) only when the user asked
+otherwise or headed can't launch, **always announcing why** via the `::spectoflow` sentinel. CI stays
+headless — that's the pipeline's job, not a fallback. `qa-engineer.md` and both READMEs updated to
+match; the skill's frontmatter `description` (shown in the dashboard's Workflow popover and the Agents
+& Skills card) now summarizes this policy.
+
 ## What exists (v0.17.1)
 
 **v0.17.1 (see DECISIONS D40):** real-browser QA pass of both templates (all views, light + dark, ⌘K,

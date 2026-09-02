@@ -29,6 +29,7 @@ function frameworkVersion(){
 function project(){
   const p = store.readProject(ROOT);
   const v = frameworkVersion(); if (v) p.version = v;
+  p.projectName = path.basename(ROOT); // the actual project folder, always shown in the topbar
   return p;
 }
 function sendJSON(res,code,obj){ res.writeHead(code,{'Content-Type':'application/json; charset=utf-8'}); res.end(JSON.stringify(obj)); }

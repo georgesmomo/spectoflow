@@ -1,5 +1,9 @@
 'use strict';
+// Kept as a mutable object (not reassigned) so every existing STATUS[key] lookup keeps working
+// unchanged; updateStatusLabels() (called at the top of every render()) refreshes its values from
+// the current UI language, so a language change re-labels every status chip/column/legend for free.
 const STATUS = { todo:'To do', in_progress:'In progress', to_validate:'To validate', to_analyze:'To analyze', done:'Done', blocked:'Blocked' };
+function updateStatusLabels(){ for(const k of Object.keys(STATUS)) STATUS[k]=t('status.'+k); }
 let P = null, openTaskId = null;
 let filter = { status: 'all', q: '' }; // board filter state — client-side only, read-only
 let boardView = (()=>{ try{ return localStorage.getItem('spf-board-view')||'list'; }catch{ return 'list'; } })(); // 'list' | 'kanban'
@@ -73,8 +77,8 @@ function renderApproval(container){
   if(!o || o.status!=='awaiting_approval') return;
   row=el('div','approval');
   row.append(el('div','msg-role','orchestrator · awaiting approval'));
-  const a=el('button','btn primary','Approve'); a.addEventListener('click',()=>approve('approve'));
-  const c=el('button','btn','Cancel'); c.addEventListener('click',()=>approve('cancel'));
+  const a=el('button','btn primary',t('action.approve')); a.addEventListener('click',()=>approve('approve'));
+  const c=el('button','btn',t('action.cancel')); c.addEventListener('click',()=>approve('cancel'));
   const acts=el('div','c-actions'); acts.append(a,c); row.append(acts);
   container.append(row); scrollChat(container);
 }
@@ -117,9 +121,11 @@ function flash(){ const s=$('#sync'); s.classList.add('saving'); $('#syncLabel')
 
 function render(){
   const c = P.config||{};
-  $('#projectName').textContent = c.projectType || 'project';
+  i18nSetLang(c.language||'en'); updateStatusLabels(); // language drives the whole UI, not just agent output
+  $('#projectName').textContent = P.projectName || c.projectType || 'project';
   const bv=$('#brandVer'); if(bv){ if(P.version){ bv.textContent='v'+P.version; bv.hidden=false; } else { bv.hidden=true; } }
-  $('#brandSub').textContent = (c.mode||'semi') + ' · ' + (c.language||'en');
+  // mode/language are edited live from the bar itself — see the #topMode/#topLang selects synced
+  // in renderSettings() below (called on every render tick) and saved via saveSettings().
   // agent select — widget (#runAgent) and Chat tab (#tabRunAgent) each get their own populated
   // <select>, since an id can't be shared by two elements; same option list, same source of truth.
   const runners=Object.keys((c.runners)||{claude:1});
@@ -131,11 +137,12 @@ function render(){
   const meterFill=$('#globalMeterFill');
   if(meterFill) meterFill.style.width=(s.pct||0)+'%';
   const meter=$('#globalMeter');
-  if(meter) meter.title=`Global progress: ${s.pct}% (${s.done}/${s.total} tasks)`;
+  if(meter) meter.title=`${t('kpi.globalProgress')}: ${s.pct}% (${s.done}/${s.total} ${t('kpi.tasksLabel')})`;
   renderOverview(); renderBoard(); renderBacklog(); renderWorkflow(); renderTeam();
   renderChatLog($('#chatLog')); renderChatLog($('#chatTabLog'));
   renderSidebar(); renderRequests(); renderAttention(); renderInfo(); renderSettings();
   applyActiveTab(); // re-apply the current tab so an SSE-driven re-render never resets to Board
+  applyI18nStatic(); // re-translate the static markup (nav, headers, placeholders…) for this tick's language
 }
 
 // ---- Requests tab: tasks awaiting review/input (to_validate / to_analyze) ----
@@ -144,7 +151,7 @@ function renderRequests(){
   const toAsk=SpectoStats.stats(P).toAsk||[];
   const count=$('#requestsCount'); if(count) count.textContent=toAsk.length;
   list.innerHTML='';
-  if(!toAsk.length){ list.append(li('empty','Nothing awaiting you.')); return; }
+  if(!toAsk.length){ list.append(li('empty',t('requests.empty'))); return; }
   toAsk.forEach(t=>{
     const row=el('li','request-row'); row.tabIndex=0;
     row.append(el('span','request-id',t.id));
@@ -159,20 +166,35 @@ function renderRequests(){
 }
 
 // ---- right sidebar: "Journal" (read-only runtime.messages feed) ----
+// Capped to the 5 most recent entries by default — a long-running project's journal used to render
+// its entire history inline and blow up the sidebar. "See more" reveals the rest for this session
+// (client-side only; not persisted, so the rail opens compact again next visit).
+const JOURNAL_PAGE=5;
+let journalExpanded=false;
 function renderSidebar(){ renderJournal(); }
 function renderJournal(){
   const box=$('#journal'); if(!box) return;
   const msgs=((P.runtime&&P.runtime.messages)||[]).slice().reverse(); // reverse-chronological
   $('#journalCount').textContent=msgs.length;
   box.innerHTML='';
-  if(!msgs.length){ box.append(el('div','empty','No activity yet.')); return; }
-  msgs.forEach(m=>{
+  if(!msgs.length){ box.append(el('div','empty',t('journal.empty'))); journalToggleBtn(0,0); return; }
+  const shown = journalExpanded ? msgs : msgs.slice(0,JOURNAL_PAGE);
+  shown.forEach(m=>{
     const row=el('div','journal-row'+(m.role==='user'?' j-you':' k-'+(m.kind||'message')));
     row.append(el('div','journal-head', m.role + (m.agent&&m.agent!==m.role?(' · '+m.agent):'')));
     row.append(el('div','journal-text', m.text));
     box.append(row);
   });
+  journalToggleBtn(msgs.length, shown.length);
 }
+function journalToggleBtn(total,shownCount){
+  const btn=$('#journalMore'); if(!btn) return;
+  if(total<=JOURNAL_PAGE){ btn.hidden=true; return; }
+  btn.hidden=false;
+  btn.textContent = journalExpanded ? t('journal.seeLess') : t('journal.seeMore')+` (${total-shownCount})`;
+}
+const journalMoreBtn=$('#journalMore');
+if(journalMoreBtn) journalMoreBtn.addEventListener('click',()=>{ journalExpanded=!journalExpanded; renderJournal(); });
 
 // ---- SVG helpers ----------------------------------------------------------
 // The chart *markup* (donut/ring/bars arcs & rows) is built by the pure,
@@ -230,20 +252,20 @@ function renderOverview(){
 
   // KPI row
   const kpis=el('div','kpi-row');
-  kpis.append(kpiCard('Global progress', ring(s.pct,72), `${s.done}/${s.total} tasks`, cssv('--s-done')));
-  kpis.append(kpiCard('In progress', numBlock(s.byStatus.in_progress||0,'var(--s-in_progress)'), 'tasks', cssv('--s-in_progress')));
-  kpis.append(kpiCard('To validate', numBlock(s.byStatus.to_validate||0,'var(--s-to_validate)'), 'awaiting review', cssv('--s-to_validate')));
+  kpis.append(kpiCard(t('kpi.globalProgress'), ring(s.pct,72), `${s.done}/${s.total} ${t('kpi.tasksLabel')}`, cssv('--s-done')));
+  kpis.append(kpiCard(t('status.in_progress'), numBlock(s.byStatus.in_progress||0,'var(--s-in_progress)'), t('kpi.tasksLabel'), cssv('--s-in_progress')));
+  kpis.append(kpiCard(t('status.to_validate'), numBlock(s.byStatus.to_validate||0,'var(--s-to_validate)'), t('kpi.awaitingReview'), cssv('--s-to_validate')));
   const r=s.running||{};
-  let runVal='—', runSub='no runs yet';
-  if(r.agents>0){ runVal=`${r.agents} running`; runSub='agents active'; }
-  else if(r.orchestration&&r.orchestration.status){ runVal=r.orchestration.status; runSub='orchestration'; }
-  else if(r.lastRun){ runVal=r.lastRun.status||'—'; runSub='last: '+(r.lastRun.tool||'—'); }
-  kpis.append(kpiCard('Running', numBlock(runVal, r.agents>0?'var(--signal)':'var(--muted)', true), runSub, cssv('--signal')));
+  let runVal='—', runSub=t('kpi.noRunsYet');
+  if(r.agents>0){ runVal=`${r.agents} ${t('kpi.running').toLowerCase()}`; runSub=t('kpi.agentsActive'); }
+  else if(r.orchestration&&r.orchestration.status){ runVal=r.orchestration.status; runSub=t('kpi.orchestration'); }
+  else if(r.lastRun){ runVal=r.lastRun.status||'—'; runSub=t('kpi.lastPrefix')+(r.lastRun.tool||'—'); }
+  kpis.append(kpiCard(t('kpi.running'), numBlock(runVal, r.agents>0?'var(--signal)':'var(--muted)', true), runSub, cssv('--signal')));
   box.append(kpis);
 
   // Status donut + legend
   const segments=s.statuses.map(k=>({key:k,value:s.byStatus[k]||0,color:cssv('--s-'+k)}));
-  const d=donut(segments,140,{center:String(s.total),sub:'tasks'});
+  const d=donut(segments,140,{center:String(s.total),sub:t('chart.tasksSub')});
   const legend=el('div','legend');
   segments.forEach(seg=>{
     const item=el('div','legend-item');
@@ -260,19 +282,19 @@ function renderOverview(){
   if(hist.length===1){ hist=[{date:hist[0].date,total:0,done:0},hist[0]]; }
   const area=htmlBlock('area-wrap', hist.length
     ? SpectoCharts.area(
-        [{name:'Scope',color:cssv('--cool'),data:hist.map(h=>h.total)},
-         {name:'Delivered',color:cssv('--signal'),data:hist.map(h=>h.done)}],
+        [{name:t('chart.scope'),color:cssv('--cool'),data:hist.map(h=>h.total)},
+         {name:t('chart.delivered'),color:cssv('--signal'),data:hist.map(h=>h.done)}],
         hist.map(h=>(h.date||'').slice(5)))
-    : '<div class="empty">No history yet.</div>');
+    : '<div class="empty">'+t('chart.noHistory')+'</div>');
   // enrich the area's hit-rect tooltips with the actual scope/delivered values
   // for that point (charts.js keeps them pure — just the date label)
   area.querySelectorAll('.area-hit').forEach((hit,i)=>{
     const h=hist[i]; if(!h) return;
-    hit.dataset.tip = `<b>${h.date||''}</b><br>Scope: ${h.total||0} · Delivered: ${h.done||0}`;
+    hit.dataset.tip = `<b>${h.date||''}</b><br>${t('chart.scope')}: ${h.total||0} · ${t('chart.delivered')}: ${h.done||0}`;
   });
   const topRow=el('div','overview-top');
-  topRow.append(ocard('Status distribution', donutRow));
-  topRow.append(ocard('Scope vs delivered', area));
+  topRow.append(ocard(t('chart.statusDistribution'), donutRow));
+  topRow.append(ocard(t('chart.scopeVsDelivered'), area));
   box.append(topRow);
 
   // Workflow-at-a-glance strip (reuses the wf-arrow flow animation)
@@ -284,8 +306,8 @@ function renderOverview(){
     strip.append(node);
     if(i<steps.length-1){ const a=el('div','wf-arrow'+(st.enabled&&steps[i+1].enabled?'':' off')); strip.append(a); }
   });
-  if(!steps.length) strip.append(el('div','empty','No workflow defined.'));
-  box.append(ocard('Workflow at a glance', strip));
+  if(!steps.length) strip.append(el('div','empty',t('board.noWorkflow')));
+  box.append(ocard(t('board.workflowGlance'), strip));
 
   // Per-phase progress bars — only phases that actually hold tasks (headings with no checkbox tasks
   // are noise, not phases), and cap the list height with an internal scroll so a big project with
@@ -294,7 +316,7 @@ function renderOverview(){
   if(phaseRows.length){
     const barsEl=bars(phaseRows);
     if(phaseRows.length>8) barsEl.classList.add('scroll-cap');
-    box.append(ocard(`Phase progress (${phaseRows.length})`, barsEl));
+    box.append(ocard(t('board.phaseProgress',{n:phaseRows.length}), barsEl));
   }
 }
 
@@ -313,12 +335,12 @@ function renderBoard(){
   updateFilterChips();
 
   const specs=$('#specs'); specs.innerHTML=''; $('#specsCount').textContent=(P.specs||[]).length;
-  if(!(P.specs||[]).length) specs.append(li('empty','none yet'));
+  if(!(P.specs||[]).length) specs.append(li('empty',t('board.noneYet')));
   (P.specs||[]).forEach(s=> specs.append(li(null,s)));
 
   const running = (P.runtime&&P.runtime.agents||[]).filter(a=>a.status==='running');
   const rl=$('#running'); rl.innerHTML=''; $('#runCount').textContent=running.length;
-  if(!running.length) rl.append(li('empty','no agent running'));
+  if(!running.length) rl.append(li('empty',t('board.noAgentRunning')));
   running.forEach(a=>{ const e=li('run-live',''); e.innerHTML=`<b>${a.tool}</b> · ${a.task||'—'}`; rl.append(e); });
 
   const board=$('#board'); board.innerHTML='';
@@ -357,8 +379,8 @@ function renderKanban(board, tasks){
 }
 function updateBoardViewToggle(){ $$('#boardViewToggle .vt-btn').forEach(b=> b.classList.toggle('active', b.dataset.view===boardView)); }
 function li(cls,txt){ const e=el('li',cls); e.textContent=txt; return e; }
-function emptyState(){ const d=el('div','empty'); d.style.padding='40px'; d.textContent='No plans yet. Ask your agent to build something — it will run Intake and write plans/*.md.'; return d; }
-function noMatchState(){ const d=el('div','empty'); d.style.padding='40px'; d.textContent='No tasks match this filter.'; return d; }
+function emptyState(){ const d=el('div','empty'); d.style.padding='40px'; d.textContent=t('board.noPlans'); return d; }
+function noMatchState(){ const d=el('div','empty'); d.style.padding='40px'; d.textContent=t('board.noTasksMatch'); return d; }
 
 // ---- Backlog tab: flat, sortable, filterable table of every task ----------
 // Rows are built from P.plans (not allTasks()) so each task carries its phase title.
@@ -408,21 +430,21 @@ function renderBacklog(){
   if(backlogPage>pages) backlogPage=pages;
   if(backlogPage<1) backlogPage=1;
   body.innerHTML='';
-  if(!all.length){ body.append(backlogEmptyRow('No plans yet. Ask your agent to build something — it will run Intake and write plans/*.md.')); return renderBacklogPager(0,1); }
-  if(!filtered.length){ body.append(backlogEmptyRow('No tasks match this filter.')); return renderBacklogPager(0,1); }
+  if(!all.length){ body.append(backlogEmptyRow(t('board.noPlans'))); return renderBacklogPager(0,1); }
+  if(!filtered.length){ body.append(backlogEmptyRow(t('board.noTasksMatch'))); return renderBacklogPager(0,1); }
   const start=(backlogPage-1)*BACKLOG_PAGE;
   filtered.slice(start,start+BACKLOG_PAGE).forEach(r=> body.append(backlogRow(r)));
   renderBacklogPager(filtered.length,pages);
 }
 function renderBacklogPager(total,pages){
   const pager=$('#backlogPager'); if(!pager) return; pager.innerHTML='';
-  if(total<=BACKLOG_PAGE){ if(total) pager.append(el('span','pager-info',`${total} task${total>1?'s':''}`)); return; }
-  const prev=el('button','pager-btn','‹ Prev'); prev.disabled=backlogPage<=1;
+  if(total<=BACKLOG_PAGE){ if(total) pager.append(el('span','pager-info', t(total>1?'backlog.pagerTasks':'backlog.pagerTask',{n:total}))); return; }
+  const prev=el('button','pager-btn',t('backlog.prev')); prev.disabled=backlogPage<=1;
   prev.addEventListener('click',()=>{ backlogPage--; renderBacklog(); });
-  const next=el('button','pager-btn','Next ›'); next.disabled=backlogPage>=pages;
+  const next=el('button','pager-btn',t('backlog.next')); next.disabled=backlogPage>=pages;
   next.addEventListener('click',()=>{ backlogPage++; renderBacklog(); });
   const from=(backlogPage-1)*BACKLOG_PAGE+1, to=Math.min(total,backlogPage*BACKLOG_PAGE);
-  pager.append(prev, el('span','pager-info',`${from}–${to} of ${total} · page ${backlogPage}/${pages}`), next);
+  pager.append(prev, el('span','pager-info',t('backlog.pagerRange',{from,to,total,page:backlogPage,pages})), next);
 }
 function backlogEmptyRow(txt){
   const tr=el('tr','backlog-empty-row'); const td=el('td',null,txt); td.colSpan=7; tr.append(td); return tr;
@@ -451,12 +473,12 @@ function loadExpanded(){
 }
 function saveExpanded(set){ try{ localStorage.setItem('spf-expanded', JSON.stringify([...set])); }catch{} }
 let expandedPhases=loadExpanded();
-function allPhaseTitles(){ const t=new Set(); (P.plans||[]).forEach(pl=> pl.phases.forEach(ph=> t.add(ph.title))); return [...t]; }
+function allPhaseTitles(){ const set=new Set(); (P.plans||[]).forEach(pl=> pl.phases.forEach(ph=> set.add(ph.title))); return [...set]; }
 function updatePhaseToggleAll(){
   const btn=$('#phaseToggleAll'); if(!btn) return;
   const titles=allPhaseTitles();
-  const allOpen = titles.length>0 && titles.every(t=> expandedPhases.has(t));
-  btn.textContent = allOpen ? 'Collapse all' : 'Expand all';
+  const allOpen = titles.length>0 && titles.every(x=> expandedPhases.has(x));
+  btn.textContent = allOpen ? t('board.collapseAll') : t('board.expandAll');
   btn.dataset.state = allOpen ? 'open' : 'closed';
 }
 
@@ -515,17 +537,17 @@ function renderTask(t){
 // detail zone teaches the user what the pipeline is, not just that a step exists.
 function wfDesc(s){
   const n=String(s.name||'').toLowerCase();
-  if(/brainstorm|idea|intake/.test(n)) return 'Explore the request before committing to it — clarify the goal, constraints and success criteria, and shape a raw idea into something worth building.';
-  if(/analy/.test(n)) return 'Break the idea down: study the existing code and requirements, surface risks and ambiguities, and pin down clear, testable acceptance criteria.';
-  if(/spec/.test(n)) return 'Write the specification — the versioned, plain-markdown source of truth for what to build and why, before any code is written.';
-  if(/plan/.test(n)) return 'Turn the spec into an ordered plan of small, checkbox tasks — each one testable and executable on its own by a developer or an agent.';
-  if(/develop|implement|\bcode\b/.test(n)) return 'Implement the plan task by task, writing the code (and the tests that pin it down) to satisfy each checkbox.';
-  if(/integration/.test(n)) return 'Check that the pieces work together — modules, services and data paths across component boundaries, not just in isolation.';
-  if(/end.?to.?end|e2e/.test(n)) return 'Exercise the whole product the way a real user would, through the actual UI and end-to-end flows.';
-  if(/unit/.test(n)||/\btest/.test(n)) return 'Verify each unit in isolation — fast, focused tests that lock in behaviour and catch regressions early.';
-  if(/review/.test(n)) return 'A final quality pass — correctness, security and standards — before the work is considered done.';
-  if(/deploy|ship|release|publish/.test(n)) return 'Release the delivered work — ship it to its target environment.';
-  return 'A step in the delivery pipeline.';
+  if(/brainstorm|idea|intake/.test(n)) return t('wf.desc.brainstorm');
+  if(/analy/.test(n)) return t('wf.desc.analysis');
+  if(/spec/.test(n)) return t('wf.desc.spec');
+  if(/plan/.test(n)) return t('wf.desc.plan');
+  if(/develop|implement|\bcode\b/.test(n)) return t('wf.desc.develop');
+  if(/integration/.test(n)) return t('wf.desc.integration');
+  if(/end.?to.?end|e2e/.test(n)) return t('wf.desc.e2e');
+  if(/unit/.test(n)||/\btest/.test(n)) return t('wf.desc.unit');
+  if(/review/.test(n)) return t('wf.desc.review');
+  if(/deploy|ship|release|publish/.test(n)) return t('wf.desc.deploy');
+  return t('wf.desc.fallback');
 }
 let wfPopStep=null; // name of the step whose click-popover is open (null = closed)
 
@@ -536,11 +558,11 @@ let wfPopStep=null; // name of the step whose click-popover is open (null = clos
 function renderWorkflow(){
   const box=$('#wfDiagram'); box.innerHTML='';
   const steps=P.workflow||[];
-  if(!steps.length){ box.append(el('div','empty','No workflow defined.')); closeWfPop(); return; }
+  if(!steps.length){ box.append(el('div','empty',t('board.noWorkflow'))); closeWfPop(); return; }
   const enabledCount=steps.filter(s=>s.enabled).length;
   const legend=el('div','wf-legend');
   legend.append(el('span','wf-legend-dot'));
-  legend.append(el('span','wf-legend-txt',`${enabledCount} of ${steps.length} steps enabled — click a step to see what it does`));
+  legend.append(el('span','wf-legend-txt',t('workflow.stepsEnabled',{enabled:enabledCount,total:steps.length})));
   box.append(legend);
   const pipe=el('div','wf-pipeline');
   steps.forEach((s,i)=>{
@@ -551,7 +573,7 @@ function renderWorkflow(){
     circle.innerHTML=(typeof ICON!=='undefined'&&ICON.wf)?ICON.wf(s.name):'';
     step.append(circle);
     const cap=el('div','wf-caption'); cap.append(document.createTextNode(s.name));
-    if(s.optional) cap.append(el('span','wf-opt2','optional'));
+    if(s.optional) cap.append(el('span','wf-opt2',t('workflow.optional')));
     step.append(cap);
     const sel=(e)=>{ if(e) e.stopPropagation(); if(wfPopStep===s.name) closeWfPop(); else openWfPop(s.name); };
     step.addEventListener('click',sel);
@@ -570,19 +592,19 @@ function wfPopFill(pop, s, idx){
   const head=el('div','wf-detail-head');
   head.append(el('span','wf-detail-num',String(idx+1)));
   head.append(el('span','wf-detail-name',s.name));
-  head.append(el('span','wf-detail-status '+(s.enabled?'on':'off'), s.enabled?'enabled':'disabled'));
-  if(s.optional) head.append(el('span','wf-opt','optional'));
+  head.append(el('span','wf-detail-status '+(s.enabled?'on':'off'), s.enabled?t('workflow.enabled'):t('workflow.disabled')));
+  if(s.optional) head.append(el('span','wf-opt',t('workflow.optional')));
   pop.append(head);
   pop.append(el('p','wf-detail-desc', wfDesc(s)));
   const grid=el('div','wf-detail-grid');
-  grid.append(wfDetailRow('Capability', s.cap||'—'));
-  grid.append(wfDetailRow('Handled by', agent?(agent.title||agent.name):'—'));
-  grid.append(wfDetailRow('Skill', s.skill||'—'));
-  if(skill&&skill.standard) grid.append(wfDetailRow('Standard', skill.standard));
-  if(skill&&(skill.inputs||skill.outputs)) grid.append(wfDetailRow('Flow', (skill.inputs||'—')+'  →  '+(skill.outputs||'—')));
+  grid.append(wfDetailRow(t('workflow.capability'), s.cap||'—'));
+  grid.append(wfDetailRow(t('workflow.handledBy'), agent?(agent.title||agent.name):'—'));
+  grid.append(wfDetailRow(t('workflow.skill'), s.skill||'—'));
+  if(skill&&skill.standard) grid.append(wfDetailRow(t('workflow.standard'), skill.standard));
+  if(skill&&(skill.inputs||skill.outputs)) grid.append(wfDetailRow(t('workflow.flow'), (skill.inputs||'—')+'  →  '+(skill.outputs||'—')));
   pop.append(grid);
-  if(skill&&skill.description){ const sk=el('div','wf-detail-skill'); sk.append(el('b',null,'The “'+skill.name+'” skill — ')); sk.append(document.createTextNode(skill.description)); pop.append(sk); }
-  const btn=el('button','btn '+(s.enabled?'':'primary')+' wf-detail-btn', s.enabled?'Disable step':'Enable step');
+  if(skill&&skill.description){ const sk=el('div','wf-detail-skill'); sk.append(el('b',null,t('workflow.skillPrefix',{name:skill.name}))); sk.append(document.createTextNode(skill.description)); pop.append(sk); }
+  const btn=el('button','btn '+(s.enabled?'':'primary')+' wf-detail-btn', s.enabled?t('workflow.disableStep'):t('workflow.enableStep'));
   btn.addEventListener('click',(e)=>{ e.stopPropagation(); toggleStep(s.name); });
   const actions=el('div','wf-pop-actions'); actions.append(btn); pop.append(actions);
 }
@@ -629,27 +651,27 @@ function renderAttention(){
   $$('.attn-filters .fchip').forEach(b=> b.classList.toggle('active', b.dataset.attn===attnFilter));
   const shown=items.filter(i=> attnFilter==='all' ? true : attnFilter==='resolved' ? i.status==='resolved' : i.status!=='resolved');
   list.innerHTML='';
-  if(!shown.length){ list.append(el('div','empty', attnFilter==='resolved'?'Nothing resolved yet.':'No points of attention. The agent surfaces them here as it works — or add your own note above.')); return; }
+  if(!shown.length){ list.append(el('div','empty', attnFilter==='resolved'?t('attn.emptyResolved'):t('attn.emptyOpen'))); return; }
   shown.forEach(it=> list.append(attnRow(it)));
 }
 function attnRow(it){
   const row=el('div','attn-row'+(it.status==='resolved'?' is-resolved':'')+(it.source==='agent'?' from-agent':''));
   const head=el('div','attn-head');
-  head.append(el('span','attn-src '+(it.source==='agent'?'is-agent':'is-user'), it.source==='agent'?('⚑ '+(it.by||'agent')):'✎ you'));
+  head.append(el('span','attn-src '+(it.source==='agent'?'is-agent':'is-user'), it.source==='agent'?('⚑ '+(it.by||t('attn.agentFallback'))):('✎ '+t('attn.you'))));
   if(it.at) head.append(el('span','attn-time',(String(it.at).replace('T',' ')).slice(0,16)));
-  if(it.status==='resolved') head.append(el('span','chip s-done', it.promotedTo?('→ '+it.promotedTo):'resolved'));
+  if(it.status==='resolved') head.append(el('span','chip s-done', it.promotedTo?('→ '+it.promotedTo):t('attn.resolvedChip')));
   row.append(head);
   const txt=el('div','attn-text', it.text); row.append(txt);
   const acts=el('div','attn-actions');
   if(it.status!=='resolved'){
-    const val=el('button','btn primary','Validate → task'); val.addEventListener('click',()=>promoteAttn(it.id));
-    const res=el('button','btn','Resolve'); res.addEventListener('click',()=>patchAttn(it.id,{status:'resolved'}));
-    const edit=el('button','btn','Edit'); edit.addEventListener('click',()=>editAttn(it,txt));
+    const val=el('button','btn primary',t('action.validateToTask')); val.addEventListener('click',()=>promoteAttn(it.id));
+    const res=el('button','btn',t('action.resolve')); res.addEventListener('click',()=>patchAttn(it.id,{status:'resolved'}));
+    const edit=el('button','btn',t('action.edit')); edit.addEventListener('click',()=>editAttn(it,txt));
     acts.append(val,res,edit);
   }else{
-    const re=el('button','btn','Reopen'); re.addEventListener('click',()=>patchAttn(it.id,{status:'open'})); acts.append(re);
+    const re=el('button','btn',t('action.reopen')); re.addEventListener('click',()=>patchAttn(it.id,{status:'open'})); acts.append(re);
   }
-  const del=el('button','btn danger','Delete'); del.addEventListener('click',()=>deleteAttn(it.id));
+  const del=el('button','btn danger',t('action.delete')); del.addEventListener('click',()=>deleteAttn(it.id));
   acts.append(del); row.append(acts);
   return row;
 }
@@ -665,12 +687,19 @@ async function patchAttn(id,patch){ flash(); await fetch('/api/attention/'+encod
 async function deleteAttn(id){ flash(); await fetch('/api/attention/'+encodeURIComponent(id),{method:'DELETE'}); }
 async function promoteAttn(id){ flash(); await fetch('/api/attention/'+encodeURIComponent(id)+'/promote',{method:'POST'}); }
 
-// ---- Settings tab: change autonomy mode + output language (writes config.json) ----
-function setLangSelect(lang){
-  const sel=$('#setLang'); if(!sel) return;
+// ---- Settings tab + topbar quick-switch: change autonomy mode + output language (writes config.json) ----
+// Mode/language can be changed from two places — the Settings tab (#setMode/#setLang) and the
+// always-visible topbar selects (#topMode/#topLang, in .brand-sub, present in every design). Both
+// pairs are kept in sync: renderSettings() (every render tick) writes the current config into all
+// four; a change on any one immediately mirrors into its sibling before saving, so saveSettings()
+// never reads a stale value from the pair the user didn't touch.
+function fillLangSelect(sel,lang){
+  if(!sel) return;
   if(![...sel.options].some(o=>o.value===lang)){ const o=document.createElement('option'); o.value=lang; o.textContent=lang; sel.append(o); }
   sel.value=lang;
 }
+function setLangSelect(lang){ fillLangSelect($('#setLang'),lang); fillLangSelect($('#topLang'),lang); }
+function setModeSelects(mode){ [$('#setMode'),$('#topMode')].forEach(s=>{ if(s) s.value=mode; }); }
 // ---- design skins (data-design) — switchable, persisted per viewer + as the project default ----
 function currentDesign(){ return document.documentElement.getAttribute('data-design')||'console'; }
 function applyDesign(id){ document.documentElement.setAttribute('data-design',id); try{ localStorage.setItem('spf-design',id); }catch{} }
@@ -678,7 +707,7 @@ async function saveDesign(id){ applyDesign(id); if(P) render(); /* re-read token
 
 function renderSettings(){
   const c=(P&&P.config)||{};
-  if($('#setMode')) $('#setMode').value=c.mode||'semi';
+  setModeSelects(c.mode||'semi');
   setLangSelect(c.language||'en');
   // design switcher — options from the DESIGNS registry (designs.js)
   const dsel=$('#setDesign');
@@ -694,15 +723,16 @@ function renderSettings(){
   const box=$('#settingsReadonly');
   if(box){
     box.innerHTML='';
-    const rows=[['Active agent',c.agent||'—'],['Project type',c.projectType||'—'],
-      ['Plans folder',c.plansDir||'plans'],['Specs folder',c.specsDir||'specs'],
-      ['Framework version', P&&P.version?('v'+P.version):'—']];
+    const rows=[[t('info.activeAgent'),c.agent||'—'],[t('info.projectType'),c.projectType||'—'],
+      [t('field.plansFolder'),c.plansDir||'plans'],[t('field.specsFolder'),c.specsDir||'specs'],
+      [t('field.frameworkVersion'), P&&P.version?('v'+P.version):'—']];
     rows.forEach(([k,v])=>{ const r=el('div','settings-ro-row'); r.append(el('span','settings-ro-k',k), el('span','settings-ro-v',String(v))); box.append(r); });
   }
   const fv=$('#footerVer'); if(fv) fv.textContent = (P&&P.version) ? ('v'+P.version) : '';
 }
 async function saveSettings(){
-  flash(); const mode=$('#setMode').value, language=$('#setLang').value;
+  flash();
+  const mode=($('#setMode')||$('#topMode')).value, language=($('#setLang')||$('#topLang')).value;
   await fetch('/api/settings',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({mode,language})});
   const s=$('#settingsSaved'); if(s){ s.hidden=false; setTimeout(()=>{ s.hidden=true; },1500); }
 }
@@ -731,8 +761,8 @@ function agentCard(a){
   const c=el('div','card'); c.tabIndex=0;
   c.append(el('div','ct',a.title||a.name));
   if(a.capability) c.append(el('div','cc',a.capability));
-  const std=chipRow('standards',a.standards); if(std) c.append(std);
-  const uses=chipRow('uses',a.uses); if(uses) c.append(uses);
+  const std=chipRow(t('team.standardsLabel'),a.standards); if(std) c.append(std);
+  const uses=chipRow(t('team.usesLabel'),a.uses); if(uses) c.append(uses);
   if(a.description) c.append(el('div','cd',a.description));
   const open=()=>openFileDrawer('agent',a);
   c.addEventListener('click',open);
@@ -743,7 +773,7 @@ function skillCard(s){
   const c=el('div','card'); c.tabIndex=0;
   c.append(el('div','ct',s.name));
   if(s.capability) c.append(el('div','cc',s.capability));
-  const std=chipRow('standard', s.standard?[s.standard]:null); if(std) c.append(std);
+  const std=chipRow(t('team.standardLabel'), s.standard?[s.standard]:null); if(std) c.append(std);
   if(s.inputs||s.outputs) c.append(el('div','io', (s.inputs||'—')+'  →  '+(s.outputs||'—')));
   if(s.description) c.append(el('div','cd',s.description));
   const open=()=>openFileDrawer('skill',s);
@@ -803,19 +833,19 @@ async function openFileDrawer(kind,obj){
   openTaskId=null;
   const rel = kind==='agent' ? ('agents/'+(obj.file||(obj.name+'.md'))) : ('skills/'+obj.name+'/SKILL.md');
   const b=$('#drawerBody'); b.innerHTML='';
-  b.append(el('div','d-id', kind==='agent'?'Agent':'Skill'));
+  b.append(el('div','d-id', kind==='agent'?t('drawer.agent'):t('drawer.skill')));
   b.append(el('div','d-title', obj.title||obj.name));
-  const sec=el('div','d-section'); sec.append(el('div','d-label','File · '+rel));
-  const body=el('div','md-body'); body.append(el('div','empty','Loading…'));
+  const sec=el('div','d-section'); sec.append(el('div','d-label',t('drawer.file',{rel})));
+  const body=el('div','md-body'); body.append(el('div','empty',t('drawer.loading')));
   sec.append(body); b.append(sec);
   $('#drawer').setAttribute('aria-hidden','false');
   try{
     const r=await fetch('/api/agentfile?path='+encodeURIComponent(rel));
     const data=await r.json().catch(()=>({}));
-    if(!r.ok){ body.innerHTML=''; body.append(el('div','empty', data.error||'Could not load this file.')); return; }
+    if(!r.ok){ body.innerHTML=''; body.append(el('div','empty', data.error||t('drawer.loadError'))); return; }
     body.innerHTML=mdLite(data.content||'');
   }catch(err){
-    body.innerHTML=''; body.append(el('div','empty','Could not load this file.'));
+    body.innerHTML=''; body.append(el('div','empty',t('drawer.loadError')));
   }
 }
 
@@ -836,11 +866,11 @@ function infoRow(label,value){
   return row;
 }
 function statTile(value,label,sub){
-  const t=el('div','stat-tile');
-  t.append(el('div','stat-tile-val',String(value)));
-  t.append(el('div','stat-tile-label',label));
-  if(sub) t.append(el('div','stat-tile-sub',sub));
-  return t;
+  const tile=el('div','stat-tile');
+  tile.append(el('div','stat-tile-val',String(value)));
+  tile.append(el('div','stat-tile-label',label));
+  if(sub) tile.append(el('div','stat-tile-sub',sub));
+  return tile;
 }
 function renderInfo(){
   const box=$('#infoGrid'); if(!box) return;
@@ -852,39 +882,39 @@ function renderInfo(){
 
   // Project: mode/language/agent/type from config
   const projRows=el('div','info-rows');
-  projRows.append(infoRow('Project type', c.projectType||'—'));
-  projRows.append(infoRow('Mode', c.mode||'—'));
-  projRows.append(infoRow('Language', c.language||'—'));
-  projRows.append(infoRow('Active agent', c.agent||'—'));
-  box.append(infoSection('Project','info',projRows));
+  projRows.append(infoRow(t('info.projectType'), c.projectType||'—'));
+  projRows.append(infoRow(t('info.mode'), c.mode||'—'));
+  projRows.append(infoRow(t('info.language'), c.language||'—'));
+  projRows.append(infoRow(t('info.activeAgent'), c.agent||'—'));
+  box.append(infoSection(t('info.project'),'info',projRows));
 
   // Runners: agent → command, monospace
   const runners=c.runners||{};
   const runnerKeys=Object.keys(runners);
   const runnerRows=el('div','info-rows info-rows-mono');
-  if(!runnerKeys.length) runnerRows.append(el('div','empty','No runners configured.'));
+  if(!runnerKeys.length) runnerRows.append(el('div','empty',t('info.noRunners')));
   runnerKeys.forEach(k=> runnerRows.append(infoRow(k, runners[k])));
-  box.append(infoSection('Runners','run',runnerRows));
+  box.append(infoSection(t('info.runners'),'run',runnerRows));
 
   // Counts: tasks/specs/agents/skills/enabled workflow steps
   const tiles=el('div','stat-tiles');
-  tiles.append(statTile(`${s.done}/${s.total}`,'Tasks',`${s.pct}% done`));
-  tiles.append(statTile(String((P.specs||[]).length),'Specs','files'));
-  tiles.append(statTile(String((P.agents||[]).length),'Agents','personas'));
-  tiles.append(statTile(String((P.skills||[]).length),'Skills','procedures'));
-  tiles.append(statTile(`${enabledSteps.length}/${steps.length}`,'Workflow','steps enabled'));
-  box.append(infoSection('Counts','board',tiles));
+  tiles.append(statTile(`${s.done}/${s.total}`,t('info.tasksLabel'),t('info.doneSub',{pct:s.pct})));
+  tiles.append(statTile(String((P.specs||[]).length),t('info.specsLabel'),t('info.filesSub')));
+  tiles.append(statTile(String((P.agents||[]).length),t('info.agentsLabel'),t('info.personasSub')));
+  tiles.append(statTile(String((P.skills||[]).length),t('info.skillsLabel'),t('info.proceduresSub')));
+  tiles.append(statTile(`${enabledSteps.length}/${steps.length}`,t('info.workflowLabel'),t('info.stepsEnabledSub')));
+  box.append(infoSection(t('info.counts'),'board',tiles));
 
   // Specs: the P.specs filename list
   const specsList=el('ul','flatlist');
   const specs=P.specs||[];
-  if(!specs.length) specsList.append(li('empty','none yet'));
+  if(!specs.length) specsList.append(li('empty',t('board.noneYet')));
   specs.forEach(sp=> specsList.append(li(null,sp)));
-  box.append(infoSection('Specs','backlog',specsList));
+  box.append(infoSection(t('info.specsLabel'),'backlog',specsList));
 
   // Workflow: compact list of enabled steps (name + cap/skill)
   const wfList=el('div','info-wf-list');
-  if(!enabledSteps.length) wfList.append(el('div','empty','No enabled workflow steps.'));
+  if(!enabledSteps.length) wfList.append(el('div','empty',t('info.noEnabledSteps')));
   enabledSteps.forEach(st=>{
     const row=el('div','info-wf-row');
     row.append(el('span','info-wf-name',st.name));
@@ -892,42 +922,44 @@ function renderInfo(){
     if(meta) row.append(el('span','info-wf-meta',meta));
     wfList.append(row);
   });
-  box.append(infoSection('Workflow','workflow',wfList));
+  box.append(infoSection(t('info.workflowLabel'),'workflow',wfList));
 }
 
 function openDrawer(id,keep){
-  const t=allTasks().find(x=>x.id===id); if(!t) return;
+  // named `task`, not `t` — `t` is the global translation function (see i18n.js) and this whole
+  // function calls it repeatedly below; shadowing it with a task variable would break every call.
+  const task=allTasks().find(x=>x.id===id); if(!task) return;
   openTaskId=id;
   if(!keep && taskFromPath()!==id) history.pushState(null,'','/'+activeTab+'/'+encodeURIComponent(id));
   const b=$('#drawerBody'); const prev=keep?$('.drawer-panel').scrollTop:0; b.innerHTML='';
-  b.append(el('div','d-id',t.id+' · '+(t.level||'standard')+' · '+t.file));
-  b.append(el('div','d-title',t.title));
-  const sSec=el('div','d-section'); sSec.append(el('div','d-label','Status'));
+  b.append(el('div','d-id',task.id+' · '+(task.level||'standard')+' · '+task.file));
+  b.append(el('div','d-title',task.title));
+  const sSec=el('div','d-section'); sSec.append(el('div','d-label',t('task.status')));
   const sr=el('div','status-row');
   Object.keys(STATUS).forEach(k=>{
-    const btn=el('button','status-btn'+(t.status===k?' active':''),STATUS[k]);
-    if(t.status===k) btn.style.background=cssv('--s-'+k);
+    const btn=el('button','status-btn'+(task.status===k?' active':''),STATUS[k]);
+    if(task.status===k) btn.style.background=cssv('--s-'+k);
     btn.addEventListener('click',()=>patchTask(id,{status:k}));
     sr.append(btn);
   });
   sSec.append(sr); b.append(sSec);
 
   const tr=runtimeTests(id);
-  if(tr){ const ts=el('div','d-section'); ts.append(el('div','d-label','Tests'));
-    ts.append(el('div','d-text', tr.failed?`${tr.failed} failing, ${tr.passed||0} passing`:`${tr.passed||0} passing`)); b.append(ts); }
+  if(tr){ const ts=el('div','d-section'); ts.append(el('div','d-label',t('task.tests')));
+    ts.append(el('div','d-text', tr.failed?t('task.failingPassing',{f:tr.failed,p:tr.passed||0}):t('task.passing',{n:tr.passed||0}))); b.append(ts); }
 
-  const cSec=el('div','d-section'); cSec.append(el('div','d-label','Comments'));
+  const cSec=el('div','d-section'); cSec.append(el('div','d-label',t('task.comments')));
   const list=el('div','comments');
-  (t.comments||[]).forEach(cm=> list.append(el('div','comment',cm)));
-  if(!(t.comments||[]).length) list.append(el('div','empty','No comments.'));
+  (task.comments||[]).forEach(cm=> list.append(el('div','comment',cm)));
+  if(!(task.comments||[]).length) list.append(el('div','empty',t('task.noComments')));
   cSec.append(list);
-  const box=el('div','c-box'); const ta=el('textarea'); ta.placeholder='Add a comment, a remark, feedback…';
+  const box=el('div','c-box'); const ta=el('textarea'); ta.placeholder=t('task.addCommentPlaceholder');
   const actions=el('div','c-actions');
-  const add=el('button','btn','Add'); const an=el('button','btn primary','Add + to analyze');
+  const add=el('button','btn',t('action.add')); const an=el('button','btn primary',t('action.addToAnalyze'));
   add.addEventListener('click',()=>{ if(ta.value.trim())addComment(id,ta.value.trim(),'note'); });
   an.addEventListener('click',()=>{ if(ta.value.trim())addComment(id,ta.value.trim(),'analyze'); });
   actions.append(add,an); box.append(ta,actions);
-  box.append(el('div','empty','"To analyze" moves the task back so the agent picks it up next round.'));
+  box.append(el('div','empty',t('task.toAnalyzeHint')));
   cSec.append(box); b.append(cSec);
   $('#drawer').setAttribute('aria-hidden','false');
   if(keep) $('.drawer-panel').scrollTop=prev;
@@ -994,8 +1026,12 @@ $$('.attn-filters .fchip').forEach(b=> b.addEventListener('click',()=>{ attnFilt
 // settings — the footer link opens the Settings tab; selects save on change
 const footerSettingsBtn=$('#footerSettings'); if(footerSettingsBtn) footerSettingsBtn.addEventListener('click',()=>navigateTab('settings'));
 const footerLogo=$('.footer-logo'); if(footerLogo) footerLogo.addEventListener('click',e=>{ e.preventDefault(); navigateTab('board'); });
-$('#setMode').addEventListener('change',saveSettings);
-$('#setLang').addEventListener('change',saveSettings);
+function onModeSelectChange(e){ setModeSelects(e.target.value); saveSettings(); }
+function onLangSelectChange(e){ setLangSelect(e.target.value); saveSettings(); }
+$('#setMode').addEventListener('change',onModeSelectChange);
+$('#setLang').addEventListener('change',onLangSelectChange);
+const topModeSel=$('#topMode'); if(topModeSel) topModeSel.addEventListener('change',onModeSelectChange);
+const topLangSel=$('#topLang'); if(topLangSel) topLangSel.addEventListener('change',onLangSelectChange);
 const setDesignSel=$('#setDesign'); if(setDesignSel) setDesignSel.addEventListener('change',()=>saveDesign(setDesignSel.value));
 // theme
 (function(){ const s=localStorage.getItem('spf-theme'); if(s)document.documentElement.setAttribute('data-theme',s);

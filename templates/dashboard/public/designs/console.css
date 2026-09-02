@@ -54,6 +54,15 @@ html[data-design="console"] nav.tabs#tabs {
 }
 html[data-design="console"] .topbar { padding-left:calc(var(--cx-rail-w) + 16px); }
 html[data-design="console"] .stage { margin-left:var(--cx-rail-w); }
+/* .app-footer is a sibling of .stage, not inside it — the rail is fixed to the viewport (not just
+   .stage), so without this it clips the footer's left edge (the brand name loses its first letters)
+   at every scroll position, not just at the top. */
+html[data-design="console"] .app-footer { margin-left:var(--cx-rail-w); }
+/* The header brand mark reads too small at the base 26px against this design's darker, denser
+   topbar — give it more presence. The footer's own (deliberately smaller) logo keeps its existing,
+   more specific rule and is unaffected. */
+html[data-design="console"] .topbar .brand-logo { height:34px; }
+html[data-design="console"] .topbar .brand-logo-img { height:34px; }
 html[data-design="console"] nav.tabs#tabs .tab {
   position:relative; flex-direction:column; justify-content:center; gap:0;
   width:52px; height:48px; padding:0; border-radius:12px; flex-shrink:0;
@@ -179,6 +188,7 @@ html[data-design="console"][data-theme="light"] .cx-cmdk { background:rgba(15,23
   }
   html[data-design="console"] .topbar { padding-left:16px; }
   html[data-design="console"] .stage { margin-left:0; margin-bottom:64px; }
+  html[data-design="console"] .app-footer { margin-left:0; }
   html[data-design="console"] nav.tabs#tabs .tab-label { display:none !important; }
 }
 
