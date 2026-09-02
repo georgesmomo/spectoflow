@@ -451,3 +451,11 @@
 
 ### D35 — 0.16.2 : logo ASCII = art de marque réel (fidélité)
 - **ACTÉ.** Le tracé 0.16.1 (hexagone re-dessiné + S style segments) ne correspondait pas au vrai logo. Remplacé par **l'art ASCII fourni par l'utilisateur** (hexagone pointu + « S » diagonal/flow), **sous-échantillonné 2×** (81×45 → 41×23, seuil 0.30 par bloc) pour tenir dans un terminal sans wrap, en **préservant la forme** (pas de redraw). Nom centré dessous inchangé.
+
+### D36 — 0.16.3 : deux surfaces logo (hexagone blanc / nom ambre) + wordmark figlet compact
+- **ACTÉ.** Aller-retour serré avec l'utilisateur sur l'identité CLI. Résultat :
+  - **Hexagone brand en blanc** (`c.white`), **bord gauche épaissi à 4 `#`** (symétrique avec le droit).
+  - **Nom = wordmark figlet compact** (police *Small*, ~moitié de la taille standard, 43 large), en **ambre**, **centré sous le vrai milieu de l'hexagone** (`nameBlock(centerUnder)` calcule le centre depuis la boîte du dessin).
+  - **`init` + `update`** → `logo()` = hexagone blanc + nom ambre centré (le logo manquait sur `update`, corrigé).
+  - **`help` + explore** (`list`/`agents`/`skills`/`workflow`) → `wordmark()` = nom ambre seul (pas d'hexagone).
+- Taille du logo débattue (41×23 → réductions 27×15 / 20×12 testées) : on garde l'hexagone 41×23 pour l'accueil, et c'est **le nom** qui a été réduit de moitié (Small) pour le centrage et la légèreté.

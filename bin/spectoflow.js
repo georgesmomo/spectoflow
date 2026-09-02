@@ -20,11 +20,11 @@ const cmd = argv[0] || 'help';
 // Tiny ANSI colouriser — no dependency; disabled when not a TTY or NO_COLOR is set.
 const useColor = process.stdout.isTTY && !process.env.NO_COLOR;
 const paint = (code) => (s) => (useColor ? `\x1b[${code}m${s}\x1b[0m` : String(s));
-const c = { g: paint('32'), cy: paint('36'), b: paint('34'), y: paint('33'), dim: paint('2'), bold: paint('1'), amber: paint('38;5;179') };
+const c = { g: paint('32'), cy: paint('36'), b: paint('34'), y: paint('33'), dim: paint('2'), bold: paint('1'), amber: paint('38;5;179'), white: paint('97') };
 
 // ---- branding ---------------------------------------------------------------
-// The spectoflow mark in ASCII: a flat-top hexagon around the angular "S" (flow), rasterized to fit
-// a terminal. Shown at the reading moments (init / help / list); secondary outputs use brandLine().
+// The spectoflow mark in ASCII: the brand hexagon around the flowing "S", drawn WHITE.
+// The name is a compact figlet wordmark drawn AMBER, centered under the mark.
 const LOGO = [
   '                  ########',
   '               ######  #######',
@@ -32,16 +32,16 @@ const LOGO = [
   '         ######               ######',
   '      ######          ####       ######',
   '    #####          ######           ####',
-  '    ###         ######               ####',
-  '    ###       #####                  ####',
-  '    ###      ####       ##           ####',
-  '    ###      ####    #########       ####',
-  '    ###      #### ####### #####      ####',
-  '    ###       ########      ###      ####',
-  '    ###          ##         ###      ####',
-  '    ###                    ####      ####',
-  '    ###                 ######       ####',
-  '    ###              ######          ####',
+  '    ####         ######               ####',
+  '    ####       #####                  ####',
+  '    ####      ####       ##           ####',
+  '    ####      ####    #########       ####',
+  '    ####      #### ####### #####      ####',
+  '    ####       ########      ###      ####',
+  '    ####          ##         ###      ####',
+  '    ####                    ####      ####',
+  '    ####                 ######       ####',
+  '    ####              ######          ####',
   '    ####          ######            ####',
   '     ######       ###            ######',
   '        ######                ######',
@@ -50,14 +50,36 @@ const LOGO = [
   '                 ##########',
   '                    ####',
 ];
-const LOGO_W = 41;                       // widest logo line, for centering the wordmark under it
-const NAME = 's p e c t o f l o w';
+const NAME = [
+  '                  _        __ _',
+  '  ____ __  ___ __| |_ ___ / _| |_____ __ __',
+  " (_-< '_ \\/ -_) _|  _/ _ \\  _| / _ \\ V  V /",
+  ' /__/ .__/\\___\\__|\\__\\___/_| |_\\___/\\_/\\_/',
+  '    |_|',
+];
+const NAME_W = Math.max(...NAME.map((l) => l.length));
 const TAGLINE = 'agent-agnostic spec-driven development · real-time control plane';
-// Full logo block — hexagon mark + centered wordmark + version. For init, help and list.
+const INDENT = '  ';
+
+// Amber wordmark, indented. `centerUnder` centres it below the hexagon's true midpoint.
+function nameBlock(centerUnder) {
+  let pad = INDENT;
+  if (centerUnder) {
+    let lo = Infinity, hi = 0;
+    for (const l of LOGO) { const i = l.search(/#/); if (i >= 0) { lo = Math.min(lo, i); hi = Math.max(hi, l.length - 1); } }
+    const cx = INDENT.length + (lo + hi) / 2;
+    pad = ' '.repeat(Math.max(0, Math.round(cx - NAME_W / 2)));
+  }
+  return NAME.map((l) => pad + c.amber(l)).join('\n');
+}
+// Full logo — white hexagon + centered amber wordmark + version. For init and update.
 function logo() {
-  const art = LOGO.map((l) => '  ' + c.amber(l)).join('\n');
-  const pad = ' '.repeat(Math.max(0, Math.round((2 + LOGO_W - NAME.length) / 2)));
-  return `\n${art}\n\n${pad}${c.bold(c.amber(NAME))}\n  ${c.dim('v' + VERSION + ' · ' + TAGLINE)}\n`;
+  const art = LOGO.map((l) => INDENT + c.white(l)).join('\n');
+  return `\n${art}\n\n${nameBlock(true)}\n\n${INDENT}${c.dim('v' + VERSION + ' · ' + TAGLINE)}\n`;
+}
+// Just the amber wordmark + version. For help and the explore commands.
+function wordmark() {
+  return `\n${nameBlock(false)}\n\n${INDENT}${c.dim('v' + VERSION + ' · ' + TAGLINE)}\n`;
 }
 // One-line brand — for the header of secondary command outputs.
 const brandLine = () => `${c.amber('spectoflow')} ${c.dim('v' + VERSION)}`;
@@ -266,7 +288,7 @@ function update() {
     const detail = note ? c.dim(note) : c.dim(list.slice(0, 6).join(', ') + (list.length > 6 ? ` +${list.length - 6} more` : ''));
     console.log(`  ${sym}  ${painter(label.padEnd(9))} ${n}   ${detail}`);
   };
-  console.log('');
+  console.log(logo());
   console.log(`  ${c.bold('spectoflow update')}   ${c.dim(from)} ${c.amber('→')} ${c.bold(r.toVersion)}${dryRun ? c.dim('   (dry-run)') : ''}`);
   console.log('');
   row(c.g('✓'), 'refreshed', r.refreshed, c.g);
@@ -403,7 +425,7 @@ function printWorkflow(withBrand = true) {
 }
 function listAll() {
   const { scope } = frameworkSource();
-  console.log(logo());
+  console.log(wordmark());
   console.log(`${c.bold('Agents')} ${c.dim('— stable team personas (' + scope + ')')}`);
   printAgents(false);
   console.log(`\n${c.bold('Skills')} ${c.dim('— evolving procedures')}`);
@@ -414,7 +436,7 @@ function listAll() {
 }
 
 // ---- help (global + per-command) --------------------------------------------
-const help = () => console.log(`${logo()}
+const help = () => console.log(`${wordmark()}
 ${c.dim('Usage:')} spectoflow ${c.g('<command>')} ${c.dim('[options]')}   ${c.dim('· append -h to any command for its help')}
 
 ${c.bold('Project')}
@@ -473,7 +495,12 @@ const HELP = {
 const showHelp = (name) => console.log('\n' + HELP[name].trim() + '\n');
 
 // ---- dispatch ---------------------------------------------------------------
-const fns = { init, update, dashboard, stop: stopDashboard, status, list: listAll, agents: () => printAgents(), skills: () => printSkills(), workflow: () => printWorkflow(), help, version };
+const fns = {
+  init, update, dashboard, stop: stopDashboard, status, list: listAll, help, version,
+  agents: () => { console.log(wordmark()); printAgents(false); },
+  skills: () => { console.log(wordmark()); printSkills(false); },
+  workflow: () => { console.log(wordmark()); printWorkflow(false); },
+};
 const wantsHelp = argv.slice(1).some((a) => a === '-h' || a === '--help');
 
 if (['-v', '-V', '--version', 'version'].includes(cmd)) version();
