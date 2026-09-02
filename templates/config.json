@@ -6,6 +6,7 @@
   "plansDir": null,
   "specsDir": null,
   "dashboard": { "autostart": true },
+  "design": "console",
   "runners": {
     "claude": "claude -p --permission-mode acceptEdits",
     "codex": "codex exec"

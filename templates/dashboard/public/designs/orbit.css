@@ -1,0 +1,207 @@
+/* ============================================================================================
+ * Orbit — light-first, airy, circular design skin. Teal signal + amber accent, dotted ground,
+ * Space Grotesk display / IBM Plex Sans body / JetBrains Mono numerics (all self-hosted, see the
+ * @font-face rules already declared in styles.css). Navigation is NOT the tab bar — the tab bar is
+ * hidden and replaced by a round "hub" button in the header that opens a full-screen radial menu
+ * (orbit.js builds it from the very same #tabs buttons, so routing logic is fully reused).
+ * ============================================================================================ */
+
+/* ---- tokens: light (default) ---- */
+html[data-design="orbit"] {
+  --bg:#f2f6f7; --surface:#ffffff; --surface-2:#eaf1f2; --line:#d6e1e4;
+  --ink:#0e1d21; --muted:#5d7379; --faint:#8ea1a6;
+  --signal:#0f8b8d; --cool:#e6a54b; --on-accent:#ffffff;
+  --s-todo:#8194a0; --s-in_progress:#2f6fe0; --s-to_validate:#d97a17; --s-to_analyze:#c93fae;
+  --s-done:#1f9c5c; --s-blocked:#d93a3a;
+  --radius:20px; --shadow:0 14px 40px rgba(14,29,33,.12);
+  --sans:'IBM Plex Sans',ui-sans-serif,system-ui,sans-serif;
+  --display:'Space Grotesk',ui-sans-serif,system-ui,sans-serif;
+  --mono:'JetBrains Mono',ui-monospace,Menlo,Consolas,monospace;
+  --ob-dot: rgba(14,29,33,.07);
+}
+
+/* ---- tokens: dark ---- */
+html[data-design="orbit"][data-theme="dark"] {
+  --bg:#0c1516; --surface:#121d1f; --surface-2:#182629; --line:#233639;
+  --ink:#e7f0f1; --muted:#8aa0a5; --faint:#5f7479;
+  --signal:#2fc3c5; --cool:#e6a54b; --on-accent:#06191a;
+  --s-todo:#6f838c; --s-in_progress:#5b93ff; --s-to_validate:#ff9b3d; --s-to_analyze:#ff5fd2;
+  --s-done:#3fbf7f; --s-blocked:#ff5c5c;
+  --shadow:0 14px 40px rgba(0,0,0,.45);
+  --ob-dot: rgba(255,255,255,.06);
+}
+
+/* ---- base feel ---- */
+html[data-design="orbit"] body {
+  font-family:var(--sans);
+  background-image: radial-gradient(var(--ob-dot) 1.2px, transparent 1.2px);
+  background-size: 22px 22px;
+}
+html[data-design="orbit"] .kpi-num,
+html[data-design="orbit"] .card .ct,
+html[data-design="orbit"] .panel-title,
+html[data-design="orbit"] .brand-name { font-family:var(--display); letter-spacing:-.01em; }
+html[data-design="orbit"] .kpi-num { font-weight:700; }
+
+/* navigation is the radial menu — the tab bar is hidden, content runs full width */
+html[data-design="orbit"] nav.tabs { display:none; }
+html[data-design="orbit"] .topbar { grid-template-columns:auto 1fr auto; }
+
+/* pills + rounder cards */
+html[data-design="orbit"] .btn,
+html[data-design="orbit"] .run-btn,
+html[data-design="orbit"] .theme-toggle,
+html[data-design="orbit"] .mode-chip,
+html[data-design="orbit"] .meta-chip { border-radius:999px; }
+html[data-design="orbit"] .kpi,
+html[data-design="orbit"] .card,
+html[data-design="orbit"] .flatlist li,
+html[data-design="orbit"] .journal-row { border-radius:var(--radius); }
+html[data-design="orbit"] .card:hover,
+html[data-design="orbit"] .kpi:hover { transform:translateY(-2px); box-shadow:var(--shadow); transition:transform .2s,box-shadow .2s; }
+
+/* running-agent avatars ripple (best-effort; harmless if the class isn't present) */
+html[data-design="orbit"] .avatar.running,
+html[data-design="orbit"] .av.running { position:relative; }
+html[data-design="orbit"] .avatar.running::after,
+html[data-design="orbit"] .av.running::after {
+  content:""; position:absolute; inset:-5px; border-radius:50%; border:2px solid var(--signal);
+  animation: ob-ripple 1.6s ease-out infinite;
+}
+@keyframes ob-ripple { 0%{ transform:scale(.9); opacity:.8; } 100%{ transform:scale(1.3); opacity:0; } }
+
+/* flowing teal particles along the workflow pipeline connectors */
+html[data-design="orbit"] .wf-arrow::after { background:linear-gradient(90deg,transparent,var(--signal),transparent); }
+html[data-design="orbit"] .wf-conn { position:relative; overflow:hidden; background:linear-gradient(90deg,var(--cool),var(--signal)); }
+html[data-design="orbit"] .wf-conn::after {
+  content:""; position:absolute; top:-2px; left:0; width:6px; height:6px; border-radius:50%;
+  background:var(--signal); box-shadow:0 0 8px var(--signal); animation: ob-flow 2.4s linear infinite;
+}
+@keyframes ob-flow { 0%{ left:-6px; opacity:0; } 10%{ opacity:1; } 90%{ opacity:1; } 100%{ left:100%; opacity:0; } }
+
+/* card reveal on load (reuses the existing body.booting convention) */
+html[data-design="orbit"] body.booting .kpi,
+html[data-design="orbit"] body.booting .card { animation: ob-rise .45s cubic-bezier(.2,.8,.2,1) both; }
+@keyframes ob-rise { from{ opacity:0; transform:translateY(10px); } to{ opacity:1; transform:none; } }
+
+/* ============================================================================================
+ * THE HUB — round brand button in the header; shows live global progress %, doubles as the
+ * radial-menu trigger. Injected by orbit.js as the first child of .brand.
+ * ============================================================================================ */
+html[data-design="orbit"] .ob-hub {
+  position:relative; width:46px; height:46px; border-radius:50%; flex-shrink:0;
+  background:var(--signal); color:var(--on-accent); display:grid; place-items:center;
+  box-shadow:0 8px 20px color-mix(in srgb, var(--signal) 40%, transparent);
+  transition:transform .18s; cursor:pointer; border:0; font:inherit;
+}
+html[data-design="orbit"] .ob-hub:hover { transform:scale(1.06); }
+html[data-design="orbit"] .ob-hub .ob-pct { font-family:var(--display); font-size:12px; font-weight:700; letter-spacing:-.02em; }
+html[data-design="orbit"] .ob-hub::after {
+  content:""; position:absolute; inset:-5px; border-radius:50%; border:2px solid var(--signal); opacity:.35;
+  animation: ob-breathe 2.6s ease-in-out infinite;
+}
+@keyframes ob-breathe { 0%,100%{ transform:scale(1); opacity:.35; } 50%{ transform:scale(1.08); opacity:.12; } }
+
+/* ---- fixed bottom-left FAB on small screens ---- */
+@media (max-width:900px) {
+  html[data-design="orbit"] .ob-hub { position:fixed; left:16px; bottom:18px; z-index:42; width:56px; height:56px; }
+  html[data-design="orbit"] .ob-hub .ob-pct { font-size:14px; }
+}
+
+/* ============================================================================================
+ * THE OVERLAY + DIAL
+ * ============================================================================================ */
+html[data-design="orbit"] .ob-ov {
+  position:fixed; inset:0; z-index:80; display:grid; place-items:center;
+  background:rgba(14,29,33,.42); backdrop-filter:blur(6px); animation: ob-fade .18s ease;
+}
+html[data-design="orbit"][data-theme="dark"] .ob-ov { background:rgba(0,0,0,.55); }
+html[data-design="orbit"] .ob-ov.ob-closing { animation: ob-fadeout .15s ease forwards; }
+@keyframes ob-fade { from{ opacity:0; } to{ opacity:1; } }
+@keyframes ob-fadeout { to{ opacity:0; } }
+
+html[data-design="orbit"] .ob-dial {
+  position:relative; width:284px; height:284px; flex:none; user-select:none;
+  animation: ob-dialpop .28s cubic-bezier(.2,.8,.2,1);
+}
+@keyframes ob-dialpop { from{ transform:scale(.7); opacity:0; } to{ transform:none; opacity:1; } }
+@media (max-width:900px) { html[data-design="orbit"] .ob-dial { width:210px; height:210px; } }
+
+html[data-design="orbit"] .ob-dial .ob-ring { position:absolute; inset:0; width:100%; height:100%; transform:rotate(-90deg); }
+html[data-design="orbit"] .ob-dial .ob-track { fill:none; stroke:var(--surface-2); stroke-width:16; }
+html[data-design="orbit"] .ob-dial .ob-prog { fill:none; stroke:var(--signal); stroke-width:16; transition:stroke-dasharray 1s cubic-bezier(.2,.7,.2,1); }
+html[data-design="orbit"] .ob-dial .ob-marker { fill:none; stroke:var(--cool); stroke-width:16; transition:transform .5s cubic-bezier(.3,.8,.3,1); transform-origin:142px 142px; }
+@media (max-width:900px) { html[data-design="orbit"] .ob-dial .ob-marker { transform-origin:105px 105px; } }
+
+html[data-design="orbit"] .ob-chev {
+  position:absolute; width:30px; height:30px; border-radius:50%; display:grid; place-items:center;
+  color:var(--on-accent); background:var(--signal); box-shadow:var(--shadow); border:0; cursor:pointer;
+  transition:transform .18s,background .18s;
+}
+html[data-design="orbit"] .ob-chev svg { width:14px; height:14px; }
+html[data-design="orbit"] .ob-chev:hover { transform:scale(1.12); filter:brightness(1.08); }
+html[data-design="orbit"] .ob-chev.ob-up { left:50%; top:-4px; transform:translateX(-50%); }
+html[data-design="orbit"] .ob-chev.ob-up:hover { transform:translateX(-50%) scale(1.12); }
+html[data-design="orbit"] .ob-chev.ob-down { left:50%; bottom:-4px; transform:translateX(-50%); }
+html[data-design="orbit"] .ob-chev.ob-down:hover { transform:translateX(-50%) scale(1.12); }
+html[data-design="orbit"] .ob-chev.ob-left { top:50%; left:-4px; transform:translateY(-50%); }
+html[data-design="orbit"] .ob-chev.ob-left:hover { transform:translateY(-50%) scale(1.12); }
+html[data-design="orbit"] .ob-chev.ob-right { top:50%; right:-4px; transform:translateY(-50%); }
+html[data-design="orbit"] .ob-chev.ob-right:hover { transform:translateY(-50%) scale(1.12); }
+
+html[data-design="orbit"] .ob-center {
+  position:absolute; left:50%; top:50%; width:76px; height:76px; transform:translate(-50%,-50%);
+  border-radius:50%; display:grid; place-items:center; background:var(--signal); color:var(--on-accent);
+  box-shadow:0 10px 24px color-mix(in srgb, var(--signal) 40%, transparent); text-align:center; line-height:1;
+  border:0; cursor:pointer;
+}
+html[data-design="orbit"] .ob-center .ob-pct { font-family:var(--display); font-size:22px; font-weight:700; letter-spacing:-.03em; }
+html[data-design="orbit"] .ob-center .ob-lbl { font:500 9.5px var(--mono); opacity:.85; margin-top:2px; letter-spacing:.06em; text-transform:uppercase; }
+html[data-design="orbit"] .ob-center::after {
+  content:""; position:absolute; inset:-6px; border-radius:50%; border:2px solid var(--signal); opacity:.35;
+  animation: ob-breathe 2.6s ease-in-out infinite;
+}
+@media (max-width:900px) {
+  html[data-design="orbit"] .ob-center { width:60px; height:60px; }
+  html[data-design="orbit"] .ob-center .ob-pct { font-size:17px; }
+}
+
+html[data-design="orbit"] .ob-item {
+  position:absolute; left:50%; top:50%; width:58px; height:58px; margin:-29px 0 0 -29px;
+  border-radius:50%; display:flex; flex-direction:column; align-items:center; justify-content:center; gap:2px;
+  color:var(--ink); background:var(--surface); border:1px solid var(--line); cursor:pointer;
+  transform:translate(0,0) scale(.3); opacity:0; animation: ob-orbit .5s cubic-bezier(.2,.8,.2,1) forwards;
+  transition:background .18s,color .18s,box-shadow .18s; padding:0;
+}
+html[data-design="orbit"] .ob-item .ob-ico { width:19px; height:19px; display:inline-flex; }
+html[data-design="orbit"] .ob-item .ob-ico svg { width:100%; height:100%; }
+html[data-design="orbit"] .ob-item .ob-lb { font:600 9px var(--sans); letter-spacing:.01em; white-space:nowrap; }
+html[data-design="orbit"] .ob-item:hover { background:var(--surface-2); }
+html[data-design="orbit"] .ob-item.is-active { background:var(--surface); color:var(--signal); box-shadow:var(--shadow), 0 0 0 2px var(--signal); }
+html[data-design="orbit"] .ob-item .ob-bd {
+  position:absolute; top:2px; right:2px; min-width:15px; height:15px; padding:0 4px; border-radius:8px;
+  background:var(--s-blocked); color:#fff; font:700 9px/15px var(--mono); text-align:center;
+}
+@keyframes ob-orbit { to{ opacity:1; transform:rotate(var(--a)) translate(98px) rotate(calc(-1*var(--a))) scale(1); } }
+@media (max-width:900px) {
+  html[data-design="orbit"] .ob-item { width:46px; height:46px; margin:-23px 0 0 -23px; }
+  html[data-design="orbit"] .ob-item .ob-lb { display:none; }
+  html[data-design="orbit"] .ob-item .ob-ico { width:16px; height:16px; }
+  @keyframes ob-orbit { to{ opacity:1; transform:rotate(var(--a)) translate(72px) rotate(calc(-1*var(--a))) scale(1); } }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  html[data-design="orbit"] .ob-item,
+  html[data-design="orbit"] .ob-dial,
+  html[data-design="orbit"] .ob-ov,
+  html[data-design="orbit"] .ob-hub::after,
+  html[data-design="orbit"] .ob-center::after,
+  html[data-design="orbit"] .wf-conn::after,
+  html[data-design="orbit"] .avatar.running::after,
+  html[data-design="orbit"] .av.running::after,
+  html[data-design="orbit"] body.booting .kpi,
+  html[data-design="orbit"] body.booting .card {
+    animation:none !important;
+  }
+  html[data-design="orbit"] .ob-item { opacity:1; transform:rotate(var(--a)) translate(98px) rotate(calc(-1*var(--a))); }
+}

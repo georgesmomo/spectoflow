@@ -20,6 +20,8 @@
  */
 (function (root) {
   const DESIGNS = [
+    { id: 'console',      name: 'Spectral Console', desc: 'Default — dark real-time console: left icon rail, ⌘K palette, bento overview, amber + cyan flow.' },
+    { id: 'orbit',        name: 'Orbit',           desc: 'Light, airy, circular — a radial menu opens on click of the hub; teal dial + amber brand.' },
     { id: 'control-room', name: 'Control Room', desc: 'Dark violet engineering control room — the original.' },
     { id: 'obsidian',     name: 'Obsidian Ops',  desc: 'Near-black mission-control — electric lime + cyan, mono type, Linear/Vercel precision.' },
     { id: 'neon-command', name: 'Neon Command',  desc: 'Glassmorphism — aurora violet + cyan, Space Grotesk display, control-room ambiance.' },

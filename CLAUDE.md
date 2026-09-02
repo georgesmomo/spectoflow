@@ -5,6 +5,19 @@ framework with a real-time local control plane. This file orients you to **build
 (it is not a spectoflow-managed project). Read `docs/` before making changes:
 `docs/ARCHITECTURE.md`, `docs/DECISIONS.md` (the full rationale, D1–D23), `docs/ROADMAP.md` (what's next).
 
+## What exists (v0.17.0)
+
+**v0.17.0 — dashboard redesign, 2 new templates (see DECISIONS D39):** two prototypes were validated
+by the user, then shipped as skins in the existing multi-design system, each in its own
+`dashboard/public/designs/<id>.css` + `<id>.js` (active only when its design is on; live-switchable).
+**`console` — Spectral Console (default, dark by default):** deep blue-slate console, amber brand accent
++ cyan "flow" for everything live, **left icon rail** (the existing tabs re-docked), **⌘K palette**,
+bento overview, reveals/counters/pulses/pipeline particles. **`orbit` — Orbit:** light, airy, circular;
+a **radial menu opens on click** of a teal hub button (shows % delivered) — items in orbit, segmented
+ring (teal = progress, amber marker = current view), chevrons, Esc/`m`; content full width. Defaults:
+`data-design="console"`, `data-theme="dark"`, `config.design: "console"`. Old 4 skins still selectable.
+Zero-dep/offline kept (self-hosted fonts only); routing/SSE/API untouched.
+
 ## What exists (v0.16.4)
 
 **v0.16.4 (see DECISIONS D37):** the brand welcome now shows **on `npm install -g spectoflow`** too,

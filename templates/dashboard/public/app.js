@@ -672,7 +672,7 @@ function setLangSelect(lang){
   sel.value=lang;
 }
 // ---- design skins (data-design) — switchable, persisted per viewer + as the project default ----
-function currentDesign(){ return document.documentElement.getAttribute('data-design')||'control-room'; }
+function currentDesign(){ return document.documentElement.getAttribute('data-design')||'console'; }
 function applyDesign(id){ document.documentElement.setAttribute('data-design',id); try{ localStorage.setItem('spf-design',id); }catch{} }
 async function saveDesign(id){ applyDesign(id); if(P) render(); /* re-read token colours into the SVG charts */ flash(); try{ await fetch('/api/settings',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({design:id})}); }catch{} }
 
