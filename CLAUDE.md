@@ -5,12 +5,12 @@ framework with a real-time local control plane. This file orients you to **build
 (it is not a spectoflow-managed project). Read `docs/` before making changes:
 `docs/ARCHITECTURE.md`, `docs/DECISIONS.md` (the full rationale, D1–D23), `docs/ROADMAP.md` (what's next).
 
-## What exists (v0.16.1)
+## What exists (v0.16.2)
 
-**v0.16.1 (see DECISIONS D34):** the ASCII logo is now the **real brand mark** — a flat-top **hexagon
-around the "S"** (flow), rasterized to 41×17 with the **`s p e c t o f l o w` wordmark centered
-below** — shown on `init`, `help` and `list` (`update` uses a compact header). Replaces the 0.16.0
-box-drawing wordmark.
+**v0.16.2 (see DECISIONS D34):** the ASCII logo is the **real brand mark** — the actual spectoflow
+hexagon-with-flowing-"S" art, taken from the user's own logo and **downsampled 2× to 41×23** to fit a
+terminal (faithful shape, not a redraw) — with the **`s p e c t o f l o w` wordmark centered below**.
+Shown on `init`, `help` and `list` (`update` uses a compact header).
 
 ## What exists (v0.16.0)
 

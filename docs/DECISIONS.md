@@ -448,3 +448,6 @@
 
 ### D34 — 0.16.1 : le logo ASCII devient la vraie marque (hexagone + S)
 - **ACTÉ.** Retour utilisateur : le banner 0.16.0 (wordmark box-drawing) ne représentait pas le logo. Remplacé par l'**ASCII art de la marque spectoflow** — hexagone flat-top autour du « S » (flow), **rasterisé** (script jetable : distance-aux-arêtes pour l'hexagone + bitmap S style segments), 41×17, avec le **nom « s p e c t o f l o w » centré dessous** + version/tagline. Affiché aux moments de lecture (`init`, `help`, `list`) ; `update` repasse en header compact (pas de grand logo qui pousse le tableau).
+
+### D35 — 0.16.2 : logo ASCII = art de marque réel (fidélité)
+- **ACTÉ.** Le tracé 0.16.1 (hexagone re-dessiné + S style segments) ne correspondait pas au vrai logo. Remplacé par **l'art ASCII fourni par l'utilisateur** (hexagone pointu + « S » diagonal/flow), **sous-échantillonné 2×** (81×45 → 41×23, seuil 0.30 par bloc) pour tenir dans un terminal sans wrap, en **préservant la forme** (pas de redraw). Nom centré dessous inchangé.
