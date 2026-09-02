@@ -23,65 +23,11 @@ const paint = (code) => (s) => (useColor ? `\x1b[${code}m${s}\x1b[0m` : String(s
 const c = { g: paint('32'), cy: paint('36'), b: paint('34'), y: paint('33'), dim: paint('2'), bold: paint('1'), amber: paint('38;5;179'), white: paint('97') };
 
 // ---- branding ---------------------------------------------------------------
-// The spectoflow mark in ASCII: the brand hexagon around the flowing "S", drawn WHITE.
-// The name is a compact figlet wordmark drawn AMBER, centered under the mark.
-const LOGO = [
-  '                  ########',
-  '               ######  #######',
-  '           #######         ######',
-  '         ######               ######',
-  '      ######          ####       ######',
-  '    #####          ######           ####',
-  '    ####         ######               ####',
-  '    ####       #####                  ####',
-  '    ####      ####       ##           ####',
-  '    ####      ####    #########       ####',
-  '    ####      #### ####### #####      ####',
-  '    ####       ########      ###      ####',
-  '    ####          ##         ###      ####',
-  '    ####                    ####      ####',
-  '    ####                 ######       ####',
-  '    ####              ######          ####',
-  '    ####          ######            ####',
-  '     ######       ###            ######',
-  '        ######                ######',
-  '           ######          ######',
-  '              ######    ######',
-  '                 ##########',
-  '                    ####',
-];
-const NAME = [
-  '                  _        __ _',
-  '  ____ __  ___ __| |_ ___ / _| |_____ __ __',
-  " (_-< '_ \\/ -_) _|  _/ _ \\  _| / _ \\ V  V /",
-  ' /__/ .__/\\___\\__|\\__\\___/_| |_\\___/\\_/\\_/',
-  '    |_|',
-];
-const NAME_W = Math.max(...NAME.map((l) => l.length));
-const TAGLINE = 'agent-agnostic spec-driven development · real-time control plane';
-const INDENT = '  ';
-
-// Amber wordmark, indented. `centerUnder` centres it below the hexagon's true midpoint.
-function nameBlock(centerUnder) {
-  let pad = INDENT;
-  if (centerUnder) {
-    let lo = Infinity, hi = 0;
-    for (const l of LOGO) { const i = l.search(/#/); if (i >= 0) { lo = Math.min(lo, i); hi = Math.max(hi, l.length - 1); } }
-    const cx = INDENT.length + (lo + hi) / 2;
-    pad = ' '.repeat(Math.max(0, Math.round(cx - NAME_W / 2)));
-  }
-  return NAME.map((l) => pad + c.amber(l)).join('\n');
-}
-// Full logo — white hexagon + centered amber wordmark + version. For init and update.
-function logo() {
-  const art = LOGO.map((l) => INDENT + c.white(l)).join('\n');
-  return `\n${art}\n\n${nameBlock(true)}\n\n${INDENT}${c.dim('v' + VERSION + ' · ' + TAGLINE)}\n`;
-}
-// Just the amber wordmark + version. For help and the explore commands.
-function wordmark() {
-  return `\n${nameBlock(false)}\n\n${INDENT}${c.dim('v' + VERSION + ' · ' + TAGLINE)}\n`;
-}
-// One-line brand — for the header of secondary command outputs.
+// Shared ASCII brand (white hexagon + amber wordmark) lives in lib/brand.js so the CLI and the
+// postinstall welcome render the exact same art.
+const brand = require('../lib/brand');
+const logo = () => brand.logo(c, VERSION);        // white hexagon + centered amber wordmark (init/update)
+const wordmark = () => brand.wordmark(c, VERSION); // amber wordmark alone (help + explore)
 const brandLine = () => `${c.amber('spectoflow')} ${c.dim('v' + VERSION)}`;
 
 // ---- framework introspection (list agents / skills / workflow) --------------

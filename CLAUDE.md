@@ -5,6 +5,14 @@ framework with a real-time local control plane. This file orients you to **build
 (it is not a spectoflow-managed project). Read `docs/` before making changes:
 `docs/ARCHITECTURE.md`, `docs/DECISIONS.md` (the full rationale, D1–D23), `docs/ROADMAP.md` (what's next).
 
+## What exists (v0.16.4)
+
+**v0.16.4 (see DECISIONS D37):** the brand welcome now shows **on `npm install -g spectoflow`** too,
+via a **`postinstall` script** (`bin/postinstall.js`) — guarded to a global, interactive (TTY) install
+and wrapped so it can never fail an install (npm may still buffer the output). The ASCII brand is
+factored into **`lib/brand.js`** (shared by the CLI and the welcome) so all surfaces render the exact
+same art.
+
 ## What exists (v0.16.3)
 
 **v0.16.3 (see DECISIONS D36):** two logo surfaces. **`init` and `update`** show the **white hexagon**

@@ -459,3 +459,7 @@
   - **`init` + `update`** → `logo()` = hexagone blanc + nom ambre centré (le logo manquait sur `update`, corrigé).
   - **`help` + explore** (`list`/`agents`/`skills`/`workflow`) → `wordmark()` = nom ambre seul (pas d'hexagone).
 - Taille du logo débattue (41×23 → réductions 27×15 / 20×12 testées) : on garde l'hexagone 41×23 pour l'accueil, et c'est **le nom** qui a été réduit de moitié (Small) pour le centrage et la légèreté.
+
+### D37 — 0.16.4 : welcome à l'install (postinstall) + brand factorisé
+- **ACTÉ.** `npm install -g spectoflow` n'exécute pas le code de la CLI → le logo ne s'affichait pas à l'install. Ajout d'un **script `postinstall`** (`bin/postinstall.js`) qui imprime le logo (hexagone blanc + nom ambre) + « Get started ». **Garde-fous** : ne s'affiche que sur un install **global + TTY** (`npm_config_global==='true'` && `process.stdout.isTTY`), tout est **try/catch** (un banner ne doit jamais casser un install), muet en CI/dépendance. Réserve connue : npm 7+ peut **bufferiser** la sortie des scripts de cycle de vie (sinon `spectoflow` sans args ou `spectoflow init` montrent le même brand).
+- **Refactor** : l'art ASCII part dans **`lib/brand.js`** (LOGO, NAME, `logo(c,version)`, `wordmark(c,version)`), partagé par `bin/spectoflow.js` et `bin/postinstall.js` → une seule source, rendu identique partout.
