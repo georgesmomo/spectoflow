@@ -17,6 +17,7 @@
  */
 const fs = require('fs');
 const path = require('path');
+const { validateSpec } = require('./custom-dashboard');
 
 // ---- task line parsing -------------------------------------------------------
 // - [ ] T-012 Title here @owner ~level %status
@@ -226,6 +227,23 @@ function readWorkflow(projectRoot) {
   } catch { return []; }
 }
 
+// ---- user-generated custom dashboards (.spectoflow/dashboard/custom/<id>.json) --------------
+// One JSON file per custom dashboard page (see lib/custom-dashboard.js for the block schema this
+// validates against). A malformed file is skipped, never thrown — one bad custom dashboard must
+// never take down the whole /api/project response.
+function readCustomDashboards(projectRoot) {
+  const dir = path.join(projectRoot, '.spectoflow', 'dashboard', 'custom');
+  if (!fs.existsSync(dir)) return [];
+  const out = [];
+  for (const f of fs.readdirSync(dir).filter((x) => x.endsWith('.json')).sort()) {
+    try {
+      const spec = JSON.parse(fs.readFileSync(path.join(dir, f), 'utf8'));
+      if (validateSpec(spec).valid) out.push(spec);
+    } catch { /* skip malformed */ }
+  }
+  return out;
+}
+
 // ---- unified read for the dashboard -----------------------------------------
 function readProject(projectRoot) {
   const config = readConfig(projectRoot);
@@ -235,6 +253,7 @@ function readProject(projectRoot) {
   const specs = readSpecs(projectRoot);
   const agents = listMd(path.join(projectRoot, '.spectoflow', 'agents'));
   const skills = listSkills(path.join(projectRoot, '.spectoflow', 'skills'));
+  const customDashboards = readCustomDashboards(projectRoot);
 
   // Write-guarded snapshot: readProject is polled continuously by the dashboard (and reacts to
   // fs.watch on .spectoflow). Recording unconditionally on every read would rewrite runtime.json
@@ -260,7 +279,7 @@ function readProject(projectRoot) {
     runtime = writeRuntime(projectRoot, cur);
   }
 
-  return { config, plans, specs, workflow, agents, skills, runtime };
+  return { config, plans, specs, workflow, agents, skills, runtime, customDashboards };
 }
 function frontmatter(text) {
   const m = String(text).replace(/\r\n?/g, '\n').match(/^---\n([\s\S]*?)\n---/);
@@ -274,12 +293,17 @@ function parseFlatList(raw) {
   if (!raw) return [];
   return String(raw).replace(/[[\]]/g, '').split(',').map((s) => s.trim()).filter(Boolean);
 }
+// `origin: user-generated` in a file's front-matter (written by generate-skill/generate-agent, see
+// templates/skills/generate-skill and generate-agent) marks it as created through the Customize page
+// rather than shipped by the framework — the dashboard's Customize section uses this `custom` flag to
+// list only the user's own additions, distinct from the framework-shipped roster.
+const isCustomOrigin = (fm) => fm.origin === 'user-generated';
 function listMd(dir) {
   if (!fs.existsSync(dir)) return [];
   return fs.readdirSync(dir).filter((f) => f.endsWith('.md')).map((f) => {
     const fm = frontmatter(fs.readFileSync(path.join(dir, f), 'utf8'));
     return { file: f, name: fm.name || f.replace(/\.md$/, ''), title: fm.title || fm.name || f, capability: fm.capability || '', description: fm.description || '',
-      standards: parseFlatList(fm.standards), uses: parseFlatList(fm.uses) };
+      standards: parseFlatList(fm.standards), uses: parseFlatList(fm.uses), custom: isCustomOrigin(fm) };
   });
 }
 function listSkills(dir) {
@@ -288,7 +312,7 @@ function listSkills(dir) {
     const sk = path.join(dir, e.name, 'SKILL.md');
     const fm = fs.existsSync(sk) ? frontmatter(fs.readFileSync(sk, 'utf8')) : {};
     return { name: fm.name || e.name, description: fm.description || '', capability: fm.capability || '',
-      inputs: fm.inputs || '', outputs: fm.outputs || '', standard: fm.standard || '' };
+      inputs: fm.inputs || '', outputs: fm.outputs || '', standard: fm.standard || '', custom: isCustomOrigin(fm) };
   });
 }
 function readAgents(projectRoot) {
@@ -298,7 +322,7 @@ function readAgents(projectRoot) {
     const fm = frontmatter(fs.readFileSync(path.join(dir, f), 'utf8'));
     return { name: fm.name || f.replace(/\.md$/, ''), capability: fm.capability || null,
       title: fm.title || '', description: fm.description || '',
-      standards: parseFlatList(fm.standards), uses: parseFlatList(fm.uses) };
+      standards: parseFlatList(fm.standards), uses: parseFlatList(fm.uses), custom: isCustomOrigin(fm) };
   });
 }
 function readSkills(projectRoot) {
@@ -308,5 +332,5 @@ function readSkills(projectRoot) {
 module.exports = {
   parseTaskLine, buildTaskLine, parsePlan, readPlans, readSpecs, updateTaskLine, addTaskComment,
   readRuntime, writeRuntime, parseAgentLine, appendMessage, readConfig, readWorkflow, readProject,
-  readAgents, readSkills, recordSnapshot, resolvePlansDir, resolveSpecsDir,
+  readAgents, readSkills, readCustomDashboards, recordSnapshot, resolvePlansDir, resolveSpecsDir,
 };

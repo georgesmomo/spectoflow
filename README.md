@@ -158,6 +158,17 @@ Either surface can also **Orchestrate** the enabled workflow: each step runs its
 /api/agentfile?path=` (scoped to `.spectoflow/agents/**` + `.spectoflow/skills/**`,
 path-traversal-safe) — the framework's only other server surface is unchanged.
 
+**Customize.** Settings → **Customize** lets you extend the project's own spectoflow install: add a
+dashboard, a skill, or an agent by describing what you want (or hit **Auto** to have the agent survey
+the project and propose candidates), and it clarifies first if the ask is ambiguous. Dashboards are
+never raw HTML — they're a small **declarative block spec** (`markdown`, `kpi-row`, `chart-bars`,
+`chart-donut`, `table`, `list`, `stat-tile-row`) rendered by the same components the built-in Board
+uses, so a generated dashboard automatically matches whatever design is active, in both themes, and
+keeps matching if you switch designs later. Blocks can bind live to project stats (`bind:
+"phases.0.pct"`) or hold a static value. Generated skills and agents follow the same gold-standard
+shape as the shipped ones, cite real domain standards (OWASP, WCAG, C4/ADR, …) instead of generic
+advice, and are marked `origin: user-generated` so they're easy to tell apart in the UI.
+
 ## Agents vs skills
 
 Agents (`.spectoflow/agents/`) are **stable team personas** (Product Manager, Developer, QA Engineer…).

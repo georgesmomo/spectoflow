@@ -141,6 +141,7 @@ function render(){
   renderOverview(); renderBoard(); renderBacklog(); renderWorkflow(); renderTeam();
   renderChatLog($('#chatLog')); renderChatLog($('#chatTabLog'));
   renderSidebar(); renderRequests(); renderAttention(); renderInfo(); renderSettings();
+  renderCustomDashboards(); // adds/removes nav tabs + panels before applyActiveTab() below reads them
   applyActiveTab(); // re-apply the current tab so an SSE-driven re-render never resets to Board
   applyI18nStatic(); // re-translate the static markup (nav, headers, placeholders…) for this tick's language
 }
@@ -729,6 +730,7 @@ function renderSettings(){
     rows.forEach(([k,v])=>{ const r=el('div','settings-ro-row'); r.append(el('span','settings-ro-k',k), el('span','settings-ro-v',String(v))); box.append(r); });
   }
   const fv=$('#footerVer'); if(fv) fv.textContent = (P&&P.version) ? ('v'+P.version) : '';
+  renderCustomize();
 }
 async function saveSettings(){
   flash();
@@ -737,13 +739,190 @@ async function saveSettings(){
   const s=$('#settingsSaved'); if(s){ s.hidden=false; setTimeout(()=>{ s.hidden=true; },1500); }
 }
 
+// ---- Custom dashboards (Customize page → generate-dashboard skill) ---------------------------
+// A custom dashboard is a DECLARATIVE block spec (.spectoflow/dashboard/custom/<id>.json, embedded
+// in P.customDashboards by the server) — never raw HTML/CSS/JS. Every block below reuses the exact
+// same components the built-in Board renders with (kpiCard/ocard/bars/donut/statTile/mdLite/el), so a
+// generated dashboard automatically matches the active design — and any design switched to later —
+// with zero page-specific styling. Mirrors the schema in .spectoflow/lib/custom-dashboard.js (the
+// Node-side validator); this is the independent browser-side reader for the same shape.
+function resolveBind(s,bindPath,fallback){
+  if(bindPath==null) return fallback;
+  let v=s;
+  for(const p of String(bindPath).split('.')){ if(v==null) return fallback; v=v[p]; }
+  return v==null?fallback:v;
+}
+function renderCustomBlock(b,s){
+  switch(b.type){
+    case 'markdown': return htmlBlock('cd-markdown', mdLite(b.content||''));
+    case 'kpi-row': {
+      const row=el('div','kpi-row');
+      (b.items||[]).forEach(it=>{
+        const val=it.bind!=null?resolveBind(s,it.bind,it.value):it.value;
+        row.append(kpiCard(it.label||'', numBlock(val==null?'—':val,it.color||'var(--signal)'), it.sub||'', cssv(it.colorVar||'--signal')));
+      });
+      return row;
+    }
+    case 'chart-bars': {
+      const rows=(b.rows||[]).map(r=>({label:r.label||'', pct:r.bind!=null?(resolveBind(s,r.bind,r.pct||0)):(r.pct||0), sub:r.sub||''}));
+      return ocard(b.title||'', bars(rows));
+    }
+    case 'chart-donut': {
+      const segs=(b.segments||[]).map(g=>({key:g.key||'', value:g.bind!=null?(resolveBind(s,g.bind,g.value||0)):(g.value||0), color:cssv(g.colorVar||'--muted')}));
+      const total=segs.reduce((a,x)=>a+(Number(x.value)||0),0);
+      const d=donut(segs,140,{center:String(total),sub:t('chart.tasksSub')});
+      const legend=el('div','legend');
+      segs.forEach(seg=>{ const item=el('div','legend-item'); const sw=el('span','legend-swatch'); sw.style.background=seg.color; item.append(sw, el('span','legend-label',seg.key), el('span','legend-count',String(seg.value))); legend.append(item); });
+      const row=el('div','donut-row'); row.append(d.wrap,legend);
+      return ocard(b.title||'', row);
+    }
+    case 'table': {
+      const wrap=el('div','table-scroll'); const tbl=el('table','backlog-table');
+      const thead=el('thead'); const htr=el('tr'); (b.columns||[]).forEach(c=>htr.append(el('th',null,String(c)))); thead.append(htr); tbl.append(thead);
+      const tbody=el('tbody'); (b.rows||[]).forEach(r=>{ const tr=el('tr'); (r||[]).forEach(c=>tr.append(el('td',null,String(c)))); tbody.append(tr); }); tbl.append(tbody);
+      wrap.append(tbl);
+      return b.title? ocard(b.title,wrap) : wrap;
+    }
+    case 'list': {
+      const ul=el('ul','flatlist'); (b.items||[]).forEach(x=>ul.append(li(null,String(x))));
+      return b.title? ocard(b.title,ul) : ul;
+    }
+    case 'stat-tile-row': {
+      const row=el('div','stat-tiles');
+      (b.items||[]).forEach(it=>{ const val=it.bind!=null?resolveBind(s,it.bind,it.value):it.value; row.append(statTile(val==null?'—':String(val), it.label||'', it.sub||'')); });
+      return row;
+    }
+    default: return el('div','empty','Unknown block type: '+b.type);
+  }
+}
+function customDashboardTabs(){ return $$('#tabs .tab[data-tab^="custom:"]'); }
+// Adds/removes nav tabs + panels to match P.customDashboards, and refreshes an existing tab's label
+// if the dashboard was regenerated with a new title. Console's rail and Orbit's radial menu both read
+// #tabs live, so a custom tab appears in either design's navigation with no design-specific change.
+function syncCustomTabs(list){
+  const tabsNav=$('#tabs'); if(!tabsNav) return;
+  const wanted=new Set(list.map(spec=>'custom:'+spec.id));
+  customDashboardTabs().forEach(btn=>{
+    const id=btn.dataset.tab;
+    if(!wanted.has(id)){ const panel=$('.panel[data-panel="'+id+'"]'); if(panel) panel.remove(); btn.remove(); }
+  });
+  list.forEach(spec=>{
+    const id='custom:'+spec.id;
+    let btn=$('#tabs .tab[data-tab="'+id+'"]');
+    if(!btn){
+      btn=el('button','tab'); btn.dataset.tab=id;
+      const icoKey=spec.icon||'info';
+      const ico=el('span','tab-ico'); ico.dataset.icon=icoKey; if(typeof ICON!=='undefined'&&ICON[icoKey]) ico.innerHTML=ICON[icoKey];
+      btn.append(ico, el('span','tab-label',spec.title||spec.id));
+      btn.addEventListener('click',()=>navigateTab(id));
+      tabsNav.append(btn);
+      const panel=el('section','panel'); panel.dataset.panel=id;
+      const wrap=el('div','custom-dash-wrap');
+      wrap.append(el('h2','panel-title',spec.title||spec.id));
+      wrap.append(el('div','custom-dash-body'));
+      panel.append(wrap);
+      $('.stage').append(panel);
+    } else {
+      const lbl=btn.querySelector('.tab-label'); if(lbl) lbl.textContent=spec.title||spec.id;
+      const title=$('.panel[data-panel="'+id+'"] .panel-title'); if(title) title.textContent=spec.title||spec.id;
+    }
+  });
+}
+function renderCustomDashboards(){
+  const list=P.customDashboards||[];
+  syncCustomTabs(list);
+  const s=SpectoStats.stats(P);
+  list.forEach(spec=>{
+    const box=$('.panel[data-panel="custom:'+spec.id+'"] .custom-dash-body'); if(!box) return;
+    box.innerHTML='';
+    (spec.blocks||[]).forEach(b=> box.append(renderCustomBlock(b,s)));
+  });
+}
+
+// ---- Settings → Customize: add dashboards/skills/agents by description, or "Auto" -------------
+// Generation itself is real agent work (research, clarify, write a file) — this UI never does it
+// client-side. It just constructs a plain-language prompt (recognized by AGENTS.md's Router, which
+// hands it to framework-curator) and sends it through the SAME /api/run + group-chat pipeline every
+// other "Run" already uses, then jumps to Chat so the requester watches it happen and can answer any
+// clarifying question there — no separate conversational UI to build or keep in sync.
+const CZ_KINDS=[
+  { kind:'dashboard', promptAdd:(d)=>'Add a custom dashboard: '+d, promptAuto:'Propose dashboard candidates for this project (Auto customize)' },
+  { kind:'skill',     promptAdd:(d)=>'Create a new skill: '+d,     promptAuto:'Propose skill candidates for this project (Auto customize)' },
+  { kind:'agent',     promptAdd:(d)=>'Create a new agent: '+d,     promptAuto:'Propose agent candidates for this project (Auto customize)' },
+];
+function czItemsFor(kind){
+  if(kind==='dashboard') return (P.customDashboards||[]).map(spec=>({ title:spec.title||spec.id, sub:(spec.blocks||[]).length+' '+t('customize.blocksSub'), open:()=>navigateTab('custom:'+spec.id) }));
+  if(kind==='skill') return (P.skills||[]).filter(s=>s.custom).map(s=>({ title:s.name, sub:s.description||'', open:()=>openFileDrawer('skill',s) }));
+  return (P.agents||[]).filter(a=>a.custom).map(a=>({ title:a.title||a.name, sub:a.description||'', open:()=>openFileDrawer('agent',a) }));
+}
+function renderCustomize(){
+  const root=$('#czRoot'); if(!root) return;
+  const openKind=root.dataset.open||'';
+  root.innerHTML='';
+  CZ_KINDS.forEach(({kind})=>{
+    const items=czItemsFor(kind);
+    const block=el('div','cz-block');
+    const head=el('div','cz-head');
+    head.append(el('h3',null,t('customize.'+kind+'s')+' ('+items.length+')'));
+    const addBtn=el('button','btn cz-add',t('customize.add.'+kind));
+    addBtn.setAttribute('aria-expanded',String(openKind===kind));
+    addBtn.addEventListener('click',()=>{ root.dataset.open=(openKind===kind)?'':kind; renderCustomize(); });
+    head.append(addBtn); block.append(head);
+    const list=el('div','cz-list');
+    if(!items.length) list.append(el('div','empty',t('customize.empty.'+kind)));
+    items.forEach(it=>{
+      const row=el('div','cz-item'); row.tabIndex=0;
+      row.append(el('span','cz-item-title',it.title));
+      if(it.sub) row.append(el('span','cz-item-sub',it.sub));
+      row.addEventListener('click',it.open);
+      row.addEventListener('keydown',(e)=>{ if(e.key==='Enter') it.open(); });
+      list.append(row);
+    });
+    block.append(list);
+    if(openKind===kind){
+      const form=el('div','cz-form');
+      const ta=el('textarea','chat-ta'); ta.placeholder=t('customize.describePh');
+      const sel=el('select','chat-agent');
+      const runners=Object.keys((P.config&&P.config.runners)||{claude:1});
+      runners.forEach((k)=>{ const o=document.createElement('option'); o.value=k; o.textContent=k; sel.append(o); });
+      if(P.config&&P.config.agent) sel.value=P.config.agent;
+      const actions=el('div','cz-form-actions');
+      const autoBtn=el('button','btn',t('customize.auto'));
+      const goBtn=el('button','btn primary',t('customize.generate'));
+      autoBtn.addEventListener('click',()=>czSubmit(kind,null,sel.value));
+      goBtn.addEventListener('click',()=>{ const v=ta.value.trim(); if(v) czSubmit(kind,v,sel.value); });
+      actions.append(sel,autoBtn,goBtn);
+      form.append(ta,actions);
+      block.append(form);
+    }
+    root.append(block);
+  });
+}
+async function czSubmit(kind,description,agent){
+  const cfg=CZ_KINDS.find((c)=>c.kind===kind);
+  const prompt=description?cfg.promptAdd(description):cfg.promptAuto;
+  await fetch('/api/run',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({prompt,agent})});
+  const root=$('#czRoot'); if(root) root.dataset.open='';
+  navigateTab('chat');
+}
+
 // ---- client-side routing: /<tab>[/<taskId>] via the History API ------------
+// A custom dashboard (Customize page) gets its own tab id "custom:<id>" and its own URL shape
+// /custom/<id> — kept out of ROUTES (a fixed list) since the set of custom ids is dynamic; recognized
+// by a dedicated branch in tabFromPath()/navigateTab() instead.
 const ROUTES=['board','requests','attention','backlog','workflow','team','chat','info','settings'];
-function tabFromPath(){ const s=location.pathname.split('/').filter(Boolean); return ROUTES.includes(s[0])?s[0]:null; }
+function tabFromPath(){
+  const s=location.pathname.split('/').filter(Boolean);
+  if(s[0]==='custom'&&s[1]) return 'custom:'+decodeURIComponent(s[1]);
+  return ROUTES.includes(s[0])?s[0]:null;
+}
 function taskFromPath(){ const s=location.pathname.split('/').filter(Boolean); return (ROUTES.includes(s[0])&&s[1])?decodeURIComponent(s[1]):null; }
-function navigateTab(t,push){
-  activeTab=t; try{ localStorage.setItem('spf-tab',t); }catch{}
-  if(push!==false) history.pushState(null,'','/'+t);
+function navigateTab(tabId,push){
+  activeTab=tabId; try{ localStorage.setItem('spf-tab',tabId); }catch{}
+  if(push!==false){
+    const isCustom=tabId.indexOf('custom:')===0;
+    history.pushState(null,'', isCustom ? '/custom/'+encodeURIComponent(tabId.slice(7)) : '/'+tabId);
+  }
   applyActiveTab();
   closeNav(); // a tab pick closes the mobile menu
 }

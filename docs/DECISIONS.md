@@ -515,3 +515,63 @@
   - **Journal plafonné à 5 par défaut** : `renderJournal()` n'affiche plus tout l'historique — 5 entrées les plus récentes, avec un bouton **« Voir plus (N) » / « Voir moins »** (état client, non persisté) pour dérouler le reste.
   - **Chat repositionné** : déplacé en 2ᵉ position dans la barre de navigation (juste après Board), au lieu d'être en 7ᵉ position — reflète son usage aussi fréquent que le tableau lui-même. Le menu radial d'Orbit lit l'ordre du DOM, donc l'angle du secteur Chat suit automatiquement.
 - Fichiers : `templates/dashboard/public/i18n.js` (nouveau), `index.html`, `app.js`, `styles.css` (`.journal-more`). Vérifié en navigateur réel (FR : overview, Settings, popover Workflow, bouton Voir plus/moins), zéro erreur console, 103/103 tests.
+
+### D46 — 0.18.0 : Customize — dashboards/skills/agents générés par l'utilisateur
+- **ACTÉ.** Demande utilisateur : laisser l'utilisateur d'un projet spectoflow ajouter **ses propres
+  dashboards, skills et agents** depuis le dashboard, sans jamais casser la fidélité au design actif.
+  - **Point d'entrée : Settings → Customize** (pas un nouvel onglet top-level — décision utilisateur
+    explicite, « je crois que c'est même mieux »). Trois blocs (Dashboards / Skills / Agents), chacun
+    listant l'existant (marqué `origin: user-generated`) + un bouton **Add** qui déroule un formulaire
+    inline (description + sélecteur d'agent + **Auto**).
+  - **Dashboards = blocs déclaratifs, jamais du HTML brut** (décision utilisateur, option recommandée
+    retenue) — un JSON `.spectoflow/dashboard/custom/<id>.json` avec un vocabulaire fixe de **7 types de
+    bloc** (`markdown`, `kpi-row`, `chart-bars`, `chart-donut`, `table`, `list`, `stat-tile-row`), validé
+    par `templates/lib/custom-dashboard.js` (zéro dépendance, testé), et **rendu par les composants
+    existants du Board** (`kpiCard`/`ocard`/`bars`/`donut`/`statTile`/`mdLite`) — la fidélité au design
+    actif (et à tout design futur) est garantie **par construction**, pas par discipline : un bloc
+    généré aujourd'hui traverse exactement les mêmes tokens CSS que le Board historique.
+  - **Chaque champ de bloc est statique ou lié en direct** (décision utilisateur, « les deux » retenu) :
+    `bind: "phases.0.pct"` résout un chemin en pointillés dans le même `SpectoStats.stats(P)` que le
+    Board calcule déjà, contre une liste blanche stricte de racines (`pct`/`done`/`total`/`byStatus`/
+    `phases`/`toAsk`/`running`/`statuses`) — pas d'`eval`, pas d'expression arbitraire. Le walker est
+    dupliqué à l'identique côté Node (validation) et côté navigateur (rendu), l'architecture zéro-build
+    du projet ne permettant pas de partager un module entre les deux.
+  - **Skills et agents générés réutilisent les conventions existantes sans nouveau stockage** —
+    `.spectoflow/skills/<slug>/SKILL.md` / `.spectoflow/agents/<slug>.md`, déjà lus génériquement par
+    `store.js` ; seule nouveauté : `origin: user-generated` en front-matter pour les distinguer dans
+    l'UI (`custom: true` renvoyé par `listMd`/`listSkills`/`readAgents`).
+  - **Zéro nouvelle API serveur pour la génération** : les boutons Generate/Auto de Customize
+    construisent un prompt en langage naturel et le postent sur `/api/run` (le même mécanisme que le
+    bouton Run partout ailleurs), puis renvoient l'utilisateur sur l'onglet Chat pour suivre l'agent et
+    répondre à ses questions de clarification — aucune UI conversationnelle nouvelle.
+  - **Nouvelle capability `customization`** (palette, pas une étape de workflow — comme `governance` et
+    `clarify`), nouvel agent **`framework-curator`** (persona stable), quatre nouveaux skills :
+    `generate-dashboard` (vocabulaire de blocs + vérification via `custom-dashboard.js`),
+    `generate-skill` et `generate-agent` (clarifient d'abord, **citent une vraie norme du domaine**
+    — OWASP/WCAG/C4-ADR/… — ou disent explicitement qu'aucune norme fiable n'a été trouvée plutôt que
+    d'en inventer une), `propose-customizations` (le mode **Auto** : lit le projet comme preuve, classe
+    les candidats par levier, poste au chat et s'arrête). Router (`AGENTS.md`) reconnaît les demandes
+    « étendre spectoflow lui-même » et route vers Customize plutôt que le pipeline de livraison normal.
+  - **Bug préexistant corrigé au passage** (pas demandé, trouvé en testant) : `index.html` référençait
+    tous ses assets locaux (`styles.css`, `app.js`, `i18n.js`, logos, designs…) en **chemin relatif**,
+    qui se résout mal dès que l'URL a 2 segments (`/custom/<id>`, mais aussi le `/backlog/T-012`
+    préexistant, jamais remarqué car atteint en navigation client-side, pas en rechargement direct).
+    Corrigé en passant tous les chemins locaux en absolu (`/styles.css`, …) ; les liens externes
+    (GitHub, npm) étaient déjà absolus.
+- **QA navigateur réel** (projet jetable isolé, port dédié) : les 7 types de bloc rendus correctement
+  (fixture à 7 blocs, live + statique), zéro erreur console, thème clair **et** design **Orbit**
+  (l'onglet custom apparaît nativement dans le menu radial — Orbit lit `#tabs` en direct, rien à
+  coder), i18n FR complet sur toute la section Customize, les trois listes + le formulaire + la
+  navigation vers un dashboard généré + l'ouverture des tiroirs skill/agent existants — tout vérifié en
+  interaction réelle. Un « bug » observé en cours de route (deux barres affichant la même valeur en
+  cours d'animation) s'est révélé être un artefact du throttling `requestAnimationFrame` d'un onglet
+  Chrome en arrière-plan pendant l'automatisation, pas un défaut du code — confirmé en ramenant l'onglet
+  au premier plan. 116/116 tests (115 passent, 1 skip inchangé).
+- Fichiers : `templates/lib/custom-dashboard.js` (nouveau), `test/custom-dashboard.test.js` (nouveau,
+  12 tests), `templates/lib/store.js`, `templates/dashboard/server.js`, `templates/dashboard/custom/`
+  (nouveau dossier, `.gitkeep`), `templates/capabilities.md`, `templates/AGENTS.md`,
+  `templates/agents/framework-curator.md` (nouveau), `templates/skills/generate-dashboard/SKILL.md`,
+  `templates/skills/generate-skill/SKILL.md`, `templates/skills/generate-agent/SKILL.md`,
+  `templates/skills/propose-customizations/SKILL.md` (nouveaux), `templates/dashboard/public/app.js`,
+  `templates/dashboard/public/i18n.js` (+15 clés × 6 langues), `templates/dashboard/public/index.html`
+  (+ correctif chemins absolus), `templates/dashboard/public/styles.css`.

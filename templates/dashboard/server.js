@@ -70,7 +70,13 @@ function promoteAttention(item){
 }
 
 function watch(dir){ try{ fs.watch(dir,{recursive:false},()=>emit({type:'change'})); }catch(_){} }
-['plans','specs','.spectoflow'].forEach(d=>{ const p=path.join(ROOT,d); if(fs.existsSync(p)) watch(p); });
+// Custom dashboards (Customize page) live in their own subdirectory of .spectoflow, which the
+// top-level `.spectoflow` watch below does NOT cover — fs.watch here is non-recursive on purpose
+// (a recursive watch on the whole .spectoflow tree would also fire on every runtime.json write).
+// Ensure the directory exists before watching it: a project that hasn't used Customize yet won't
+// have it on disk, and `spectoflow init` on an older install won't have created it either.
+try { fs.mkdirSync(path.join(ROOT,'.spectoflow','dashboard','custom'), { recursive: true }); } catch (_) {}
+['plans','specs','.spectoflow','.spectoflow/dashboard/custom'].forEach(d=>{ const p=path.join(ROOT,d); if(fs.existsSync(p)) watch(p); });
 
 // A process restart loses any in-flight orchestration; without this, a stale 'running' or
 // 'awaiting_approval' status wedges the /api/orchestrate 409 guard forever. Not a real

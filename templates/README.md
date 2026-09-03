@@ -30,6 +30,10 @@ sit at the project root and just point back here.
   agents` / `spectoflow skills` / `spectoflow workflow`. Append `-h` to any command for its help.
 - **Change how it runs** in the dashboard's **Settings** tab (autonomy mode, output language, and the
   dashboard **design**), or by editing `config.json`.
+- **Extend spectoflow itself** from Settings → **Customize**: describe a project-specific dashboard,
+  skill, or agent (or hit **Auto** to have it propose candidates from your project), and it's generated
+  for you — a dashboard appears in the nav immediately, a skill/agent follows the same gold-standard
+  shape as the shipped ones and is marked `origin: user-generated`.
 - **Update the framework** to a newer kit: `spectoflow update` (preserves your edits; a file you
   changed is kept and its new version is written next to it as `*.new`).
 
@@ -53,7 +57,7 @@ Your **artifacts are markdown, and they live at the project root, not in here**:
 | `config.json` | Your settings: `mode`, `language`, active `agent`, `runners`, `design`, plans/specs dir. **Yours to edit** — `update` never overwrites it. |
 | `agents/` | **Stable team personas** (product-manager, developer, qa-engineer, code-reviewer, spec-source-guardian…) — the *who*. |
 | `skills/` | **Evolving procedures** (clarify, brainstorm, write-spec, write-plan, implement, write-e2e-tests, code-review, audit-source…) — the *how*. A workflow step → a capability → its agent → runs a skill. |
-| `dashboard/` | The zero-dependency control plane: `server.js` (SSE + file-watch), `runner.js`, `orchestrator.js`, and `public/` (the UI, charts, designs, fonts). |
+| `dashboard/` | The zero-dependency control plane: `server.js` (SSE + file-watch), `runner.js`, `orchestrator.js`, `public/` (the UI, charts, designs, fonts), and `custom/` (your generated dashboards, one JSON spec per file). |
 | `lib/` | The markdown storage engine (`store.js`) and helpers (e.g. `spec-drift.js` for the spec-source-guardian). |
 | `hooks/` | Optional Claude Code hooks you can wire in yourself (e.g. `spec-drift.js`, a `Stop` hook that surfaces source-of-truth drift to the Attention tab). |
 | `runtime.json` | **Volatile execution state** (running agents, orchestration, group-chat messages, attention items, history). Gitignored — safe to delete; it's rebuilt. |

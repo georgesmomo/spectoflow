@@ -5,6 +5,24 @@ framework with a real-time local control plane. This file orients you to **build
 (it is not a spectoflow-managed project). Read `docs/` before making changes:
 `docs/ARCHITECTURE.md`, `docs/DECISIONS.md` (the full rationale, D1–D23), `docs/ROADMAP.md` (what's next).
 
+## What exists (v0.18.0 — see DECISIONS D46)
+
+**Customize** — a project's dashboard user can now extend spectoflow itself from **Settings →
+Customize**: add a project-specific **dashboard**, **skill**, or **agent** by describing it (or hit
+**Auto** to have the agent propose candidates from the project). Dashboards are never raw HTML — they
+are a declarative **7-block JSON spec** (`templates/lib/custom-dashboard.js`, zero-dep, unit-tested)
+rendered by the *same* components the built-in Board uses (`kpiCard`/`ocard`/`bars`/`donut`/
+`statTile`/`mdLite`), so a generated dashboard matches whatever design is active — and stays matched if
+the user switches designs later — **by construction**. Blocks bind live to `SpectoStats.stats(P)` via a
+strict dotted-path allow-list (`bind: "phases.0.pct"`) or hold a static value. Generation needs zero new
+server surface: it reuses the existing `/api/run` + group-chat pipeline. New capability
+`customization` (not a workflow step, like `governance`/`clarify`), new agent `framework-curator`, four
+new skills — `generate-dashboard`, `generate-skill`, `generate-agent` (both ground their output in a
+real cited domain standard — OWASP/WCAG/C4-ADR/… — never a fabricated one), `propose-customizations`
+(the Auto path). Generated skills/agents are marked `origin: user-generated` in front-matter.
+Bonus fix found in QA: `index.html`'s local asset references were relative, breaking on any 2-segment
+route on a direct page load (`/custom/<id>`, and the pre-existing `/backlog/T-012`) — now absolute.
+
 ## What exists (v0.17.4 — see DECISIONS D44)
 
 Two Orbit logo fixes from real-browser QA. A stray `display:block` on the hub's logo clone outranked

@@ -45,9 +45,11 @@ whole file. This lets the dashboard and you co-edit without clobbering. Reflect 
 
 ## The Router (run internally on every request)
 
-1. **Intake** — known task ("develop T-012") → load it from `plans/*.md`. New request or tweak →
-   clarify (step 2) then classify. Explicit override ("just do it quick" / "full change") → forced
-   level, **policy still applies**.
+1. **Intake** — known task ("develop T-012") → load it from `plans/*.md`. A request to **extend
+   spectoflow itself** — add a custom dashboard, a new skill, or a new agent — routes to
+   **Customize** (see below), not the normal delivery pipeline. New request or tweak → clarify
+   (step 2) then classify. Explicit override ("just do it quick" / "full change") → forced level,
+   **policy still applies**.
 2. **Clarify (before classifying)** — if the request is ambiguous or under-specified (a vague symptom
    like "login doesn't work" or "displays badly", missing acceptance, several plausible readings,
    unclear scope/users), **do not guess and do not start**. Reflect it back in one sentence, then **ask
@@ -76,6 +78,30 @@ mode, and **ask what they want to build**. Then run **brainstorm → analysis �
 don't leave the user unsure what to do.** Keep it to a few lines:
 1. Say what you want to build (plain language — no ceremonial command needed).
 2. The dashboard: tell them it's at its URL (see Dashboard below), and whether it's already running.
+
+## Customize spectoflow itself — dashboards, skills, agents
+
+The dashboard's **Settings → Customize** page (or a direct request in the same shape) lets the user
+extend the framework for *this* project: a purpose-built dashboard page, a new skill, or a new agent.
+Recognize this as its own request shape — distinct from a normal feature/bug request — whenever it
+asks to **add/create a dashboard, a skill, or an agent** for the project (e.g. "add a dashboard that
+shows my architecture", "create a skill for security review grounded in OWASP", "propose dashboards
+worth building" for the Auto mode). Hand it to the `framework-curator` agent (capability
+`customization`, see `.spectoflow/capabilities.md`), which runs one of:
+
+- **`generate-dashboard`** — a declarative block-spec page (never raw HTML/CSS/JS — see
+  `.spectoflow/skills/generate-dashboard` for why), written to
+  `.spectoflow/dashboard/custom/<id>.json`.
+- **`generate-skill`** — a new `.spectoflow/skills/<slug>/SKILL.md`, grounded in real, cited domain
+  standards, following the gold-standard shape.
+- **`generate-agent`** — a new `.spectoflow/agents/<slug>.md` persona, same shape discipline.
+- **`propose-customizations`** — the "Auto" mode: analyzes the project and proposes a short list of
+  candidates (with a one-line rationale each) instead of generating from a description.
+
+**Still clarify first** (step 2 above) when the ask is vague — this is exactly the kind of request
+`clarify` exists for. **Still gated by mode and policy** like any other change; no special-casing.
+Report progress through the group chat as usual, so the requester watches it happen and answers any
+clarifying question there.
 
 ## Workflow, capabilities, agents, skills
 
