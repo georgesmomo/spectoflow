@@ -73,9 +73,14 @@ body { background:var(--bg); color:var(--ink); font-family:var(--sans); font-siz
 .panel-sub { color:var(--muted); font-size:12.5px; margin:0 0 16px; }
 .count { font-family:var(--mono); font-size:10px; color:var(--muted); border:1px solid var(--line); border-radius:999px; padding:1px 6px; }
 
-/* main column + right sidebar */
+/* main column + right sidebar — hideable (mainly to give Kanban's own-width columns more room
+   instead of forcing horizontal scroll on top of the sidebar already eating 300px) */
 .main { min-width:0; display:flex; flex-direction:column; }
 .side { border-left:1px solid var(--line); padding:18px 16px; display:flex; flex-direction:column; gap:22px; }
+.panel[data-panel="board"].side-hidden { grid-template-columns:1fr; }
+.panel[data-panel="board"].side-hidden .side { display:none; }
+#sideToggle { display:inline-flex; align-items:center; justify-content:center; padding:5px 9px; }
+#sideToggle[aria-pressed="true"] { color:var(--signal); border-color:var(--signal); }
 .rail-title { font-size:11px; text-transform:uppercase; letter-spacing:.1em; color:var(--faint); margin:0 0 8px; font-weight:700; display:flex; gap:8px; align-items:center; }
 .flatlist { list-style:none; margin:0; padding:0; display:flex; flex-direction:column; gap:5px; font-size:12.5px; }
 .flatlist li { background:var(--surface); border:1px solid var(--line); border-radius:7px; padding:6px 9px; color:var(--muted); }

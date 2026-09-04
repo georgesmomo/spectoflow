@@ -5,6 +5,17 @@ framework with a real-time local control plane. This file orients you to **build
 (it is not a spectoflow-managed project). Read `docs/` before making changes:
 `docs/ARCHITECTURE.md`, `docs/DECISIONS.md` (the full rationale, D1–D23), `docs/ROADMAP.md` (what's next).
 
+## What exists (v0.22.2 — see DECISIONS D54)
+
+Real-usage feedback on the Board's Kanban view: 6 status columns at a 228px minimum each need
+~1368px, and the fixed 300px right sidebar (Journal/Specs/Running) was eating into that on top,
+forcing horizontal scroll. New `#sideToggle` button in the Board's filter bar toggles a `side-hidden`
+class on the panel (grid collapses to one column, sidebar hides) — persisted per viewer, same
+pattern as the List/Kanban switch and Console's own rail toggle. Shared markup (`.main`/`.side`),
+so it applies uniformly across all 6 designs with no per-design code. Doesn't claim to eliminate
+scroll entirely at every width (6×228px columns are still ~1368px) — it's the capability to reclaim
+the sidebar's space, which was the actual ask.
+
 ## What exists (v0.22.1 — see DECISIONS D53)
 
 Two bugs from real-usage feedback right after upgrading to 0.22.0 — both directly caused by the new

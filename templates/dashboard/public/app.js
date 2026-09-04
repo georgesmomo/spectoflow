@@ -7,6 +7,7 @@ function updateStatusLabels(){ for(const k of Object.keys(STATUS)) STATUS[k]=t('
 let P = null, openTaskId = null;
 let filter = { status: 'all', q: '' }; // board filter state — client-side only, read-only
 let boardView = (()=>{ try{ return localStorage.getItem('spf-board-view')||'list'; }catch{ return 'list'; } })(); // 'list' | 'kanban'
+let sideHidden = (()=>{ try{ return localStorage.getItem('spf-side-hidden')==='1'; }catch{ return false; } })(); // right sidebar (Journal/Specs/Running) — mainly to give Kanban's own-width columns more room
 let backlogFilter = { status: 'open', q: '' }; // backlog defaults to open (not-done) tasks
 let backlogSort = { col: 'id', dir: 'asc' };   // backlog sort state — client-side only
 let backlogPage = 1; const BACKLOG_PAGE = 25;   // backlog pagination — client-side only
@@ -164,7 +165,7 @@ function render(){
   if(meter) meter.title=`${t('kpi.globalProgress')}: ${s.pct}% (${s.done}/${s.total} ${t('kpi.tasksLabel')})`;
   renderOverview(); renderBoard(); renderBacklog(); renderWorkflow(); renderTeam();
   renderChatLog($('#chatLog')); renderChatLog($('#chatTabLog'));
-  renderSidebar(); renderRequests(); renderAttention(); renderInfo(); renderDocs(); renderSettings(); renderFiles();
+  renderSidebar(); renderRequests(); renderAttention(); renderInfo(); renderDocs(); renderSettings(); renderFiles(); applySideHidden();
   renderCustomDashboards(); // adds/removes nav tabs + panels before applyActiveTab() below reads them
   applyActiveTab(); // re-apply the current tab so an SSE-driven re-render never resets to Board
   applyI18nStatic(); // re-translate the static markup (nav, headers, placeholders…) for this tick's language
@@ -1583,6 +1584,16 @@ $$('#statusChips .fchip').forEach(b=> b.addEventListener('click', ()=>{ filter.s
 $('#search').addEventListener('input', e=>{ filter.q=e.target.value; renderBoard(); });
 // board view switch — List (phase-grouped) vs Kanban (columns by status), persisted per viewer
 $$('#boardViewToggle .vt-btn').forEach(b=> b.addEventListener('click', ()=>{ boardView=b.dataset.view; try{ localStorage.setItem('spf-board-view',boardView); }catch{} renderBoard(); }));
+// right sidebar hide/show — Kanban's own-width columns need the room, and the toggle stays
+// persisted per viewer like every other layout preference here
+function applySideHidden(){
+  const panel=$('.panel[data-panel="board"]'); const btn=$('#sideToggle');
+  if(panel) panel.classList.toggle('side-hidden', sideHidden);
+  if(btn){ btn.setAttribute('aria-pressed', String(sideHidden)); btn.title=t(sideHidden?'board.showSidebar':'board.hideSidebar'); }
+}
+const sideToggleBtn=$('#sideToggle');
+if(sideToggleBtn) sideToggleBtn.addEventListener('click', ()=>{ sideHidden=!sideHidden; try{ localStorage.setItem('spf-side-hidden', sideHidden?'1':'0'); }catch{} applySideHidden(); });
+applySideHidden();
 // expand / collapse all phases (List view) — keeps a big board compact by default
 const phaseToggleAllBtn=$('#phaseToggleAll');
 if(phaseToggleAllBtn) phaseToggleAllBtn.addEventListener('click', ()=>{

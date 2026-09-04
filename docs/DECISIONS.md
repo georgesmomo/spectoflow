@@ -1013,3 +1013,36 @@
   environnemental — vert en isolation). `demo/` rafraîchie via `update` (0.22.0 → 0.22.1, 4 fichiers).
 - Fichiers : `templates/dashboard/public/{app.js,styles.css}`,
   `templates/dashboard/public/designs/{orbit.js,orbit.css}`, `demo/.spectoflow/**` (rafraîchi).
+
+### D54 — 0.22.2 : sidebar droite du Board masquable (moins de scroll horizontal en Kanban)
+- **ACTÉ.** Retour en usage réel : « trop de scroll en mode kanban - on doit avoir la possibilité de
+  cacher/afficher la sidebar de droite », capture à l'appui montrant une barre de scroll horizontale
+  sous les colonnes Kanban.
+  - **Cause** : le panneau Board est une grille `1fr 300px` (contenu principal + sidebar Journal/
+    Specs/Running) ; en vue Kanban, les colonnes de statut ont chacune une largeur minimale de 228px
+    (`grid-auto-columns:minmax(228px,1fr)`) — avec 6 colonnes ça fait ~1368px de large rien que pour
+    la grille Kanban, et les 300px fixes de la sidebar (+ la bordure) réduisent d'autant l'espace
+    disponible, forçant le scroll horizontal sur un écran de largeur courante.
+  - **Corrigé** : nouveau bouton `#sideToggle` dans la barre de filtres du Board (icône panneau,
+    à côté du champ de recherche), qui bascule une classe `side-hidden` sur le panneau — la grille
+    passe alors à une seule colonne (`1fr`) et la sidebar disparaît, redonnant tout l'espace au
+    contenu principal (Kanban compris). État persisté par viewer (`localStorage`, même schéma que le
+    switch List/Kanban et le repli de la sidebar Console de D52), réversible à tout moment, icône +
+    `aria-pressed` + infobulle qui reflètent l'état courant. Composant partagé (`.main`/`.side` sont
+    utilisés par les 6 templates de design, aucun CSS spécifique à un design), donc le fix s'applique
+    uniformément partout sans code dupliqué.
+  - **Non prétendu** : masquer la sidebar ne garantit pas un zéro-scroll absolu à toute largeur
+    d'écran (6 colonnes de 228px minimum, ça reste ~1368px) — la demande était la **possibilité** de
+    récupérer cet espace, pas une promesse d'élimination totale du scroll ; vérifié que ça réduit très
+    largement le débordement (de ~331px d'espace perdu par la sidebar à quelques dizaines de px
+    résiduels selon la largeur réelle de la fenêtre).
+- **QA** : vérifié en direct dans le navigateur (projet de test isolé, design Console) — bascule dans
+  les deux sens, mesure DOM avant/après (`kanban.scrollWidth` vs `.clientWidth`) confirmant la
+  réduction du débordement, persistance après rechargement. Suite complète : 187 tests, 3 échecs
+  isolés (`update restarts...`, `POST /api/chat/summarize appends...`, `POST /api/orchestrate runs the
+  workflow...`) — les trois confirmés verts individuellement (`node --test <fichier>`), donc de la
+  contention environnementale accumulée sur cette machine après une très longue session de tests, pas
+  une régression liée à ce changement (qui ne touche aucun code serveur/orchestration). `demo/`
+  rafraîchie via `update` (0.22.1 → 0.22.2, 4 fichiers).
+- Fichiers : `templates/dashboard/public/{index.html,app.js,styles.css,i18n.js}`,
+  `demo/.spectoflow/**` (rafraîchi).
