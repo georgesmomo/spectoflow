@@ -1,256 +1,43 @@
 'use strict';
 /*
- * spectoflow dashboard — ZERO-DEPENDENCY server, real-time (SSE + fs.watch).
- * v0.4 adds an agent launcher: POST /api/run spawns the configured agent headless in the project
- * root (with project memory: CLAUDE.md → AGENTS.md), streams its output over SSE, and records the
- * run in .spectoflow/runtime.json. As the agent edits plans/*.md, the board refreshes live.
+ * spectoflow dashboard — ZERO-DEPENDENCY server, real-time (SSE + fs.watch), single project.
+ * The actual /api/* route behavior lives in ./handlers.js — split out so the future multi-project hub
+ * (lib/hub-server.js) can load a different project's handlers.js on demand (see
+ * docs/multi-project-hub-design.md's "the server must split in two" addendum). This file remains the
+ * direct single-project entry point (`node .spectoflow/dashboard/server.js`, today's `spectoflow
+ * dashboard`) — its own external behavior is unchanged by the split.
  */
 const http = require('http');
 const fs = require('fs');
 const path = require('path');
-const store = require('../lib/store');
-const { startRun } = require('./runner');
-const { runSummarize } = require('./summarize');
-const orchestrator = require('./orchestrator');
-const agentsRegistry = require('../lib/agents-registry');
-const files = require('./files');
+const { createHandlers } = require('./handlers');
 
 const PORT = process.env.SPECTOFLOW_PORT ? Number(process.env.SPECTOFLOW_PORT) : 4319;
 const PUBLIC = path.join(__dirname, 'public');
 const ROOT = process.env.SPECTOFLOW_ROOT || path.resolve(__dirname, '..', '..');
 const MIME = { '.html':'text/html; charset=utf-8', '.css':'text/css; charset=utf-8', '.js':'application/javascript; charset=utf-8', '.png':'image/png', '.svg':'image/svg+xml', '.ico':'image/x-icon', '.woff2':'font/woff2', '.woff':'font/woff' };
 const clients = new Set();
-
-// Installed framework version: the manifest records it at init/update time. Fallback to the kit's
-// own package.json — only reachable (and only used) when the server is run straight from templates/
-// (dev/preview), never from an installed project whose sibling package.json belongs to the user.
-function frameworkVersion(){
-  try { return JSON.parse(fs.readFileSync(path.join(ROOT, '.spectoflow', '.manifest.json'), 'utf8')).version; } catch {}
-  try { const pk = JSON.parse(fs.readFileSync(path.join(__dirname, '..', '..', 'package.json'), 'utf8')); if (pk.name === 'spectoflow') return pk.version; } catch {}
-  return null;
-}
-function project(){
-  const p = store.readProject(ROOT);
-  const v = frameworkVersion(); if (v) p.version = v;
-  p.projectName = path.basename(ROOT); // the actual project folder, always shown in the topbar
-  // Known vs. actually-installed agents — the topbar switcher needs both: the full list to offer,
-  // and which ones are real (bin on PATH, or the project already has that agent's config dir) so it
-  // can refuse to activate one that isn't there.
-  p.knownAgents = agentsRegistry.KNOWN_AGENTS.map((a) => ({ id: a.id, label: a.label, headless: a.headless, docsUrl: a.docsUrl }));
-  p.installedAgents = agentsRegistry.installedAgents(ROOT);
-  return p;
-}
 function sendJSON(res,code,obj){ res.writeHead(code,{'Content-Type':'application/json; charset=utf-8'}); res.end(JSON.stringify(obj)); }
-function body(req){ return new Promise(r=>{ let b=''; req.on('data',c=>b+=c); req.on('end',()=>{ try{r(JSON.parse(b||'{}'));}catch{r({});} }); }); }
 function emit(obj){ const line='data: '+JSON.stringify(obj)+'\n\n'; for(const res of clients) res.write(line); }
-function findPlanFileForTask(id){ for(const pl of store.readPlans(ROOT)) for(const ph of pl.phases) if(ph.tasks.find(t=>t.id===id)) return pl.file; return null; }
 
-// ---- helpers for settings + attention points -----------------------------
-const configPath = () => path.join(ROOT, '.spectoflow', 'config.json');
-function writeConfig(patch){
-  const cp = configPath(); const cfg = JSON.parse(fs.readFileSync(cp, 'utf8'));
-  if (patch.mode && ['autopilot','semi','manual'].includes(patch.mode)) cfg.mode = patch.mode;
-  if (typeof patch.language === 'string' && patch.language.trim()) cfg.language = patch.language.trim();
-  if (typeof patch.design === 'string' && /^[a-z0-9-]{1,40}$/.test(patch.design)) cfg.design = patch.design;
-  if (typeof patch.agent === 'string' && patch.agent.trim()) {
-    const id = patch.agent.trim();
-    // Never activate an agent whose CLI isn't actually there — a picked-but-absent agent would just
-    // fail silently the next time something tries to run it.
-    if (!agentsRegistry.isAgentInstalled(id, ROOT)) {
-      const known = agentsRegistry.KNOWN_AGENTS.find((a) => a.id === id);
-      const label = known ? known.label : id;
-      throw new Error(`${label} isn't installed here (its command wasn't found on PATH). Install it, then try again.`);
-    }
-    cfg.agent = id;
-    // Seed a default runner if this agent was never configured (e.g. installed after init/update).
-    // A headless:false agent (e.g. kimi) has no runner to seed — it can still be the active agent,
-    // it just can't be spawned by Run/Orchestrate/Summarize (disabled client-side; runner.js and
-    // summarize.js also refuse server-side either way).
-    const known = agentsRegistry.KNOWN_AGENTS.find((a) => a.id === id);
-    if (known && known.runner) { cfg.runners = cfg.runners || {}; if (!cfg.runners[id]) cfg.runners[id] = known.runner; }
-  }
-  fs.writeFileSync(cp, JSON.stringify(cfg, null, 2) + '\n');
-  return cfg;
-}
-// Promote an attention item into a real checkbox task under an `## Attention` phase.
-function promoteAttention(item){
-  return store.addTask(ROOT, { phase: 'Attention', title: item.text, owner: 'user' });
-}
+const handlers = createHandlers(ROOT);
 
 function watch(dir){ try{ fs.watch(dir,{recursive:false},()=>emit({type:'change'})); }catch(_){} }
-// Custom dashboards (Customize page) live in their own subdirectory of .spectoflow, which the
-// top-level `.spectoflow` watch below does NOT cover — fs.watch here is non-recursive on purpose
-// (a recursive watch on the whole .spectoflow tree would also fire on every runtime.json write).
-// Ensure the directory exists before watching it: a project that hasn't used Customize yet won't
-// have it on disk, and `spectoflow init` on an older install won't have created it either.
-try { fs.mkdirSync(path.join(ROOT,'.spectoflow','dashboard','custom'), { recursive: true }); } catch (_) {}
-['plans','specs','.spectoflow','.spectoflow/dashboard/custom'].forEach(d=>{ const p=path.join(ROOT,d); if(fs.existsSync(p)) watch(p); });
-
-// A process restart loses any in-flight orchestration; without this, a stale 'running' or
-// 'awaiting_approval' status wedges the /api/orchestrate 409 guard forever. Not a real
-// resume — just clears the wedge so a fresh orchestration can start.
-try { orchestrator.reconcileOnBoot(ROOT); } catch {}
+handlers.onBoot();
+handlers.watchDirs.forEach((d)=>{ const p=path.join(ROOT,d); if(fs.existsSync(p)) watch(p); });
 
 const server = http.createServer(async (req,res)=>{
   const u=new URL(req.url,`http://localhost:${PORT}`); const p=u.pathname;
   try{
-    if(p==='/api/project') return sendJSON(res,200,project());
-
-    // ---- read-only agent/skill file viewer (scoped to .spectoflow/{agents,skills}/**) ----
-    if (p === '/api/agentfile' && req.method === 'GET') {
-      const rel = new URL(req.url, 'http://x').searchParams.get('path') || '';
-      const base = path.join(ROOT, '.spectoflow');
-      const aDir = path.join(base, 'agents'), sDir = path.join(base, 'skills');
-      const abs = path.resolve(base, rel);
-      const okDir = abs.startsWith(aDir + path.sep) || abs.startsWith(sDir + path.sep);
-      if (!okDir || !abs.endsWith('.md') || !fs.existsSync(abs) || fs.statSync(abs).isDirectory())
-        return sendJSON(res, 400, { error: 'not an agent/skill file' });
-      // Symlink guard: the resolved real path must stay within the (real) scope dirs.
-      let real; try { real = fs.realpathSync(abs); } catch { real = null; }
-      const realA = (() => { try { return fs.realpathSync(aDir); } catch { return aDir; } })();
-      const realS = (() => { try { return fs.realpathSync(sDir); } catch { return sDir; } })();
-      const okReal = real && (real.startsWith(realA + path.sep) || real.startsWith(realS + path.sep));
-      if (!okReal || !real.endsWith('.md') || fs.statSync(real).isDirectory())
-        return sendJSON(res, 400, { error: 'not an agent/skill file' });
-      return sendJSON(res, 200, { content: fs.readFileSync(real, 'utf8') });
-    }
-
-    // ---- File Explorer: browse/read/write/create anywhere under the project root ----
-    if (p === '/api/files/tree' && req.method === 'GET') return sendJSON(res, 200, { tree: files.tree(ROOT) });
-    if (p === '/api/files/read' && req.method === 'GET') {
-      const rel = new URL(req.url, 'http://x').searchParams.get('path') || '';
-      const r = files.readFile(ROOT, rel);
-      return sendJSON(res, r.error ? 400 : 200, r);
-    }
-    if (p === '/api/files/write' && req.method === 'POST') {
-      const { path: rel, content } = await body(req);
-      const r = files.writeFile(ROOT, rel, content);
-      if (r.error) return sendJSON(res, 400, r);
-      emit({ type: 'change' }); return sendJSON(res, 200, r);
-    }
-    if (p === '/api/files/mkdir' && req.method === 'POST') {
-      const { path: rel } = await body(req);
-      const r = files.mkdir(ROOT, rel);
-      if (r.error) return sendJSON(res, 400, r);
-      emit({ type: 'change' }); return sendJSON(res, 200, r);
-    }
-
     if(p==='/api/events'){
       res.writeHead(200,{'Content-Type':'text/event-stream','Cache-Control':'no-cache',Connection:'keep-alive'});
       res.write('data: '+JSON.stringify({type:'hello'})+'\n\n');
       clients.add(res); req.on('close',()=>clients.delete(res)); return;
     }
 
-    // ---- manual task creation: add a checkbox task straight to a plan, no agent involved ----
-    if(p==='/api/task'&&req.method==='POST'){
-      const { title, phase, file, owner, level } = await body(req);
-      if(!title||!String(title).trim()) return sendJSON(res,400,{error:'A title is required.'});
-      const t = store.addTask(ROOT,{ title:String(title).trim(), phase, file, owner, level });
-      emit({type:'change'}); return sendJSON(res,200,{task:t});
-    }
-    if(p.startsWith('/api/task/')&&req.method==='PATCH'){
-      const id=decodeURIComponent(p.split('/')[3]||''); const patch=await body(req);
-      const file=findPlanFileForTask(id); if(!file) return sendJSON(res,404,{error:`Task ${id} not found.`});
-      store.updateTaskLine(ROOT,file,id,patch); emit({type:'change'}); return sendJSON(res,200,{ok:true});
-    }
-    if(/^\/api\/task\/[^/]+\/comment$/.test(p)&&req.method==='POST'){
-      const id=decodeURIComponent(p.split('/')[3]||''); const {text,action}=await body(req);
-      if(!text||!String(text).trim()) return sendJSON(res,400,{error:'Empty comment.'});
-      const file=findPlanFileForTask(id); if(!file) return sendJSON(res,404,{error:`Task ${id} not found.`});
-      store.addTaskComment(ROOT,file,id,String(text).trim(),'me');
-      if(action==='analyze') store.updateTaskLine(ROOT,file,id,{status:'to_analyze'});
-      emit({type:'change'}); return sendJSON(res,200,{ok:true});
-    }
-    if(p==='/api/workflow/toggle'&&req.method==='POST'){
-      const {name}=await body(req); const wf=path.join(ROOT,'.spectoflow','workflow.md');
-      const lines=fs.readFileSync(wf,'utf8').split('\n');
-      for(let i=0;i<lines.length;i++){ const m=lines[i].match(/^(\s*- \[)( |x|X)(\]\s+)(.*)$/);
-        if(m&&m[4].replace(/\s*\(optional\)\s*$/i,'').trim()===name) lines[i]=m[1]+(m[2].trim()?' ':'x')+m[3]+m[4]; }
-      fs.writeFileSync(wf,lines.join('\n')); emit({type:'change'}); return sendJSON(res,200,{ok:true});
-    }
-
-    // ---- agent launcher (pipeline lives in runner.js; posts to the group-chat log) ----
-    if(p==='/api/run'&&req.method==='POST'){
-      const {prompt,agent}=await body(req);
-      if(!prompt||!String(prompt).trim()) return sendJSON(res,400,{error:'Empty request.'});
-      const r=startRun(ROOT,{prompt,agent},emit);
-      if(r.error) return sendJSON(res,400,{error:r.error});
-      return sendJSON(res,200,{runId:r.runId});
-    }
-
-    // ---- chat context management: condense the log via the agent, or wipe it ----
-    if (p === '/api/chat/summarize' && req.method === 'POST') {
-      const { agent } = await body(req);
-      const r = runSummarize(ROOT, { agent }, emit);
-      if (r.error) return sendJSON(res, 400, { error: r.error });
-      return sendJSON(res, 200, { ok: true });
-    }
-    if (p === '/api/chat/clear' && req.method === 'POST') {
-      const rt = store.readRuntime(ROOT); rt.messages = []; store.writeRuntime(ROOT, rt);
-      emit({ type: 'change' });
-      return sendJSON(res, 200, { ok: true });
-    }
-
-    // ---- orchestrator ----
-    if (p === '/api/orchestrate' && req.method === 'POST') {
-      const { request } = await body(req);
-      if (!request || !String(request).trim()) return sendJSON(res, 400, { error: 'Empty request.' });
-      const active = store.readRuntime(ROOT).orchestration;
-      if (active && ['running', 'awaiting_approval'].includes(active.status))
-        return sendJSON(res, 409, { error: 'An orchestration is already active.' });
-      const mode = store.readConfig(ROOT).mode || 'semi';
-      // fire and forget; state + messages stream over SSE
-      orchestrator.runOrchestration({ root: ROOT, request: String(request).trim(), mode,
-        runStep: orchestrator.defaultRunStep, confirm: orchestrator.defaultConfirm }, emit)
-        .catch((e) => emit({ type: 'message', message: { role: 'orchestrator', kind: 'status', text: 'orchestration error: ' + e.message } }));
-      const o = store.readRuntime(ROOT).orchestration;
-      return sendJSON(res, 200, { orchestrationId: o && o.id });
-    }
-    if (p === '/api/orchestrate/approve' && req.method === 'POST') {
-      const { decision, note } = await body(req);
-      const ok = orchestrator.submitDecision(decision, note);
-      return sendJSON(res, ok ? 200 : 409, ok ? { ok: true } : { error: 'No pending approval.' });
-    }
-
-    // ---- settings: change autonomy mode + output language (writes config.json) ----
-    if (p === '/api/settings' && req.method === 'POST') {
-      const patch = await body(req);
-      try { const cfg = writeConfig(patch); emit({ type: 'change' }); return sendJSON(res, 200, { config: cfg }); }
-      catch (e) { return sendJSON(res, 400, { error: String(e && e.message || e) }); }
-    }
-
-    // ---- attention points: agent- or user-raised notes; validate → real task ----
-    if (p === '/api/attention' && req.method === 'POST') {
-      const { text } = await body(req);
-      if (!text || !String(text).trim()) return sendJSON(res, 400, { error: 'Empty note.' });
-      const rt = store.readRuntime(ROOT); rt.attention = rt.attention || [];
-      const item = { id: 'att' + Date.now().toString(36), at: new Date().toISOString(), by: 'me', source: 'user', status: 'open', text: String(text).trim() };
-      rt.attention.unshift(item); store.writeRuntime(ROOT, rt); emit({ type: 'change' });
-      return sendJSON(res, 200, { item });
-    }
-    if (/^\/api\/attention\/[^/]+\/promote$/.test(p) && req.method === 'POST') {
-      const id = decodeURIComponent(p.split('/')[3] || '');
-      const rt = store.readRuntime(ROOT); const it = (rt.attention || []).find((x) => x.id === id);
-      if (!it) return sendJSON(res, 404, { error: 'Note not found.' });
-      const t = promoteAttention(it); it.status = 'resolved'; it.promotedTo = t.id;
-      store.writeRuntime(ROOT, rt); emit({ type: 'change' });
-      return sendJSON(res, 200, { task: t });
-    }
-    if (/^\/api\/attention\/[^/]+$/.test(p) && req.method === 'PATCH') {
-      const id = decodeURIComponent(p.split('/')[3] || '');
-      const patch = await body(req);
-      const rt = store.readRuntime(ROOT); const it = (rt.attention || []).find((x) => x.id === id);
-      if (!it) return sendJSON(res, 404, { error: 'Note not found.' });
-      if (typeof patch.text === 'string' && patch.text.trim()) it.text = patch.text.trim();
-      if (patch.status && ['open', 'resolved'].includes(patch.status)) it.status = patch.status;
-      store.writeRuntime(ROOT, rt); emit({ type: 'change' });
-      return sendJSON(res, 200, { item: it });
-    }
-    if (/^\/api\/attention\/[^/]+$/.test(p) && req.method === 'DELETE') {
-      const id = decodeURIComponent(p.split('/')[3] || '');
-      const rt = store.readRuntime(ROOT); rt.attention = (rt.attention || []).filter((x) => x.id !== id);
-      store.writeRuntime(ROOT, rt); emit({ type: 'change' });
-      return sendJSON(res, 200, { ok: true });
+    if (p.startsWith('/api/')) {
+      const handled = await handlers.handleApi(req, res, u, emit);
+      if (handled) return;
     }
 
     // ---- static files, with SPA fallback: a route like /backlog (no file extension)
