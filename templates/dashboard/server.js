@@ -35,7 +35,7 @@ function project(){
   // Known vs. actually-installed agents — the topbar switcher needs both: the full list to offer,
   // and which ones are real (bin on PATH, or the project already has that agent's config dir) so it
   // can refuse to activate one that isn't there.
-  p.knownAgents = agentsRegistry.KNOWN_AGENTS.map((a) => ({ id: a.id, label: a.label }));
+  p.knownAgents = agentsRegistry.KNOWN_AGENTS.map((a) => ({ id: a.id, label: a.label, headless: a.headless }));
   p.installedAgents = agentsRegistry.installedAgents(ROOT);
   return p;
 }
@@ -62,8 +62,11 @@ function writeConfig(patch){
     }
     cfg.agent = id;
     // Seed a default runner if this agent was never configured (e.g. installed after init/update).
+    // A headless:false agent (e.g. kimi) has no runner to seed — it can still be the active agent,
+    // it just can't be spawned by Run/Orchestrate/Summarize (disabled client-side; runner.js and
+    // summarize.js also refuse server-side either way).
     const known = agentsRegistry.KNOWN_AGENTS.find((a) => a.id === id);
-    if (known) { cfg.runners = cfg.runners || {}; if (!cfg.runners[id]) cfg.runners[id] = known.runner; }
+    if (known && known.runner) { cfg.runners = cfg.runners || {}; if (!cfg.runners[id]) cfg.runners[id] = known.runner; }
   }
   fs.writeFileSync(cp, JSON.stringify(cfg, null, 2) + '\n');
   return cfg;

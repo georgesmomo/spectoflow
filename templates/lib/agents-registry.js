@@ -9,14 +9,19 @@
 const fs = require('fs');
 const path = require('path');
 
+// headless:false = detectable and selectable as the active agent, but spectoflow never spawns it
+// itself (no confirmed non-interactive one-shot mode) — Run/Orchestrate/Summarize stay disabled for
+// it client-side; runner/summarize.js also refuse server-side (defense in depth). See the longer
+// rationale above lib/adapters.js's REGISTRY, the richer install-time twin of this list.
 const KNOWN_AGENTS = [
-  { id: 'claude', label: 'Claude Code', bin: 'claude', dirs: ['.claude'], runner: 'claude -p --permission-mode acceptEdits' },
-  { id: 'codex', label: 'Codex', bin: 'codex', dirs: ['.codex'], runner: 'codex exec' },
-  { id: 'cursor', label: 'Cursor', bin: 'cursor-agent', dirs: ['.cursor'], runner: 'cursor-agent -p' },
-  { id: 'gemini', label: 'Gemini CLI', bin: 'gemini', dirs: ['.gemini'], runner: 'gemini -p' },
-  { id: 'opencode', label: 'OpenCode', bin: 'opencode', dirs: ['.opencode'], runner: 'opencode run --quiet' },
-  { id: 'kiro', label: 'Kiro CLI', bin: 'kiro-cli', dirs: ['.kiro'], runner: 'kiro-cli chat --no-interactive --trust-all-tools' },
-  { id: 'antigravity', label: 'Antigravity', bin: 'agy', dirs: [], runner: 'agy -p' },
+  { id: 'claude', label: 'Claude Code', bin: 'claude', dirs: ['.claude'], runner: 'claude -p --permission-mode acceptEdits', headless: true },
+  { id: 'codex', label: 'Codex', bin: 'codex', dirs: ['.codex'], runner: 'codex exec', headless: true },
+  { id: 'cursor', label: 'Cursor', bin: 'cursor-agent', dirs: ['.cursor'], runner: 'cursor-agent -p', headless: true },
+  { id: 'gemini', label: 'Gemini CLI', bin: 'gemini', dirs: ['.gemini'], runner: 'gemini -p', headless: true },
+  { id: 'opencode', label: 'OpenCode', bin: 'opencode', dirs: ['.opencode'], runner: 'opencode run --quiet', headless: true },
+  { id: 'kiro', label: 'Kiro CLI', bin: 'kiro-cli', dirs: ['.kiro'], runner: 'kiro-cli chat --no-interactive --trust-all-tools', headless: true },
+  { id: 'antigravity', label: 'Antigravity', bin: 'agy', dirs: [], runner: 'agy -p', headless: true },
+  { id: 'kimi', label: 'Kimi CLI', bin: 'kimi', dirs: [], runner: null, headless: false },
 ];
 
 // Is `bin` an executable resolvable on PATH? On win32, an extension from PATHEXT is required, so we

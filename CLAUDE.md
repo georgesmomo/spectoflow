@@ -5,6 +5,21 @@ framework with a real-time local control plane. This file orients you to **build
 (it is not a spectoflow-managed project). Read `docs/` before making changes:
 `docs/ARCHITECTURE.md`, `docs/DECISIONS.md` (the full rationale, D1–D23), `docs/ROADMAP.md` (what's next).
 
+## What exists (v0.20.1 — see DECISIONS D49)
+
+Four corrections after real-usage feedback on v0.20.0's agent work. **Kimi CLI added** to the
+registry (`bin: kimi`) but marked `headless: false` (`runner: null`) — no confirmed one-shot mode, so
+it's detectable and selectable as the active agent, just never spawned; every entry now declares
+`headless` explicitly (drift-guard test extended to match). New `runner.js` export
+`resolveRunnerCommand(root, cfg, which, opts)` falls back to the registry's default runner for an
+installed, headless-capable agent that was never seeded into `config.json → runners` — the per-message
+agent pickers (`#runAgent`/`#tabRunAgent`/Customize's) now list every known agent (disabled unless
+installed *and* headless) instead of only whatever `config.runners` happened to already have, via the
+same `fillAgentSelect()` the topbar switcher uses. Chat's Summarize/Clear moved from the header down
+into a toolbar strip right above the input (in **both** the floating widget and the Chat tab, not just
+the tab) — closer to where you're actually looking. Opening the chat (either surface) now scrolls to
+the bottom and focuses the input every time, instead of trusting whatever position it was left at.
+
 ## What exists (v0.20.0 — see DECISIONS D48)
 
 **7 agents, an always-visible verified switcher, Personalize, nav tooltips, chat Summarize/Clear,

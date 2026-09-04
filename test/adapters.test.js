@@ -50,10 +50,31 @@ test('defaultRunners covers opencode, kiro and antigravity with their real headl
   assert.strictEqual(runners.antigravity, 'agy -p');
 });
 
-test('every REGISTRY entry has a runner, a bin to detect, and at least one entry file', () => {
+test('every REGISTRY entry has a bin to detect and at least one entry file', () => {
   for (const a of adapters.REGISTRY) {
-    assert.ok(a.runner && a.runner.length, `${a.id} has a runner command`);
     assert.ok(a.detect && a.detect.bin, `${a.id} has a detect.bin`);
     assert.ok(a.entries && a.entries.length, `${a.id} writes at least one entry file`);
+    assert.strictEqual(typeof a.headless, 'boolean', `${a.id} declares headless explicitly`);
   }
+});
+
+test('a headless:true entry has a real runner command; a headless:false entry has none', () => {
+  for (const a of adapters.REGISTRY) {
+    if (a.headless) assert.ok(a.runner && a.runner.length, `${a.id} (headless) has a runner command`);
+    else assert.strictEqual(a.runner, null, `${a.id} (not headless) has no runner to fabricate`);
+  }
+});
+
+test('kimi is known and detectable, but marked non-headless (no confirmed one-shot mode)', () => {
+  const kimi = adapters.REGISTRY.find((a) => a.id === 'kimi');
+  assert.ok(kimi, 'kimi is registered');
+  assert.strictEqual(kimi.headless, false);
+  assert.strictEqual(kimi.detect.bin, 'kimi');
+  assert.strictEqual(kimi.runner, null);
+});
+
+test('defaultRunners never seeds a runner for a non-headless agent', () => {
+  const runners = adapters.defaultRunners(['claude', 'kimi']);
+  assert.ok(runners.claude);
+  assert.ok(!('kimi' in runners), 'kimi has no runner to seed');
 });

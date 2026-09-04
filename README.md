@@ -21,10 +21,12 @@ You speak in plain language; the framework classifies your intent and runs the r
 ceremonial command to start.
 
 **Works with whichever coding agent you have** — Claude Code, Codex, Cursor, Gemini CLI, OpenCode,
-Kiro CLI, and Antigravity are auto-detected at `init`. The dashboard's topbar always shows the
-**active agent**, front and center, with a switcher: pick another and it's verified as genuinely
+Kiro CLI, Antigravity, and Kimi CLI are auto-detected at `init`. The dashboard's topbar always shows
+the **active agent**, front and center, with a switcher: pick another and it's verified as genuinely
 installed before activating (a red **"No agent found"** if none is) — it never silently activates
-something that isn't there.
+something that isn't there. (Kimi CLI doesn't yet ship a non-interactive run mode, so spectoflow can
+set it as active but won't try to spawn it — the agent pickers that launch a run grey it out rather
+than hide it.)
 
 ## Install
 

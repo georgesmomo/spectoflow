@@ -68,3 +68,37 @@ test('a finished status message is appended when the run ends', async () => {
   assert.strictEqual(last.kind, 'status');
   assert.match(last.text, /finished \(exit 0\)/);
 });
+
+test('resolveRunnerCommand prefers an explicit config.json → runners entry over the registry default', () => {
+  const { resolveRunnerCommand } = require('../templates/dashboard/runner');
+  const cfg = { runners: { claude: 'node custom-claude.js' } };
+  assert.strictEqual(resolveRunnerCommand('/irrelevant', cfg, 'claude'), 'node custom-claude.js');
+});
+
+test('resolveRunnerCommand falls back to the registry default for a known, headless, installed agent with no configured runner', () => {
+  const { resolveRunnerCommand } = require('../templates/dashboard/runner');
+  const proj = fs.mkdtempSync(path.join(os.tmpdir(), 'stf-resolve-'));
+  fs.mkdirSync(path.join(proj, '.opencode')); // dir signal → "installed" without touching real PATH
+  const cfg = { runners: {} };
+  assert.strictEqual(resolveRunnerCommand(proj, cfg, 'opencode'), 'opencode run --quiet');
+});
+
+test('resolveRunnerCommand returns null for a known agent that is not actually installed', () => {
+  const { resolveRunnerCommand } = require('../templates/dashboard/runner');
+  const proj = fs.mkdtempSync(path.join(os.tmpdir(), 'stf-resolve-'));
+  const cfg = { runners: {} };
+  // Isolated PATH: the machine running this suite may genuinely have opencode installed for real,
+  // which would make this test flaky if it fell through to the real process.env.PATH.
+  const opts = { env: { PATH: fs.mkdtempSync(path.join(os.tmpdir(), 'stf-empty-')) }, platform: 'linux' };
+  assert.strictEqual(resolveRunnerCommand(proj, cfg, 'opencode', opts), null);
+});
+
+test('resolveRunnerCommand returns null for a non-headless agent (kimi) even if installed', () => {
+  const { resolveRunnerCommand } = require('../templates/dashboard/runner');
+  const proj = fs.mkdtempSync(path.join(os.tmpdir(), 'stf-resolve-'));
+  const cfg = { runners: {} };
+  const bindir = fs.mkdtempSync(path.join(os.tmpdir(), 'stf-kimi-'));
+  fs.writeFileSync(path.join(bindir, 'kimi'), '');
+  const opts = { env: { PATH: bindir }, platform: 'linux' };
+  assert.strictEqual(resolveRunnerCommand(proj, cfg, 'kimi', opts), null, 'kimi has no runner regardless of install status');
+});

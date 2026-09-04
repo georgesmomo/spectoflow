@@ -6,6 +6,7 @@
  */
 const { spawn } = require('child_process');
 const store = require('../lib/store');
+const { resolveRunnerCommand } = require('./runner');
 
 const DEFAULT_LIMIT = 40;
 
@@ -20,7 +21,7 @@ function formatLog(messages, limit = DEFAULT_LIMIT) {
 function runSummarize(root, { agent } = {}, emit) {
   const cfg = store.readConfig(root);
   const which = agent || cfg.agent || 'claude';
-  const cmdStr = cfg.runners && cfg.runners[which];
+  const cmdStr = resolveRunnerCommand(root, cfg, which);
   if (!cmdStr) return { error: `No runner configured for "${which}".` };
 
   const rt = store.readRuntime(root);

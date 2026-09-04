@@ -695,3 +695,60 @@
   `templates/dashboard/public/{index.html,app.js,styles.css,i18n.js}`, `test/agents-registry.test.js`,
   `test/dashboard-agents-api.test.js`, `test/summarize.test.js` (nouveaux), `test/adapters.test.js`,
   `test/detect.test.js`, `test/update.test.js`, `test/cli-update.test.js`.
+
+### D49 — 0.20.1 : corrections suite au retour utilisateur sur D48 — Kimi CLI ajouté (désactivé si non-headless), sélecteurs d'agent partout, boutons de chat repositionnés en bas
+- **ACTÉ.** Quatre retours directs de l'utilisateur après avoir testé D48 en réel.
+  - **Kimi CLI ajouté au registre**, contrairement au choix initial de D48 : desormais **détectable et
+    activable** (`bin: kimi`) mais marqué **`headless: false`** — aucune commande one-shot confirmée
+    n'existe pour lui, donc `runner: null`. La distinction demandée par l'utilisateur est maintenant
+    appliquée systématiquement : un agent non-headless peut être choisi comme agent actif (`#topAgent`/
+    `#setAgent`, jamais désactivé pour cette raison), mais reste **désactivé uniquement dans les
+    sélecteurs qui lancent réellement un agent** (`#runAgent`/`#tabRunAgent`, et le sélecteur du
+    formulaire Customize) — jamais caché, juste grisé avec l'agent visible dans la liste. DeepSeek
+    Harness reste exclu, mais pour une raison différente et documentée séparément dans le commentaire
+    du registre : pas de binaire installable unique à détecter (`npx @deepseek-ai/dsh ...`), un
+    framework d'app web en aperçu développeur — pas juste « pas de flag headless », un modèle de
+    détection entièrement différent des autres entrées.
+  - **`headless` devient un champ explicite** sur chaque entrée de `lib/adapters.js` REGISTRY et de
+    `templates/lib/agents-registry.js` KNOWN_AGENTS (`true` pour les 7 agents CLI réels, `false` pour
+    kimi) — le test de garde anti-divergence compare désormais aussi ce champ entre les deux listes.
+  - **Repli serveur pour un agent installé mais jamais configuré** : `resolveRunnerCommand(root, cfg,
+    which, opts)`, nouvelle fonction exportée par `runner.js` (réutilisée par `summarize.js`) —
+    priorité à `config.json → runners[which]` s'il existe, sinon retombe sur la commande par défaut du
+    registre **si et seulement si** l'agent est réellement installé et headless-capable. Ainsi les
+    sélecteurs par message peuvent lister n'importe quel agent connu installé sans exiger qu'il ait
+    déjà été « l'agent actif » une fois (ce qui est le seul moment où un runner était auparavant semé
+    dans `config.json`) — corrige directement le retour « la liste des agents ne me donne que 2 ».
+  - **Sélecteurs par message unifiés** : `#runAgent`, `#tabRunAgent` et le sélecteur du formulaire
+    Customize utilisaient chacun `Object.keys(config.runners)` (juste ce qui est déjà configuré, 2
+    agents typiquement) ; les trois utilisent maintenant `fillAgentSelect()` avec la liste complète des
+    agents connus, activés seulement s'ils sont installés **et** headless-capable — même fonction déjà
+    utilisée par `#topAgent`/`#setAgent`, aucune divergence de comportement possible entre les quatre
+    surfaces.
+  - **Boutons Résumer/Effacer repositionnés en bas, et présents dans les deux surfaces** (widget
+    flottant ET onglet Chat, pas seulement l'onglet comme dans D48) : une nouvelle barre d'outils
+    (`.chat-toolbar` / `.chat-tab-toolbar`) juste au-dessus de la zone de saisie, contenant Résumer,
+    Effacer et le sélecteur d'agent — remplace l'ancien emplacement en haut à côté du titre, jugé « pas
+    pratique » par l'utilisateur.
+  - **Ouverture du chat = positionné directement en bas, prêt à saisir** : `setChat(true)` (widget) et
+    `navigateTab('chat')` (onglet) font désormais systématiquement défiler le journal tout en bas
+    **et** donnent le focus au champ de saisie, au lieu de laisser la position de défilement héritée
+    d'un état précédent. Le défilement/focus n'est déclenché que sur un vrai changement d'onglet — pas
+    dans `applyActiveTab()`, appelée à chaque tick SSE, qui aurait sinon arraché le focus au clavier de
+    l'utilisateur en train de taper.
+- **QA** : nouveaux tests (`resolveRunnerCommand` × 4 cas — priorité config explicite, repli registre,
+  agent connu non installé, agent non-headless jamais de repli ; registre Kimi × 2 ; garde anti-
+  dérive étendue au champ `headless`). Piège retrouvé une seconde fois et corrigé la même façon
+  qu'en D48 : un test isolait mal le PATH, rendant un test flaky selon ce qui est réellement installé
+  sur la machine d'exécution — corrigé en isolant totalement le PATH testé. QA navigateur réel :
+  8 agents connus confirmés dans les 4 sélecteurs, Kimi actif-mais-grisé exactement où attendu
+  (sélectionnable comme agent actif, désactivé pour lancer un run), boutons visibles en bas dans le
+  widget ET l'onglet, focus clavier confirmé programmatique­ment sur les deux ouvertures, zéro erreur
+  console. 171/171 tests (170 passent, 1 skip inchangé — une défaillance isolée d'un test
+  d'orchestration pré-existant, documentée comme intermittente sous Windows AV/EDR dans son propre
+  fichier, non reproduite en isolation).
+- Fichiers : `lib/adapters.js`, `templates/lib/agents-registry.js`, `templates/dashboard/runner.js`
+  (nouvel export `resolveRunnerCommand`), `templates/dashboard/summarize.js`,
+  `templates/dashboard/server.js` (`headless` exposé dans `/api/project`, garde sur le seed de runner),
+  `templates/dashboard/public/{index.html,app.js,styles.css}`, `test/adapters.test.js`,
+  `test/agents-registry.test.js`, `test/runner.test.js`.

@@ -9,6 +9,18 @@
  */
 const { spawn } = require('child_process');
 const store = require('../lib/store');
+const agentsRegistry = require('../lib/agents-registry');
+
+// The command to run `which`: config.json's own runners map first (an explicit user choice always
+// wins), falling back to the registry's default for a known, headless-capable, genuinely-installed
+// agent — so picking one from a per-message agent list works the first time, before it's ever been
+// the project's "active agent" and had a runner seeded into config.json for it.
+function resolveRunnerCommand(root, cfg, which, opts) {
+  if (cfg.runners && cfg.runners[which]) return cfg.runners[which];
+  const known = agentsRegistry.KNOWN_AGENTS.find((a) => a.id === which);
+  if (known && known.runner && agentsRegistry.isAgentInstalled(which, root, opts)) return known.runner;
+  return null;
+}
 
 function runStart(root, run) {
   const rt = store.readRuntime(root); rt.agents = rt.agents || []; rt.agents.push(run); store.writeRuntime(root, rt);
@@ -50,7 +62,7 @@ function pushAttention(root, text, by) {
 function startRun(root, { prompt, agent, logPrompt = true }, emit) {
   const cfg = store.readConfig(root);
   const which = agent || cfg.agent || 'claude';
-  const cmdStr = cfg.runners && cfg.runners[which];
+  const cmdStr = resolveRunnerCommand(root, cfg, which);
   if (!cmdStr) return { error: `No runner configured for "${which}".` };
   const parts = cmdStr.split(/\s+/).filter(Boolean);
   const runId = 'r' + Date.now().toString(36);
@@ -97,4 +109,4 @@ function startRun(root, { prompt, agent, logPrompt = true }, emit) {
   return { runId, child };
 }
 
-module.exports = { startRun };
+module.exports = { startRun, resolveRunnerCommand };

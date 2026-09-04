@@ -95,7 +95,8 @@ function setChat(open){
   $('#chat').setAttribute('aria-hidden', open?'false':'true');
   $('#chatFab').classList.toggle('is-open',open);
   try{ localStorage.setItem('spf-chat', open?'1':'0'); }catch{}
-  if(open) setTimeout(()=>$('#runPrompt').focus(),60);
+  // Land where you can actually type, not wherever the log happened to be scrolled last.
+  if(open) setTimeout(()=>{ scrollChat($('#chatLog')); $('#runPrompt').focus(); },60);
 }
 // doRun/doOrchestrate default to the floating widget's textarea/select; the Chat tab has its own
 // #tabRunPrompt/#tabRunAgent (an id can't be shared by two elements) and passes them explicitly —
@@ -139,11 +140,10 @@ function render(){
   // in renderSettings() below (called on every render tick) and saved via saveSettings().
   // agent select — widget (#runAgent) and Chat tab (#tabRunAgent) each get their own populated
   // <select>, since an id can't be shared by two elements; same option list, same source of truth.
-  const runners=Object.keys((c.runners)||{claude:1});
-  [$('#runAgent'),$('#tabRunAgent')].forEach(sel=>{
-    if(!sel) return;
-    if(sel.options.length!==runners.length){ sel.innerHTML=''; runners.forEach(k=>{ const o=document.createElement('option'); o.value=k; o.textContent=k; sel.append(o); }); if(c.agent) sel.value=c.agent; }
-  });
+  // Shows every known agent (not just ones already in config.json → runners — a freshly-installed
+  // agent works the first time, runner.js falls back to the registry default), disabling any that
+  // isn't genuinely installed or can't run headless (e.g. kimi).
+  [$('#runAgent'),$('#tabRunAgent')].forEach(sel=>fillAgentSelect(sel,P.knownAgents||[],runnableAgentIds(),c.agent));
   const s=SpectoStats.stats(P);
   const meterFill=$('#globalMeterFill');
   if(meterFill) meterFill.style.width=(s.pct||0)+'%';
@@ -717,6 +717,12 @@ function setModeSelects(mode){ [$('#setMode'),$('#topMode')].forEach(s=>{ if(s) 
 // the user activate an agent that isn't actually installed — options for a not-installed known agent
 // are present but disabled, and P.installedAgents itself comes from the server testing each agent's
 // real CLI (bin on PATH, or the project's own config dir), not a guess.
+// ids that can actually be SPAWNED right now: installed AND headless-capable (a known agent like
+// kimi can be "installed" and even the active agent, but nothing can run it non-interactively).
+function runnableAgentIds(){
+  const installed=P.installedAgents||[];
+  return (P.knownAgents||[]).filter(a=>a.headless&&installed.includes(a.id)).map(a=>a.id);
+}
 function fillAgentSelect(sel,known,installed,active){
   if(!sel) return;
   const empty=!installed.length;
@@ -936,9 +942,7 @@ function renderCustomize(){
       const form=el('div','cz-form');
       const ta=el('textarea','chat-ta'); ta.placeholder=t('customize.describePh');
       const sel=el('select','chat-agent');
-      const runners=Object.keys((P.config&&P.config.runners)||{claude:1});
-      runners.forEach((k)=>{ const o=document.createElement('option'); o.value=k; o.textContent=k; sel.append(o); });
-      if(P.config&&P.config.agent) sel.value=P.config.agent;
+      fillAgentSelect(sel,P.knownAgents||[],runnableAgentIds(),P.config&&P.config.agent);
       const actions=el('div','cz-form-actions');
       const autoBtn=el('button','btn',t('customize.auto'));
       const goBtn=el('button','btn primary',t('customize.generate'));
@@ -978,6 +982,10 @@ function navigateTab(tabId,push){
   }
   applyActiveTab();
   closeNav(); // a tab pick closes the mobile menu
+  // Landing on Chat: go straight to where you can read the latest and type, not wherever the log
+  // was scrolled to last (only on an actual switch INTO the tab — applyActiveTab() alone runs on
+  // every SSE render tick too, and re-scrolling/re-focusing there would fight the user's typing).
+  if(tabId==='chat') setTimeout(()=>{ scrollChat($('#chatTabLog')); $('#tabRunPrompt').focus(); },60);
 }
 function closeNav(){ document.body.classList.remove('nav-open'); const nt=$('#navToggle'); if(nt) nt.setAttribute('aria-expanded','false'); }
 
@@ -1297,6 +1305,8 @@ $('#chatClose').addEventListener('click',()=> setChat(false));
 try{ if(localStorage.getItem('spf-chat')==='1') setChat(true); }catch{}
 $('#runBtn').addEventListener('click',()=>doRun());
 $('#orchBtn').addEventListener('click',()=>doOrchestrate());
+$('#widgetSummarizeBtn').addEventListener('click',()=>summarizeChat($('#runAgent')));
+$('#widgetClearBtn').addEventListener('click',clearChat);
 $('#runPrompt').addEventListener('keydown',e=>{ if((e.metaKey||e.ctrlKey)&&e.key==='Enter')doRun(); });
 // Chat tab — same doRun/doOrchestrate/approve, its own textarea/select (#tabRunPrompt/#tabRunAgent)
 $('#tabRunBtn').addEventListener('click',()=>doRun($('#tabRunPrompt'),$('#tabRunAgent')));

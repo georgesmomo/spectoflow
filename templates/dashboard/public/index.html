@@ -201,15 +201,17 @@
             <h2 class="panel-title" data-i18n="nav.chat">Chat</h2>
             <p class="panel-sub" data-i18n="chat.tabSub">Full conversation with the runner — the same run as the widget, more room to read it.</p>
           </div>
-          <div class="chat-tab-head-actions">
-            <button id="tabSummarizeBtn" class="mini-btn" data-i18n-title="chat.summarizeTitle" data-i18n="action.summarize" title="Condense the recent activity into a summary">Summarize</button>
-            <button id="tabClearBtn" class="mini-btn" data-i18n-title="chat.clearTitle" data-i18n="action.clear" title="Clear the chat log">Clear</button>
-            <select id="tabRunAgent" class="chat-agent" title="Agent"></select>
-          </div>
         </div>
         <div class="chat-tab-log" id="chatTabLog">
           <div class="chat-idle" data-i18n-html="chat.idle">Type a request — the agent runs headless in this project with full memory
             (<code>CLAUDE.md → AGENTS.md</code>) and updates the board live.</div>
+        </div>
+        <!-- Toolbar right above the input, not up in the header — this is where you're looking
+             when you reach for Summarize/Clear or switch which agent the next message runs on. -->
+        <div class="chat-tab-toolbar">
+          <button id="tabSummarizeBtn" class="mini-btn" data-i18n-title="chat.summarizeTitle" data-i18n="action.summarize" title="Condense the recent activity into a summary">Summarize</button>
+          <button id="tabClearBtn" class="mini-btn" data-i18n-title="chat.clearTitle" data-i18n="action.clear" title="Clear the chat log">Clear</button>
+          <select id="tabRunAgent" class="chat-agent" title="Agent"></select>
         </div>
         <div class="chat-tab-input">
           <textarea id="tabRunPrompt" class="chat-ta" data-i18n-ph="chat.inputPlaceholder" placeholder="e.g. Add a login feature with email + password"></textarea>
@@ -306,12 +308,16 @@
         <span class="chat-title" data-i18n="chat.widgetTitle">Run an agent</span>
         <span class="chat-sub" data-i18n="chat.widgetSub">Quick access · full view in the Chat tab</span>
       </div>
-      <select id="runAgent" class="chat-agent" title="Agent"></select>
       <button class="chat-close" id="chatClose" aria-label="Close">×</button>
     </div>
     <div class="chat-log" id="chatLog">
       <div class="chat-idle" data-i18n-html="chat.idle">Type a request — the agent runs headless in this project with full memory
         (<code>CLAUDE.md → AGENTS.md</code>) and updates the board live.</div>
+    </div>
+    <div class="chat-toolbar">
+      <button id="widgetSummarizeBtn" class="mini-btn" data-i18n-title="chat.summarizeTitle" data-i18n="action.summarize" title="Condense the recent activity into a summary">Summarize</button>
+      <button id="widgetClearBtn" class="mini-btn" data-i18n-title="chat.clearTitle" data-i18n="action.clear" title="Clear the chat log">Clear</button>
+      <select id="runAgent" class="chat-agent" title="Agent"></select>
     </div>
     <div class="chat-input">
       <textarea id="runPrompt" class="chat-ta" data-i18n-ph="chat.inputPlaceholder" placeholder="e.g. Add a login feature with email + password"></textarea>
