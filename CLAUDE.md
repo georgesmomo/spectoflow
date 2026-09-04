@@ -5,6 +5,18 @@ framework with a real-time local control plane. This file orients you to **build
 (it is not a spectoflow-managed project). Read `docs/` before making changes:
 `docs/ARCHITECTURE.md`, `docs/DECISIONS.md` (the full rationale, D1–D23), `docs/ROADMAP.md` (what's next).
 
+## What exists (v0.21.1 — see DECISIONS D51)
+
+Docs-and-housekeeping pass, no functional code changes. README restructured (the dense "Agents vs
+skills"/"Dashboard" sections split into `###` subsections and real lists; a proper "Studied, not
+copied" with actual links + credit to spec-kit/OpenSpec/BMAD-METHOD, for both attribution and SEO; a
+real dashboard screenshot up top). `demo/` — this repo's own dogfooding project — turned out to have
+never been through `spectoflow update` since a very early version (no `.manifest.json` at all); fixed
+with `update --force` (43 created, 26 forced), which is exactly the scenario that flag exists for.
+GitHub repo metadata (description/homepage/topics) filled in via `gh repo edit` — was blank. GitHub's
+"Packages" tab showing empty is expected, not a bug — it lists packages published to GitHub's *own*
+registry, which this project doesn't use (npm-only, via OIDC trusted publishing).
+
 ## What exists (v0.21.0 — see DECISIONS D50)
 
 **13 agents (was 8), a Documentation tab with links, compact KPI cards.** Five more coding agents

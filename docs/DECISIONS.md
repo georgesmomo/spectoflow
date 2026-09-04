@@ -812,3 +812,48 @@
   `bin/spectoflow.js` (aide `init` mise à jour), `README.md`, `templates/README.md`,
   `test/adapters.test.js`, `test/agents-registry.test.js`, `test/detect.test.js`,
   `test/dashboard-agents-api.test.js`.
+
+### D51 — 0.21.1 : README restructuré (crédits + SEO), démo rafraîchie, métadonnées GitHub
+- **ACTÉ.** Quatre retours utilisateur après avoir regardé le dépôt GitHub réel.
+  - **README restructuré** : le retour direct était « trop de texte non structuré » face à des dépôts
+    comme OpenSpec, avec capture à l'appui montrant un bloc de 4 paragraphes denses sans sous-titre.
+    Corrigé : les sections « Dashboard » et « Agents vs skills » — les plus denses — sont éclatées en
+    sous-titres `###` (Designs & theme, Chat, Customize, Clarify before acting, End-to-end tests…,
+    Keeping spec and code honest) ; la liste des dix onglets et l'échelle de repli E2E (6 niveaux)
+    passent d'une phrase-fleuve à une vraie liste ; un titre `## Supported coding agents` est ajouté
+    (manquait, ce qui cassait aussi un lien d'ancrage interne).
+  - **« Studied, not copied » réécrite avec de vraies citations** : spec-kit, OpenSpec et BMAD-METHOD
+    sont maintenant chacun un lien direct vers leur dépôt réel, avec une phrase disant précisément ce
+    que spectoflow en a retenu (le workflow spec→plan pour spec-kit, le pattern d'adaptateur par agent
+    pour OpenSpec, les personas nommées pour BMAD) — crédit explicite, et bénéfice de référencement
+    réciproque des deux côtés (des liens sortants vers ces projets, la mention par leur nom).
+  - **Capture d'écran ajoutée en tête de README** (`docs/screenshot-board.png`, Board Overview du
+    dashboard) — prise via Playwright (installé temporairement en `--no-save` dans le scratchpad de la
+    session, jamais ajouté aux dépendances du dépôt : l'invariant zéro-dépendance reste intact) contre
+    la **démo elle-même** une fois celle-ci remise à niveau (voir ci-dessous), avec une pause avant
+    capture pour laisser les animations d'entrée du dashboard se terminer — un premier essai (CLI
+    `playwright screenshot`, sans pause) capturait la page à mi-animation, cartes et graphiques
+    fantômes, rejeté.
+  - **`demo/` remise à niveau** — retour utilisateur : « j'ai l'impression qu'on n'a pas mis à jour la
+    démo depuis ». Diagnostic confirmé : `demo/.spectoflow/` n'avait **aucun** `.manifest.json` (jamais
+    passée par `update` depuis sa création, très en amont — aucune trace de Clarify, des écrans
+    Console/Orbit, d'i18n, du système Customize, du registre d'agents, de l'onglet Documentation…).
+    `spectoflow update --force` (D49) appliqué directement — exactement le cas d'usage prévu pour ce
+    flag : 43 fichiers créés, 26 forcés, `config.json`/`workflow.md`/`specs/`/`plans/` intacts. La démo
+    tourne maintenant en v0.21.0/v0.21.1 avec toutes les fonctionnalités récentes.
+  - **Métadonnées GitHub renseignées** (`gh repo edit`) : description, `homepage` (vers la page npm),
+    et douze topics de recherche (`spec-driven-development`, `ai-agents`, `claude-code`,
+    `github-copilot`, `cli`, `dashboard`, …) — le retour « About : No description, website, or topics
+    provided » est résolu ; ces champs sont des réglages de dépôt, pas des fichiers versionnés.
+  - **Non résolu, expliqué plutôt que « corrigé »** : la section « Packages » de GitHub affichait « No
+    packages » malgré la publication sur npm — c'est le comportement attendu, pas un bug : ce widget
+    liste des paquets publiés vers **le registre de paquets de GitHub lui-même** (npm.pkg.github.com),
+    un registre entièrement séparé de npmjs.org où ce projet publie exclusivement (OIDC trusted
+    publishing, voir D-précédent). Le publier *aussi* sur GitHub Packages doublerait le pipeline CI et
+    la maintenance pour un bénéfice marginal (le badge npm du README pointe déjà vers la vraie page) —
+    pas fait sans confirmation explicite du besoin.
+- **QA** : suite complète toujours verte (176/176, 175 passent, 1 skip inchangé) — round sans
+  changement de code fonctionnel (`templates/`, `lib/`, `bin/` intacts), uniquement README, `demo/`,
+  une image, et des réglages de dépôt GitHub live (hors contrôle de version).
+- Fichiers : `README.md`, `docs/screenshot-board.png` (nouveau), `demo/.spectoflow/**` (rafraîchi via
+  `update --force`, ~69 fichiers).
