@@ -207,7 +207,7 @@ body { background:var(--bg); color:var(--ink); font-family:var(--sans); font-siz
 .tflag.fail { color:var(--s-blocked); border:1px solid color-mix(in srgb,var(--s-blocked) 45%,var(--line)); }
 
 /* Requests tab (tasks awaiting review: to_validate / to_analyze) */
-.requests-wrap { padding:26px 28px 60px; max-width:900px; }
+.requests-wrap { padding:26px 28px 60px; max-width:1400px; }
 .requests-list { display:flex; flex-direction:column; gap:7px; }
 .request-row { cursor:pointer; display:flex; align-items:center; gap:10px; background:var(--surface); border:1px solid var(--line); border-radius:10px; padding:9px 12px; font-size:13px; transition:border-color .15s; }
 .request-row:hover,.request-row:focus-visible { border-color:color-mix(in srgb,var(--signal) 40%,var(--line)); }
@@ -220,8 +220,15 @@ body { background:var(--bg); color:var(--ink); font-family:var(--sans); font-siz
 .placeholder-empty { margin-top:8px; padding:40px; border:1px dashed var(--line); border-radius:var(--radius); text-align:center; color:var(--faint); font-style:italic; }
 
 /* Backlog tab — flat, sortable, filterable table of every task */
-.backlog-wrap { padding:26px 28px 60px; max-width:1200px; }
+.backlog-wrap { padding:26px 28px 60px; max-width:1500px; }
 .backlog-wrap .filters { padding:0 0 14px; }
+.bl-add-form { display:none; align-items:center; gap:8px; flex-wrap:wrap; padding:0 0 14px; }
+.bl-add-form.is-open { display:flex; }
+.bl-add-input { font:inherit; font-size:12.5px; padding:6px 11px; border:1px solid var(--line); border-radius:8px; background:var(--surface); color:var(--ink); }
+.bl-add-input:focus { outline:2px solid var(--signal); outline-offset:1px; }
+.bl-add-title { flex:1; min-width:220px; }
+.bl-add-phase,.bl-add-owner { width:150px; }
+.bl-add-error { font-size:12px; color:var(--s-blocked); }
 .table-scroll { width:100%; overflow-x:auto; border:1px solid var(--line); border-radius:var(--radius); }
 .backlog-table { width:100%; min-width:720px; border-collapse:collapse; font-size:12.5px; }
 .backlog-table thead th { position:sticky; top:0; z-index:1; background:var(--surface-2); text-align:left; padding:9px 12px; font-family:var(--mono); font-size:10.5px; text-transform:uppercase; letter-spacing:.05em; color:var(--muted); white-space:nowrap; cursor:pointer; user-select:none; border-bottom:1px solid var(--line); }
@@ -243,8 +250,12 @@ body { background:var(--bg); color:var(--ink); font-family:var(--sans); font-siz
 @media (max-width:640px){ .backlog-wrap { padding:18px 14px 40px; } }
 
 /* Info tab (project overview — config, runners, counts, specs, active workflow) */
-.info-wrap { padding:26px 28px 60px; max-width:1000px; }
-.info-grid { display:grid; grid-template-columns:repeat(2,1fr); gap:14px; margin-top:8px; }
+.info-wrap { padding:26px 28px 60px; max-width:1500px; }
+/* a fixed 2-column grid, not auto-fit: with 5 sections (2 + 1 full-span + 2), more columns would
+   leave the 2-item rows with genuinely empty trailing cells — the same dead space this was meant to
+   fix, just moved inside the grid. 2 columns always fill completely; the wider .info-wrap above is
+   what actually puts the freed width to use, by making each card roomier. */
+.info-grid { display:grid; grid-template-columns:repeat(2,1fr); gap:14px; margin-top:8px; align-items:start; }
 .info-section { background:var(--surface); border:1px solid var(--line); border-radius:var(--radius); padding:16px 18px; }
 .info-section-head { display:flex; align-items:center; gap:8px; margin:0 0 12px; }
 .info-section-ico { width:16px; height:16px; flex-shrink:0; display:inline-flex; align-items:center; justify-content:center; color:var(--cool); }
@@ -275,6 +286,43 @@ body { background:var(--bg); color:var(--ink); font-family:var(--sans); font-siz
 /* workflow diagram */
 .wf-wrap,.team-wrap { padding:26px 28px 60px; max-width:1000px; }
 .wf-wrap { max-width:1340px; }   /* wider so the horizontal pipeline fits its 9 steps on one line */
+.team-wrap { max-width:1500px; } /* the agent/skill .cards grid fills more columns instead of sitting capped */
+
+/* Files tab — a two-pane explorer: a collapsible tree, and the selected file's preview/editor */
+.files-wrap { padding:26px 28px 60px; max-width:1600px; height:calc(100vh - 130px); display:flex; flex-direction:column; }
+.files-body { flex:1; min-height:0; display:flex; gap:16px; margin-top:8px; }
+.files-tree-col { width:280px; flex-shrink:0; display:flex; flex-direction:column; gap:8px; min-height:0; }
+.files-toolbar { display:flex; gap:8px; }
+.files-toolbar .btn { font-size:12px; padding:6px 11px; }
+.files-create-form { display:none; flex-direction:column; gap:6px; padding:10px; border:1px solid var(--line); border-radius:var(--radius); background:var(--surface); }
+.files-create-form.is-open { display:flex; }
+.files-create-form .bl-add-input { width:100%; }
+.files-create-actions { display:flex; gap:8px; }
+.files-create-actions .btn { font-size:12px; padding:6px 11px; }
+.files-tree { flex:1; min-height:0; overflow:auto; border:1px solid var(--line); border-radius:var(--radius); padding:8px; background:var(--surface); }
+.files-content-col { flex:1; min-width:0; display:flex; flex-direction:column; min-height:0; border:1px solid var(--line); border-radius:var(--radius); background:var(--surface); overflow:hidden; }
+.files-empty,.files-binary { padding:40px; text-align:center; color:var(--faint); font-style:italic; }
+.f-row { display:flex; align-items:center; gap:6px; padding:4px 6px; border-radius:6px; cursor:pointer; font-size:12.5px; white-space:nowrap; color:var(--muted); }
+.f-row:hover { background:var(--surface-2); color:var(--ink); }
+.f-row.is-active { background:var(--surface-2); color:var(--signal); font-weight:600; }
+.f-row .f-chevron { width:11px; height:11px; flex-shrink:0; transition:transform .15s; color:var(--faint); }
+.f-row.is-open .f-chevron { transform:rotate(90deg); }
+.f-row .f-name { overflow:hidden; text-overflow:ellipsis; }
+.f-children { margin-left:13px; border-left:1px solid var(--line); padding-left:6px; }
+.f-children[hidden] { display:none; }
+.files-toolbar-row { display:flex; align-items:center; justify-content:space-between; gap:10px; padding:10px 14px; border-bottom:1px solid var(--line); }
+.files-path { font-family:var(--mono); font-size:12px; color:var(--muted); overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+.files-actions { display:flex; gap:8px; flex-shrink:0; }
+.files-actions .btn { font-size:12px; padding:6px 11px; }
+.files-body-col { flex:1; min-height:0; display:flex; flex-direction:column; }
+.files-view { flex:1; min-height:0; overflow:auto; padding:16px 20px; }
+.files-editor { flex:1; min-height:0; width:100%; border:0; resize:none; padding:16px 20px; font-family:var(--mono); font-size:12.5px; line-height:1.6; background:var(--surface); color:var(--ink); outline:none; }
+.files-iframe { flex:1; min-height:0; width:100%; border:0; background:#fff; }
+.files-md-toolbar { display:flex; gap:6px; padding:8px 14px; border-bottom:1px solid var(--line); }
+.files-md-toolbar button { font-family:var(--mono); font-size:12px; padding:4px 9px; border:1px solid var(--line); border-radius:6px; background:var(--surface-2); color:var(--ink); cursor:pointer; }
+.files-saved-tip { font-size:11.5px; color:var(--s-done); font-family:var(--mono); }
+.files-error-tip { font-size:11.5px; color:var(--s-blocked); }
+@media (max-width:820px){ .files-body { flex-direction:column; } .files-tree-col { width:auto; max-height:220px; } .files-wrap { height:auto; } }
 .wf-diagram { display:block; margin-top:8px; }
 .wf-step { display:flex; align-items:center; }
 .wf-node { display:flex; align-items:center; gap:8px; padding:11px 15px; border:1px solid var(--line); border-radius:var(--radius); background:var(--surface); cursor:pointer; transition:border-color .18s,transform .15s,box-shadow .15s; user-select:none; }
@@ -373,7 +421,7 @@ body { background:var(--bg); color:var(--ink); font-family:var(--sans); font-siz
 .chat-fab.is-open { box-shadow:inset 0 0 0 2px var(--signal); }
 .chat { position:fixed; right:20px; bottom:88px; z-index:18; width:min(420px,94vw); height:min(600px,78vh); background:var(--surface); border:1px solid var(--line); border-radius:calc(var(--radius) + 2px); box-shadow:var(--shadow); display:flex; flex-direction:column; overflow:hidden; transform-origin:bottom right; transition:opacity .16s,transform .16s; }
 .chat[aria-hidden="true"] { opacity:0; transform:scale(.96) translateY(8px); pointer-events:none; }
-.chat-head { display:flex; align-items:center; gap:10px; padding:14px 16px; border-bottom:1px solid var(--line); background:linear-gradient(180deg,color-mix(in srgb,var(--surface-2) 75%,transparent),transparent); }
+.chat-head { display:flex; align-items:center; gap:10px; padding:14px 16px; border-bottom:1px solid var(--line); background:color-mix(in srgb,var(--surface-2) 40%,transparent); }
 .chat-head-text { display:flex; flex-direction:column; gap:1px; min-width:0; }
 .chat-title { font-weight:700; font-size:15px; }
 .chat-sub { font-size:10px; color:var(--faint); text-transform:uppercase; letter-spacing:.04em; }
@@ -548,8 +596,10 @@ body.booting .ring-svg circle:last-of-type { transform-origin:center; animation:
 .kpi.has-accent { border-left-width:3px; border-left-style:solid; }
 
 /* Settings tab */
-.settings-wrap { max-width:720px; margin:0 auto; padding:20px 22px; }
-.settings-card { background:var(--surface); border:1px solid var(--line); border-radius:var(--radius); padding:18px; display:flex; flex-direction:column; gap:16px; margin:14px 0; }
+.settings-wrap { max-width:1120px; margin:0 auto; padding:20px 22px; }
+.settings-groups { display:grid; grid-template-columns:repeat(auto-fit,minmax(320px,1fr)); gap:16px; margin:14px 0; }
+.settings-card { background:var(--surface); border:1px solid var(--line); border-radius:var(--radius); padding:18px; display:flex; flex-direction:column; gap:16px; margin:0; }
+.settings-card-title { margin:0; font-size:12px; font-weight:700; text-transform:uppercase; letter-spacing:.06em; color:var(--muted); }
 .settings-field { display:flex; flex-direction:column; gap:6px; }
 .settings-field-label { font-size:11px; text-transform:uppercase; letter-spacing:.05em; color:var(--muted); }
 .settings-select { font-family:inherit; font-size:14px; padding:9px 11px; border:1px solid var(--line); border-radius:9px; background:var(--surface-2); color:var(--ink); cursor:pointer; }
@@ -575,7 +625,9 @@ body.booting .ring-svg circle:last-of-type { transform-origin:center; animation:
 /* ---- Customize (Settings → dashboards/skills/agents) — reuses .card/.chat-ta/.btn styling so it
    reads as part of the same system, not a bolted-on sub-app. ---- */
 .cz-wrap { margin-top:28px; }
-.cz-block { background:var(--surface); border:1px solid var(--line); border-radius:var(--radius); padding:14px 16px; margin-top:12px; }
+#czRoot { display:grid; grid-template-columns:repeat(auto-fit,minmax(280px,1fr)); gap:12px; margin-top:12px; }
+#czRoot.has-open { grid-template-columns:1fr; } /* one block's form open — stack instead of leaving empty cells beside the other two */
+.cz-block { background:var(--surface); border:1px solid var(--line); border-radius:var(--radius); padding:14px 16px; margin-top:0; }
 .cz-head { display:flex; align-items:center; justify-content:space-between; gap:12px; }
 .cz-head h3 { margin:0; font-size:13.5px; font-weight:700; }
 .cz-add { font-size:12.5px; padding:6px 13px; }
@@ -790,7 +842,7 @@ body.booting .wf-step2 { opacity:0; animation:rise .4s cubic-bezier(.2,.8,.2,1) 
 /* Obsidian Ops fonts: JetBrains Mono (mono + display) + IBM Plex Sans (body) */
 :root[data-design="obsidian"] { --sans:'IBM Plex Sans', ui-sans-serif, system-ui, sans-serif; --mono:'JetBrains Mono', ui-monospace, monospace; --display:'JetBrains Mono', ui-monospace, monospace; }
 
-/* --- Neon Command: glassmorphism, aurora violet + cyan, control-room --- */
+/* --- Neon Command: violet + cyan control-room, flat surfaces (no gradients/aurora glow) --- */
 :root[data-design="neon-command"] {
   --bg:#0d0b1a; --surface:#171233; --surface-2:#1f1940; --line:#2e2857;
   --ink:#eae6ff; --muted:#a99fd6; --faint:#6f689e;
@@ -799,13 +851,7 @@ body.booting .wf-step2 { opacity:0; animation:rise .4s cubic-bezier(.2,.8,.2,1) 
   --radius:16px; --shadow:0 18px 50px rgba(0,0,0,.55);
   --sans:'Sora', system-ui, sans-serif; --display:'Space Grotesk', system-ui, sans-serif;
 }
-:root[data-design="neon-command"] body {
-  background:
-    radial-gradient(1200px 600px at 15% -5%, rgba(124,77,255,.22), transparent 60%),
-    radial-gradient(1000px 520px at 100% 8%, rgba(0,229,255,.14), transparent 55%),
-    var(--bg);
-  background-attachment:fixed;
-}
+:root[data-design="neon-command"] body { background:var(--bg); }
 :root[data-design="neon-command"] .kpi,
 :root[data-design="neon-command"] .ocard,
 :root[data-design="neon-command"] .card,
@@ -814,14 +860,13 @@ body.booting .wf-step2 { opacity:0; animation:rise .4s cubic-bezier(.2,.8,.2,1) 
 :root[data-design="neon-command"] .settings-readonly,
 :root[data-design="neon-command"] .wf-pop,
 :root[data-design="neon-command"] .approval {
-  background:linear-gradient(160deg, color-mix(in srgb,var(--surface) 80%,transparent), color-mix(in srgb,var(--surface-2) 50%,transparent));
+  background:var(--surface);
   border-color:color-mix(in srgb,var(--signal) 22%,var(--line));
-  backdrop-filter:blur(10px);
 }
-:root[data-design="neon-command"] .topbar { background:color-mix(in srgb,var(--bg) 68%,transparent); border-bottom-color:color-mix(in srgb,var(--signal) 22%,var(--line)); }
+:root[data-design="neon-command"] .topbar { background:color-mix(in srgb,var(--bg) 92%,transparent); border-bottom-color:color-mix(in srgb,var(--signal) 22%,var(--line)); }
 :root[data-design="neon-command"] .btn.primary,
-:root[data-design="neon-command"] .run-btn { background:linear-gradient(120deg,var(--signal),var(--cool)); color:#fff; border-color:transparent; box-shadow:0 6px 20px color-mix(in srgb,var(--signal) 45%,transparent); }
-:root[data-design="neon-command"] .brand-name { background:linear-gradient(120deg,var(--signal),var(--cool)); -webkit-background-clip:text; background-clip:text; color:transparent; }
+:root[data-design="neon-command"] .run-btn { background:var(--signal); color:#fff; border-color:transparent; }
+:root[data-design="neon-command"] .brand-name { color:var(--signal); }
 :root[data-design="neon-command"] .tab.is-active { background:color-mix(in srgb,var(--signal) 20%,transparent); box-shadow:inset 0 -2px 0 var(--cool); }
 :root[data-design="neon-command"] .wf-circle { backdrop-filter:blur(6px); }
 :root[data-design="neon-command"][data-theme="light"] {

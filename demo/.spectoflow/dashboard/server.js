@@ -13,6 +13,7 @@ const { startRun } = require('./runner');
 const { runSummarize } = require('./summarize');
 const orchestrator = require('./orchestrator');
 const agentsRegistry = require('../lib/agents-registry');
+const files = require('./files');
 
 const PORT = process.env.SPECTOFLOW_PORT ? Number(process.env.SPECTOFLOW_PORT) : 4319;
 const PUBLIC = path.join(__dirname, 'public');
@@ -71,26 +72,9 @@ function writeConfig(patch){
   fs.writeFileSync(cp, JSON.stringify(cfg, null, 2) + '\n');
   return cfg;
 }
-// Next free T-### id across every plan file (absolute paths from store.readPlans).
-function nextTaskId(){
-  let max = 0;
-  for (const pl of store.readPlans(ROOT)) {
-    try { const t = fs.readFileSync(pl.file, 'utf8'); const re = /\bT-(\d+)/g; let m; while ((m = re.exec(t))) max = Math.max(max, Number(m[1])); } catch {}
-  }
-  return 'T-' + String(max + 1).padStart(3, '0');
-}
 // Promote an attention item into a real checkbox task under an `## Attention` phase.
 function promoteAttention(item){
-  const plans = store.readPlans(ROOT);
-  let file = plans[0] && plans[0].file;
-  if (!file) { file = path.join(ROOT, 'plans', 'inbox.md'); fs.mkdirSync(path.dirname(file), { recursive: true }); if (!fs.existsSync(file)) fs.writeFileSync(file, '# Inbox\n'); }
-  const id = nextTaskId();
-  let text = fs.readFileSync(file, 'utf8');
-  const line = `- [ ] ${id} ${String(item.text).replace(/\s+/g, ' ').trim()} @user ~standard`;
-  if (/^##\s+Attention\s*$/m.test(text)) text = text.replace(/^(##\s+Attention\s*)$/m, `$1\n${line}`);
-  else { if (!text.endsWith('\n')) text += '\n'; text += `\n## Attention\n${line}\n`; }
-  fs.writeFileSync(file, text);
-  return { id, file };
+  return store.addTask(ROOT, { phase: 'Attention', title: item.text, owner: 'user' });
 }
 
 function watch(dir){ try{ fs.watch(dir,{recursive:false},()=>emit({type:'change'})); }catch(_){} }
@@ -131,12 +115,39 @@ const server = http.createServer(async (req,res)=>{
       return sendJSON(res, 200, { content: fs.readFileSync(real, 'utf8') });
     }
 
+    // ---- File Explorer: browse/read/write/create anywhere under the project root ----
+    if (p === '/api/files/tree' && req.method === 'GET') return sendJSON(res, 200, { tree: files.tree(ROOT) });
+    if (p === '/api/files/read' && req.method === 'GET') {
+      const rel = new URL(req.url, 'http://x').searchParams.get('path') || '';
+      const r = files.readFile(ROOT, rel);
+      return sendJSON(res, r.error ? 400 : 200, r);
+    }
+    if (p === '/api/files/write' && req.method === 'POST') {
+      const { path: rel, content } = await body(req);
+      const r = files.writeFile(ROOT, rel, content);
+      if (r.error) return sendJSON(res, 400, r);
+      emit({ type: 'change' }); return sendJSON(res, 200, r);
+    }
+    if (p === '/api/files/mkdir' && req.method === 'POST') {
+      const { path: rel } = await body(req);
+      const r = files.mkdir(ROOT, rel);
+      if (r.error) return sendJSON(res, 400, r);
+      emit({ type: 'change' }); return sendJSON(res, 200, r);
+    }
+
     if(p==='/api/events'){
       res.writeHead(200,{'Content-Type':'text/event-stream','Cache-Control':'no-cache',Connection:'keep-alive'});
       res.write('data: '+JSON.stringify({type:'hello'})+'\n\n');
       clients.add(res); req.on('close',()=>clients.delete(res)); return;
     }
 
+    // ---- manual task creation: add a checkbox task straight to a plan, no agent involved ----
+    if(p==='/api/task'&&req.method==='POST'){
+      const { title, phase, file, owner, level } = await body(req);
+      if(!title||!String(title).trim()) return sendJSON(res,400,{error:'A title is required.'});
+      const t = store.addTask(ROOT,{ title:String(title).trim(), phase, file, owner, level });
+      emit({type:'change'}); return sendJSON(res,200,{task:t});
+    }
     if(p.startsWith('/api/task/')&&req.method==='PATCH'){
       const id=decodeURIComponent(p.split('/')[3]||''); const patch=await body(req);
       const file=findPlanFileForTask(id); if(!file) return sendJSON(res,404,{error:`Task ${id} not found.`});

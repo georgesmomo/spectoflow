@@ -37,17 +37,33 @@ test('formatLog renders "role: text" lines, most recent last, capped to a limit'
   assert.strictEqual(formatLog(msgs, 40), 'user: a\nclaude: b\nuser: c');
 });
 
-test('summarizes the recent log into one new message with kind "summary"', async () => {
+test('replaces the log with a single new message of kind "summary" — never leaves the old messages behind', async () => {
   const proj = installWithStub();
   seedMessages(proj, [{ role: 'user', text: 'add login' }, { role: 'developer', text: 'finished T-001' }]);
   const r = runSummarize(proj, { agent: 'claude' }, () => {});
   assert.ok(!r.error, r.error);
   await waitForClose(r);
   const msgs = store.readRuntime(proj).messages;
-  const summary = msgs.find((m) => m.kind === 'summary');
-  assert.ok(summary, 'a summary message was appended');
-  assert.match(summary.text, /Added login form/);
-  assert.strictEqual(summary.role, 'claude');
+  assert.strictEqual(msgs.length, 1, 'the old messages are gone — a digest that leaves them condenses nothing');
+  assert.strictEqual(msgs[0].kind, 'summary');
+  assert.match(msgs[0].text, /Added login form/);
+  assert.strictEqual(msgs[0].role, 'claude');
+});
+
+test('a message that arrives while the agent is summarizing is not silently lost', async () => {
+  const proj = installWithStub();
+  seedMessages(proj, [{ role: 'user', text: 'add login' }]);
+  const r = runSummarize(proj, { agent: 'claude' }, () => {});
+  // Simulate a message logged by a concurrent action after runSummarize snapshotted the log but
+  // before its child process closed — the fresh read-modify-write in the close handler must not
+  // clobber it back out.
+  const rt = store.readRuntime(proj);
+  rt.messages.push({ id: 'concurrent', at: new Date().toISOString(), kind: 'message', role: 'user', text: 'meanwhile' });
+  store.writeRuntime(proj, rt);
+  await waitForClose(r);
+  const msgs = store.readRuntime(proj).messages;
+  assert.ok(msgs.some((m) => m.id === 'concurrent'), 'the concurrent message survived');
+  assert.ok(msgs.some((m) => m.kind === 'summary'), 'the summary is still there too');
 });
 
 test('emits the summary message and a change event', async () => {

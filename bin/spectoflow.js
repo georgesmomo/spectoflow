@@ -220,7 +220,7 @@ function init() {
   console.log('');
 }
 
-function update() {
+async function update() {
   const root = process.cwd();
   if (!fs.existsSync(path.join(root, '.spectoflow'))) {
     return console.log('No spectoflow project here. Run: spectoflow init');
@@ -252,6 +252,24 @@ function update() {
   else console.log(`  ${changed ? c.g('✓ Done') : c.dim('Already up to date')}${changed ? c.dim(` · ${changed} file(s) changed`) : ''}`);
   if (r.newSidecar.length && !dryRun) console.log(`  ${c.y('→')} ${c.dim(`${r.newSidecar.length} *.new file(s) to review and merge — or re-run: spectoflow update --force`)}`);
   console.log('');
+
+  // A running dashboard has the OLD framework code loaded into memory (Node caches `require()`d
+  // modules at process start) — new bytes on disk change nothing until it restarts. Do that
+  // automatically so an update always actually takes effect, instead of leaving a confusing
+  // half-updated dashboard (new static files, stale server logic) until someone thinks to restart.
+  if (!dryRun && changed) {
+    const lock = path.join(root, '.spectoflow', '.dashboard.lock');
+    let info = null;
+    try { info = JSON.parse(fs.readFileSync(lock, 'utf8')); } catch {}
+    if (info && info.port && (await probeDashboard(info.port, 2000))) {
+      console.log(`  ${c.dim('Dashboard is running — restarting it on port ' + info.port + ' to apply the update…')}`);
+      // Restart on the SAME port it was already on, not resolvePort(argv)'s default — `update`
+      // itself was never given a --port, so a naive restartDashboard() would silently move a
+      // non-default-port dashboard back to 4319.
+      argv.push(`--port=${info.port}`);
+      await restartDashboard();
+    }
+  }
 }
 
 // THE launch command — routes the subcommands, then starts. Starting spawns the server DETACHED and
@@ -331,7 +349,12 @@ async function startDashboard() {
   const env = Object.assign({}, process.env, { SPECTOFLOW_PORT: String(port) });
   const child = spawn('node', [fs.existsSync(local) ? local : bundled], { detached: true, stdio: 'ignore', env });
   child.unref();                                   // let this CLI exit while the server keeps running
-  console.log(`${c.g('✓')} dashboard started → ${c.bold(url)}  ${c.dim('(pid ' + child.pid + ')')}`);
+  // Confirm it actually came up (a still-releasing port from a just-stopped instance, or any other
+  // startup error, would otherwise print a false "started" while the detached process silently died).
+  let up = false;
+  for (let i = 0; i < 20 && !up; i++) { await new Promise((r) => setTimeout(r, 250)); up = await probeDashboard(port, 300); }
+  if (up) console.log(`${c.g('✓')} dashboard started → ${c.bold(url)}  ${c.dim('(pid ' + child.pid + ')')}`);
+  else console.log(`${c.y('!')} spawned (pid ${child.pid}) but it isn't responding on ${url} yet — check ${c.g('spectoflow dashboard status')} in a moment, or its own output if something's wrong.`);
   printDashboardCommands();
 }
 
@@ -354,7 +377,11 @@ async function dashboardStatus() {
 
 async function restartDashboard() {
   await stopDashboard();
-  await new Promise((r) => setTimeout(r, 400));     // let the port free up before rebinding
+  // Windows doesn't deliver real signals — process.kill() returns once the request is issued, not
+  // once the process (and the port it held) is actually gone. A short gap here, plus startDashboard()
+  // now confirming the new one actually came up, keeps a restart honest under load instead of racing
+  // a rebind against a socket the OS hasn't finished releasing yet.
+  await new Promise((r) => setTimeout(r, 1000));
   return startDashboard();
 }
 

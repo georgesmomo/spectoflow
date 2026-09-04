@@ -139,6 +139,48 @@ function addTaskComment(projectRoot, file, id, text, author) {
   return false;
 }
 
+// Next free T-### id across every plan file — scans for the highest existing T-<n> and returns n+1.
+function nextTaskId(projectRoot) {
+  let max = 0;
+  for (const pl of readPlans(projectRoot)) {
+    for (const ph of pl.phases) {
+      for (const t of ph.tasks) {
+        const m = /^T-(\d+)$/.exec(t.id);
+        if (m) max = Math.max(max, Number(m[1]));
+      }
+    }
+  }
+  return 'T-' + String(max + 1).padStart(3, '0');
+}
+
+// Add a new checkbox task, generating its id. `file` (a basename from readPlans, e.g. "0001-x.md")
+// picks which plan; when omitted, the first existing plan file is used, or `plans/inbox.md` is
+// created if the project has no plans yet. `phase` is the "## " heading the task is filed under —
+// created at the end of the file if it doesn't already exist. Returns { id, file }.
+function addTask(projectRoot, { file, phase, title, owner, level, status } = {}) {
+  const dirName = resolvePlansDir(projectRoot, readConfig(projectRoot));
+  const dir = path.join(projectRoot, dirName);
+  const plans = readPlans(projectRoot);
+  let fp;
+  if (file && plans.some((pl) => pl.file === file)) fp = path.join(dir, file);
+  else if (plans[0]) fp = path.join(dir, plans[0].file);
+  else { fs.mkdirSync(dir, { recursive: true }); fp = path.join(dir, 'inbox.md'); if (!fs.existsSync(fp)) writeAtomic(fp, '# Inbox\n'); }
+
+  const id = nextTaskId(projectRoot);
+  const phaseName = (phase && String(phase).trim()) || 'Backlog';
+  const line = buildTaskLine({
+    indent: '', id, title: String(title).replace(/\s+/g, ' ').trim(),
+    owner: (owner && String(owner).trim()) || null, level: level || 'standard', status: status || 'todo',
+  });
+
+  let text = fs.readFileSync(fp, 'utf8');
+  const headingRe = new RegExp(`^##\\s+${phaseName.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}\\s*$`, 'm');
+  if (headingRe.test(text)) text = text.replace(headingRe, (m) => `${m}\n${line}`);
+  else { if (!text.endsWith('\n')) text += '\n'; text += `\n## ${phaseName}\n${line}\n`; }
+  writeAtomic(fp, text);
+  return { id, file: path.basename(fp) };
+}
+
 function writeAtomic(fp, content) {
   const tmp = fp + '.tmp';
   fs.writeFileSync(tmp, content, 'utf8');
@@ -331,6 +373,7 @@ function readSkills(projectRoot) {
 
 module.exports = {
   parseTaskLine, buildTaskLine, parsePlan, readPlans, readSpecs, updateTaskLine, addTaskComment,
+  nextTaskId, addTask,
   readRuntime, writeRuntime, parseAgentLine, appendMessage, readConfig, readWorkflow, readProject,
   readAgents, readSkills, readCustomDashboards, recordSnapshot, resolvePlansDir, resolveSpecsDir,
 };

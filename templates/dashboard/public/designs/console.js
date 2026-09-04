@@ -131,11 +131,47 @@
     tabsHome = null;
   }
 
+  // ---- rail expand/collapse — icon-only stays the default; a viewer can opt into showing the
+  // menu names too, persisted per browser (like the Board's List/Kanban toggle). ----
+  var railToggle = null;
+  function railExpanded() {
+    try { return localStorage.getItem('spf-console-rail') === 'expanded'; } catch (e) { return false; }
+  }
+  function applyRailState() {
+    var expanded = railExpanded();
+    document.documentElement.setAttribute('data-rail', expanded ? 'expanded' : 'collapsed');
+    if (railToggle) railToggle.setAttribute('aria-label', expanded ? 'Collapse sidebar' : 'Expand sidebar');
+    var label = railToggle && railToggle.querySelector('.cx-rail-toggle-label');
+    if (label) label.textContent = expanded ? 'Collapse' : 'Expand';
+  }
+  function toggleRail() {
+    var expanded = !railExpanded();
+    try { localStorage.setItem('spf-console-rail', expanded ? 'expanded' : 'collapsed'); } catch (e) {}
+    applyRailState();
+  }
+  function injectRailToggle() {
+    if (railToggle || document.getElementById('cxRailToggle')) return;
+    railToggle = document.createElement('button');
+    railToggle.id = 'cxRailToggle';
+    railToggle.type = 'button';
+    railToggle.innerHTML =
+      '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 18l6-6-6-6"/></svg>' +
+      '<span class="cx-rail-toggle-label"></span>';
+    railToggle.addEventListener('click', toggleRail);
+    document.body.appendChild(railToggle);
+    applyRailState();
+  }
+  function removeRailToggle() {
+    if (railToggle) { railToggle.remove(); railToggle = null; }
+    document.documentElement.removeAttribute('data-rail');
+  }
+
   function activate() {
     if (active) return;
     active = true;
     dockRail();
     injectButton();
+    injectRailToggle();
     document.addEventListener('keydown', onKeydown);
   }
 
@@ -144,6 +180,7 @@
     active = false;
     close();
     removeButton();
+    removeRailToggle();
     undockRail();
     document.removeEventListener('keydown', onKeydown);
   }

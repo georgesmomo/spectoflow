@@ -55,19 +55,32 @@ function chatContainers(){ return [$('#chatLog'),$('#chatTabLog')].filter(Boolea
 function scrollChat(container){ container.scrollTop=container.scrollHeight; }
 function clearIdle(container){ const i=container.querySelector('.chat-idle'); if(i) i.remove(); }
 function bubble(m){
-  if(m.role==='user'){ const d=el('div','msg you'); d.append(el('div','bubble',m.text)); return d; }
-  const wrap=el('div','msg agentmsg k-'+(m.kind||'message'));
-  wrap.append(el('div','msg-role', m.role + (m.agent&&m.agent!==m.role?(' · '+m.agent):'')));
-  wrap.append(el('div','bubble',m.text));
-  return wrap;
+  let node;
+  if(m.role==='user'){ node=el('div','msg you'); node.append(el('div','bubble',m.text)); }
+  else{
+    node=el('div','msg agentmsg k-'+(m.kind||'message'));
+    node.append(el('div','msg-role', m.role + (m.agent&&m.agent!==m.role?(' · '+m.agent):'')));
+    node.append(el('div','bubble',m.text));
+  }
+  node.dataset.id=m.id; // lets renderChatLog tell a stale bubble from a genuinely new one
+  return node;
 }
+function idleBlock(){ const d=el('div','chat-idle'); d.innerHTML=t('chat.idle'); return d; }
 function renderChatLog(container){
   if(!container) return;
   const st=stateFor(container); const msgs=(P.runtime&&P.runtime.messages)||[];
-  if(msgs.length) clearIdle(container);
+  const ids=new Set(msgs.map(m=>m.id));
+  // Summarize/Clear REPLACE the server-side log (a digest that leaves the old messages sitting right
+  // below it wouldn't condense anything) — if anything we already rendered no longer exists, the log
+  // was reset under us: rebuild from scratch instead of just appending, or the stale bubbles never go
+  // away short of a full page reload.
+  const stale=[...st.rendered].some(id=>!ids.has(id));
+  if(stale){ container.innerHTML=''; st.rendered=new Set(); st.rawBlock=null; }
+  if(!msgs.length){ if(!container.querySelector('.chat-idle')) container.append(idleBlock()); renderApproval(container); return; }
+  clearIdle(container);
   let added=false;
   for(const m of msgs){ if(st.rendered.has(m.id)) continue; st.rendered.add(m.id); container.append(bubble(m)); added=true; }
-  if(added) scrollChat(container);
+  if(added||stale) scrollChat(container);
   renderApproval(container);
 }
 function renderApproval(container){
@@ -151,7 +164,7 @@ function render(){
   if(meter) meter.title=`${t('kpi.globalProgress')}: ${s.pct}% (${s.done}/${s.total} ${t('kpi.tasksLabel')})`;
   renderOverview(); renderBoard(); renderBacklog(); renderWorkflow(); renderTeam();
   renderChatLog($('#chatLog')); renderChatLog($('#chatTabLog'));
-  renderSidebar(); renderRequests(); renderAttention(); renderInfo(); renderDocs(); renderSettings();
+  renderSidebar(); renderRequests(); renderAttention(); renderInfo(); renderDocs(); renderSettings(); renderFiles();
   renderCustomDashboards(); // adds/removes nav tabs + panels before applyActiveTab() below reads them
   applyActiveTab(); // re-apply the current tab so an SSE-driven re-render never resets to Board
   applyI18nStatic(); // re-translate the static markup (nav, headers, placeholders…) for this tick's language
@@ -695,6 +708,39 @@ function editAttn(it,txtNode){
   ta.addEventListener('keydown',e=>{ if((e.metaKey||e.ctrlKey)&&e.key==='Enter'){ e.preventDefault(); save(); } if(e.key==='Escape'){ done=true; renderAttention(); } });
 }
 async function addAttn(text){ flash(); await fetch('/api/attention',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({text})}); }
+
+// ---- Backlog "+ Add task" — a manual checkbox task, no agent involved ----
+function openBacklogAddForm(){
+  const form=$('#backlogAddForm'); if(!form) return;
+  const list=$('#blPhaseList');
+  if(list){ list.innerHTML=''; allPhaseTitles().forEach(ti=> list.append(new Option(ti))); }
+  const err=$('#blAddError'); if(err) err.hidden=true;
+  form.hidden=false; form.classList.add('is-open');
+  $('#blAddTitle').focus();
+}
+function closeBacklogAddForm(){
+  const form=$('#backlogAddForm'); if(!form) return;
+  form.hidden=true; form.classList.remove('is-open');
+  ['blAddTitle','blAddPhase','blAddOwner'].forEach(id=>{ const f=$('#'+id); if(f) f.value=''; });
+  const lvl=$('#blAddLevel'); if(lvl) lvl.value='standard';
+}
+async function submitBacklogAdd(){
+  const err=$('#blAddError');
+  const title=($('#blAddTitle').value||'').trim();
+  if(!title){ if(err){ err.textContent=t('backlog.addTitleRequired'); err.hidden=false; } $('#blAddTitle').focus(); return; }
+  const phase=($('#blAddPhase').value||'').trim();
+  const owner=($('#blAddOwner').value||'').trim();
+  const level=$('#blAddLevel').value;
+  flash();
+  const r=await fetch('/api/task',{method:'POST',headers:{'Content-Type':'application/json'},
+    body:JSON.stringify({title, phase:phase||undefined, owner:owner||undefined, level})});
+  if(!r.ok){
+    const j=await r.json().catch(()=>({}));
+    if(err){ err.textContent=j.error||t('backlog.addFailed'); err.hidden=false; }
+    return;
+  }
+  closeBacklogAddForm();
+}
 async function patchAttn(id,patch){ flash(); await fetch('/api/attention/'+encodeURIComponent(id),{method:'PATCH',headers:{'Content-Type':'application/json'},body:JSON.stringify(patch)}); }
 async function deleteAttn(id){ flash(); await fetch('/api/attention/'+encodeURIComponent(id),{method:'DELETE'}); }
 async function promoteAttn(id){ flash(); await fetch('/api/attention/'+encodeURIComponent(id)+'/promote',{method:'POST'}); }
@@ -917,10 +963,14 @@ function czItemsFor(kind){
 function renderCustomize(){
   const root=$('#czRoot'); if(!root) return;
   const openKind=root.dataset.open||'';
+  // a block with its form open spans the full row (see CSS) — an auto-fit grid would otherwise
+  // still reserve empty trailing cells beside it for the two collapsed blocks that no longer fill
+  // out a row, so drop to a single column for the whole grid while any block is open.
+  root.classList.toggle('has-open', !!openKind);
   root.innerHTML='';
   CZ_KINDS.forEach(({kind})=>{
     const items=czItemsFor(kind);
-    const block=el('div','cz-block');
+    const block=el('div','cz-block'+(openKind===kind?' is-open':''));
     const head=el('div','cz-head');
     head.append(el('h3',null,t('customize.'+kind+'s')+' ('+items.length+')'));
     const addBtn=el('button','btn cz-add',t('customize.add.'+kind));
@@ -967,11 +1017,15 @@ async function czSubmit(kind,description,agent){
 // A custom dashboard (Customize page) gets its own tab id "custom:<id>" and its own URL shape
 // /custom/<id> — kept out of ROUTES (a fixed list) since the set of custom ids is dynamic; recognized
 // by a dedicated branch in tabFromPath()/navigateTab() instead.
-const ROUTES=['board','requests','attention','backlog','workflow','team','chat','info','docs','settings'];
+const ROUTES=['board','requests','attention','backlog','workflow','team','files','chat','info','docs','personalize'];
+// the tab used to be named/routed "settings" — old bookmarks and any localStorage value saved
+// under that name still land on the Personalize tab instead of a blank panel.
+function normalizeTab(t){ return t==='settings'?'personalize':t; }
 function tabFromPath(){
   const s=location.pathname.split('/').filter(Boolean);
   if(s[0]==='custom'&&s[1]) return 'custom:'+decodeURIComponent(s[1]);
-  return ROUTES.includes(s[0])?s[0]:null;
+  const t=normalizeTab(s[0]);
+  return ROUTES.includes(t)?t:null;
 }
 function taskFromPath(){ const s=location.pathname.split('/').filter(Boolean); return (ROUTES.includes(s[0])&&s[1])?decodeURIComponent(s[1]):null; }
 function navigateTab(tabId,push){
@@ -986,6 +1040,7 @@ function navigateTab(tabId,push){
   // was scrolled to last (only on an actual switch INTO the tab — applyActiveTab() alone runs on
   // every SSE render tick too, and re-scrolling/re-focusing there would fight the user's typing).
   if(tabId==='chat') setTimeout(()=>{ scrollChat($('#chatTabLog')); $('#tabRunPrompt').focus(); },60);
+  if(tabId==='files') renderFiles(); // the tree is fetched lazily — only load it on an actual switch in
 }
 function closeNav(){ document.body.classList.remove('nav-open'); const nt=$('#navToggle'); if(nt) nt.setAttribute('aria-expanded','false'); }
 
@@ -1236,6 +1291,203 @@ function renderDocs(){
   box.append(note);
 }
 
+// ---- Files tab: browse the project tree, view/edit any text file (Markdown rendered, HTML
+// previewed in a sandboxed iframe, everything else as a plain monospace editor). The tree is
+// fetched lazily (only while this tab is active) and never refetched mid-edit — an SSE 'change'
+// event refreshes the TREE listing but never overwrites an open file's editor buffer, so an
+// unrelated agent write elsewhere can't clobber unsaved work here. ----
+let filesTreeData=null, filesOpenPath=null, filesOpenDirty=false;
+const filesOpenDirs=new Set(); // persists which tree folders are expanded across a refresh
+async function loadFilesTree(){
+  try{
+    const r=await fetch('/api/files/tree'); const d=await r.json().catch(()=>({}));
+    filesTreeData = (r.ok && Array.isArray(d.tree)) ? d.tree : [];
+  }catch{ filesTreeData=filesTreeData||[]; }
+  renderFilesTree();
+}
+function renderFiles(){
+  // Only the FIRST activation fetches — render() re-runs on every SSE 'change' (a chat message, a
+  // task update, anything) and a full tree rebuild on each of those would yank rows out from under
+  // an in-progress click. Fresh-after-your-own-action is handled by loadFilesTree() calls at the
+  // point of action (filesCreate); the toolbar's Refresh button covers everything else.
+  if(activeTab!=='files' || filesTreeData!=null) return;
+  loadFilesTree();
+}
+function fNode(entry){
+  const row=el('div','f-row'+(entry.type==='dir'&&filesOpenDirs.has(entry.path)?' is-open':'')+(entry.path===filesOpenPath?' is-active':''));
+  row.tabIndex=0;
+  if(entry.type==='dir'){
+    const chev=document.createElementNS('http://www.w3.org/2000/svg','svg');
+    chev.setAttribute('viewBox','0 0 18 18'); chev.setAttribute('class','f-chevron'); chev.setAttribute('fill','none'); chev.setAttribute('stroke','currentColor'); chev.setAttribute('stroke-width','1.8');
+    chev.innerHTML='<path d="M6.5 4l6 5-6 5"/>';
+    row.append(chev);
+  } else row.append(el('span',null,''));
+  row.append(el('span','f-name',entry.name));
+  const wrap=el('div','f-node');
+  wrap.append(row);
+  if(entry.type==='dir'){
+    const kids=el('div','f-children'); kids.hidden=!filesOpenDirs.has(entry.path);
+    (entry.children||[]).forEach(c=> kids.append(fNode(c)));
+    wrap.append(kids);
+    row.addEventListener('click',()=>{
+      const open=filesOpenDirs.has(entry.path);
+      if(open) filesOpenDirs.delete(entry.path); else filesOpenDirs.add(entry.path);
+      row.classList.toggle('is-open',!open); kids.hidden=open;
+    });
+  } else {
+    row.addEventListener('click',()=> openFilesFile(entry.path));
+  }
+  return wrap;
+}
+function renderFilesTree(){
+  const box=$('#filesTree'); if(!box) return;
+  box.innerHTML='';
+  if(!filesTreeData || !filesTreeData.length){ box.append(el('div','empty',t('files.empty'))); return; }
+  filesTreeData.forEach(e=> box.append(fNode(e)));
+}
+function filesExt(p){ const m=/\.([a-z0-9]+)$/i.exec(p||''); return m?m[1].toLowerCase():''; }
+async function openFilesFile(relPath){
+  // no native confirm() dialog (it blocks the whole tab, including our own SSE/automation) — a
+  // dirty editor just refuses to switch until the user explicitly saves or discards.
+  if(filesOpenDirty){
+    const actions=$('#filesContent .files-actions');
+    if(actions && !actions.querySelector('.files-error-tip')){
+      const tip=el('span','files-error-tip',t('files.discardConfirm')); actions.append(tip);
+    }
+    return;
+  }
+  filesOpenPath=relPath; filesOpenDirty=false;
+  renderFilesTree();
+  const box=$('#filesContent'); box.innerHTML='';
+  box.append(el('div','files-empty',t('drawer.loading')));
+  let data;
+  try{ const r=await fetch('/api/files/read?'+new URLSearchParams({path:relPath})); data=await r.json().catch(()=>({})); if(!r.ok) throw new Error(data.error||'error'); }
+  catch(err){ box.innerHTML=''; box.append(el('div','files-empty',err.message||t('files.loadError'))); return; }
+  box.innerHTML='';
+  const bar=el('div','files-toolbar-row');
+  bar.append(el('div','files-path',relPath));
+  const actions=el('div','files-actions'); bar.append(actions);
+  box.append(bar);
+  if(data.binary){ box.append(el('div','files-binary',t('files.binary'))); return; }
+  const ext=filesExt(relPath);
+  const content=data.content||'';
+  if(ext==='md'||ext==='markdown'){ renderFilesMd(box,actions,relPath,content); }
+  else if(ext==='html'||ext==='htm'){ renderFilesHtml(box,actions,relPath,content); }
+  else { renderFilesText(box,actions,relPath,content); }
+}
+function filesSavedTip(actions){
+  const tip=el('span','files-saved-tip',t('files.saved')); actions.append(tip);
+  setTimeout(()=>tip.remove(),1500);
+}
+// Explicit, non-blocking way to abandon local edits (no confirm() dialog) — re-fetches the file
+// fresh from disk and clears the dirty flag so switching tree files is unblocked again.
+function filesDiscardBtn(relPath){
+  const btn=el('button',null,t('files.discard')); btn.type='button';
+  btn.addEventListener('click',()=>{ filesOpenDirty=false; openFilesFile(relPath); });
+  return btn;
+}
+async function filesSave(relPath,content,actions){
+  try{
+    const r=await fetch('/api/files/write',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({path:relPath,content})});
+    const d=await r.json().catch(()=>({}));
+    if(!r.ok) throw new Error(d.error||'error');
+    filesOpenDirty=false; filesSavedTip(actions);
+  }catch(err){
+    const tip=el('span','files-error-tip',err.message||t('files.saveError')); actions.append(tip);
+  }
+}
+// Markdown: rendered preview by default (via the same mdLite renderer the Agents & Skills drawer
+// uses), with an Edit toggle that swaps in a plain-text editor plus a tiny insert-at-cursor toolbar.
+function renderFilesMd(box,actions,relPath,content){
+  let editing=false;
+  const editBtn=el('button','btn',t('files.edit'));
+  actions.append(editBtn);
+  const body=el('div','files-body-col');
+  box.append(body);
+  const showPreview=()=>{ body.innerHTML=''; const md=el('div','files-view md-body'); md.innerHTML=mdLite(content); body.append(md); editBtn.textContent=t('files.edit'); };
+  const showEditor=()=>{
+    body.innerHTML='';
+    const tb=el('div','files-md-toolbar');
+    const ta=el('textarea','files-editor'); ta.value=content;
+    const wrapSel=(before,after)=>{ const s=ta.selectionStart,e=ta.selectionEnd; const v=ta.value; ta.value=v.slice(0,s)+before+v.slice(s,e)+after+v.slice(e); ta.focus(); ta.selectionStart=s+before.length; ta.selectionEnd=e+before.length; content=ta.value; filesOpenDirty=true; };
+    [['B','**','**'],['I','_','_'],['H','## ',''],['Link','[','](url)']].forEach(([label,a,b])=>{
+      const bt=el('button',null,label); bt.type='button'; bt.addEventListener('click',()=>wrapSel(a,b)); tb.append(bt);
+    });
+    const saveBtn=el('button',null,t('files.save')); saveBtn.type='button'; saveBtn.addEventListener('click',()=>{ content=ta.value; filesSave(relPath,content,actions); });
+    tb.append(saveBtn,filesDiscardBtn(relPath));
+    ta.addEventListener('input',()=>{ content=ta.value; filesOpenDirty=true; });
+    body.append(tb,ta); ta.focus(); editBtn.textContent=t('files.preview');
+  };
+  editBtn.addEventListener('click',()=>{ editing=!editing; if(editing) showEditor(); else showPreview(); });
+  showPreview();
+}
+// HTML: sandboxed iframe preview by default, plain-text editor on toggle (no WYSIWYG — the
+// dashboard stays zero-dependency, no editor library is loaded).
+function renderFilesHtml(box,actions,relPath,content){
+  let editing=false;
+  const editBtn=el('button','btn',t('files.edit'));
+  actions.append(editBtn);
+  const body=el('div','files-body-col');
+  box.append(body);
+  const showPreview=()=>{
+    body.innerHTML='';
+    const frame=document.createElement('iframe');
+    frame.className='files-iframe'; frame.setAttribute('sandbox',''); frame.srcdoc=content;
+    body.append(frame); editBtn.textContent=t('files.edit');
+  };
+  const showEditor=()=>{
+    body.innerHTML='';
+    const ta=el('textarea','files-editor'); ta.value=content;
+    ta.addEventListener('input',()=>{ content=ta.value; filesOpenDirty=true; });
+    const saveBtn=el('button','btn primary',t('files.save')); saveBtn.type='button'; saveBtn.addEventListener('click',()=>filesSave(relPath,content,actions));
+    const tb=el('div','files-md-toolbar'); tb.append(saveBtn,filesDiscardBtn(relPath));
+    body.append(tb,ta); ta.focus(); editBtn.textContent=t('files.preview');
+  };
+  editBtn.addEventListener('click',()=>{ editing=!editing; if(editing) showEditor(); else showPreview(); });
+  showPreview();
+}
+// Anything else that reads as text: a plain monospace editor, editable straight away.
+function renderFilesText(box,actions,relPath,content){
+  const ta=el('textarea','files-editor'); ta.value=content;
+  ta.addEventListener('input',()=>{ filesOpenDirty=true; });
+  const saveBtn=el('button','btn primary',t('files.save')); saveBtn.type='button';
+  saveBtn.addEventListener('click',()=>filesSave(relPath,ta.value,actions));
+  actions.append(saveBtn,filesDiscardBtn(relPath));
+  box.append(ta); ta.focus();
+}
+// "+ File"/"+ Folder" open the same inline form (never a native prompt()/alert() — those block the
+// whole tab, including our own SSE connection, until dismissed).
+let filesCreateKind='file';
+function openFilesCreateForm(kind){
+  filesCreateKind=kind;
+  const form=$('#filesCreateForm'); if(!form) return;
+  const input=$('#filesCreateInput');
+  input.placeholder = kind==='dir' ? t('files.newFolderPrompt') : t('files.newFilePrompt');
+  input.value='';
+  const err=$('#filesCreateError'); if(err) err.hidden=true;
+  form.hidden=false; form.classList.add('is-open');
+  input.focus();
+}
+function closeFilesCreateForm(){
+  const form=$('#filesCreateForm'); if(!form) return;
+  form.hidden=true; form.classList.remove('is-open');
+}
+async function submitFilesCreate(){
+  const input=$('#filesCreateInput'); const err=$('#filesCreateError');
+  const name=(input.value||'').trim();
+  if(!name){ if(err){ err.textContent=t('backlog.addTitleRequired'); err.hidden=false; } return; }
+  const rel=name.replace(/^\/+/,'');
+  const kind=filesCreateKind;
+  const endpoint = kind==='dir' ? '/api/files/mkdir' : '/api/files/write';
+  const payload = kind==='dir' ? {path:rel} : {path:rel,content:''};
+  const r=await fetch(endpoint,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(payload)});
+  const d=await r.json().catch(()=>({}));
+  if(!r.ok){ if(err){ err.textContent=d.error||t('files.saveError'); err.hidden=false; } return; }
+  closeFilesCreateForm();
+  await loadFilesTree();
+  if(kind!=='dir') openFilesFile(rel);
+}
+
 function openDrawer(id,keep){
   // named `task`, not `t` — `t` is the global translation function (see i18n.js) and this whole
   // function calls it repeatedly below; shadowing it with a task variable would break every call.
@@ -1283,7 +1535,7 @@ const cssv=(v)=> getComputedStyle(document.documentElement).getPropertyValue(v).
 // too instead of ever resetting to Board; this is what keeps a tab selected across a race with a
 // 'change'/'message' event that lands right after a click.
 // initial tab: the URL path wins (deep-link / refresh), else the persisted tab, else board
-let activeTab = tabFromPath() || (()=>{ try{ return localStorage.getItem('spf-tab')||'board'; }catch{ return 'board'; } })();
+let activeTab = tabFromPath() || (()=>{ try{ return normalizeTab(localStorage.getItem('spf-tab'))||'board'; }catch{ return 'board'; } })();
 openTaskId = taskFromPath(); // deep-link straight to a task drawer
 function applyActiveTab(){
   $$('#tabs .tab').forEach(t=> t.classList.toggle('is-active', t.dataset.tab===activeTab));
@@ -1308,6 +1560,9 @@ window.addEventListener('popstate',()=>{
 // brand logo → Board (SPA nav, no full reload)
 const brandLogo=$('.brand-logo'); if(brandLogo) brandLogo.addEventListener('click',e=>{ e.preventDefault(); navigateTab('board'); });
 applyActiveTab(); // sync to the resolved tab before the first render
+// an old bookmark/share to the pre-rename "/settings" URL: swap the address bar to the real
+// route once resolved, so the visible URL matches the "Personalize" tab it landed on.
+if(location.pathname.split('/').filter(Boolean)[0]==='settings') history.replaceState(null,'','/personalize');
 // filters (status chips + search) — client-side only, does not write anything
 $$('#statusChips .fchip').forEach(b=> b.addEventListener('click', ()=>{ filter.status=b.dataset.status; renderBoard(); }));
 $('#search').addEventListener('input', e=>{ filter.q=e.target.value; renderBoard(); });
@@ -1330,12 +1585,24 @@ $$('#backlogTable thead th').forEach(th=> th.addEventListener('click', ()=>{
   else { backlogSort.col=col; backlogSort.dir='asc'; }
   backlogPage=1; renderBacklog();
 }));
+// files tab: create a new file/folder (path relative to the project root, e.g. "notes/todo.md")
+const filesNewFileBtn=$('#filesNewFile'); if(filesNewFileBtn) filesNewFileBtn.addEventListener('click',()=>openFilesCreateForm('file'));
+const filesNewFolderBtn=$('#filesNewFolder'); if(filesNewFolderBtn) filesNewFolderBtn.addEventListener('click',()=>openFilesCreateForm('dir'));
+const filesRefreshBtn=$('#filesRefresh'); if(filesRefreshBtn) filesRefreshBtn.addEventListener('click',loadFilesTree);
+const filesCreateGoBtn=$('#filesCreateGo'); if(filesCreateGoBtn) filesCreateGoBtn.addEventListener('click',submitFilesCreate);
+const filesCreateCancelBtn=$('#filesCreateCancel'); if(filesCreateCancelBtn) filesCreateCancelBtn.addEventListener('click',closeFilesCreateForm);
+const filesCreateInputEl=$('#filesCreateInput'); if(filesCreateInputEl) filesCreateInputEl.addEventListener('keydown',e=>{ if(e.key==='Enter') submitFilesCreate(); });
+// backlog: manual "+ Add task" form (title required, phase/owner/level optional)
+$('#backlogAddBtn').addEventListener('click', ()=>{ const form=$('#backlogAddForm'); (form&&!form.hidden)?closeBacklogAddForm():openBacklogAddForm(); });
+$('#blAddCancel').addEventListener('click', closeBacklogAddForm);
+$('#blAddSubmit').addEventListener('click', submitBacklogAdd);
+$('#blAddTitle').addEventListener('keydown', e=>{ if(e.key==='Enter') submitBacklogAdd(); });
 // attention tab: add a note + filter chips
 $('#attnAddBtn').addEventListener('click',()=>{ const t=$('#attnInput'); const v=t.value.trim(); if(v){ addAttn(v); t.value=''; } });
 $('#attnInput').addEventListener('keydown',e=>{ if((e.metaKey||e.ctrlKey)&&e.key==='Enter'){ const v=e.target.value.trim(); if(v){ addAttn(v); e.target.value=''; } } });
 $$('.attn-filters .fchip').forEach(b=> b.addEventListener('click',()=>{ attnFilter=b.dataset.attn; renderAttention(); }));
 // settings — the footer link opens the Settings tab; selects save on change
-const footerSettingsBtn=$('#footerSettings'); if(footerSettingsBtn) footerSettingsBtn.addEventListener('click',()=>navigateTab('settings'));
+const footerSettingsBtn=$('#footerSettings'); if(footerSettingsBtn) footerSettingsBtn.addEventListener('click',()=>navigateTab('personalize'));
 const footerLogo=$('.footer-logo'); if(footerLogo) footerLogo.addEventListener('click',e=>{ e.preventDefault(); navigateTab('board'); });
 function onModeSelectChange(e){ setModeSelects(e.target.value); saveSettings(); }
 function onLangSelectChange(e){ setLangSelect(e.target.value); saveSettings(); }

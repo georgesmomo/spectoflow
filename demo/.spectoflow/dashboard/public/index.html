@@ -56,9 +56,10 @@
       <button class="tab" data-tab="backlog" data-i18n-title="nav.backlog" title="Backlog"><span class="tab-ico" data-icon="backlog"></span><span class="tab-label" data-i18n="nav.backlog">Backlog</span></button>
       <button class="tab" data-tab="workflow" data-i18n-title="nav.workflow" title="Workflow"><span class="tab-ico" data-icon="workflow"></span><span class="tab-label" data-i18n="nav.workflow">Workflow</span></button>
       <button class="tab" data-tab="team" data-i18n-title="nav.team" title="Agents &amp; Skills"><span class="tab-ico" data-icon="agents"></span><span class="tab-label" data-i18n="nav.team">Agents &amp; Skills</span></button>
+      <button class="tab" data-tab="files" data-i18n-title="nav.files" title="Files"><span class="tab-ico" data-icon="files"></span><span class="tab-label" data-i18n="nav.files">Files</span></button>
       <button class="tab" data-tab="info" data-i18n-title="nav.info" title="Info"><span class="tab-ico" data-icon="info"></span><span class="tab-label" data-i18n="nav.info">Info</span></button>
       <button class="tab" data-tab="docs" data-i18n-title="nav.docs" title="Documentation"><span class="tab-ico" data-icon="docs"></span><span class="tab-label" data-i18n="nav.docs">Documentation</span></button>
-      <button class="tab" data-tab="settings" data-i18n-title="nav.settings" title="Personalize"><span class="tab-ico" data-icon="settings"></span><span class="tab-label" data-i18n="nav.settings">Personalize</span></button>
+      <button class="tab" data-tab="personalize" data-i18n-title="nav.settings" title="Personalize"><span class="tab-ico" data-icon="settings"></span><span class="tab-label" data-i18n="nav.settings">Personalize</span></button>
     </nav>
     <div class="top-right">
       <span class="sync" id="sync"><span class="sync-dot"></span><span id="syncLabel">live</span></span>
@@ -152,6 +153,21 @@
             <button class="fchip" data-status="blocked" data-i18n="status.blocked">Blocked</button>
           </div>
           <input type="search" id="backlogSearch" class="search" data-i18n-ph="backlog.searchPlaceholder" placeholder="Filter by id or title…" autocomplete="off" />
+          <button id="backlogAddBtn" class="btn primary" type="button" data-i18n="backlog.addTask">+ Add task</button>
+        </div>
+        <div class="bl-add-form" id="backlogAddForm" hidden>
+          <input type="text" id="blAddTitle" class="bl-add-input bl-add-title" data-i18n-ph="backlog.addTitlePh" placeholder="Task title…" autocomplete="off" />
+          <input type="text" id="blAddPhase" class="bl-add-input bl-add-phase" list="blPhaseList" data-i18n-ph="backlog.addPhasePh" placeholder="Phase…" autocomplete="off" />
+          <datalist id="blPhaseList"></datalist>
+          <input type="text" id="blAddOwner" class="bl-add-input bl-add-owner" data-i18n-ph="backlog.addOwnerPh" placeholder="Owner…" autocomplete="off" />
+          <select id="blAddLevel" class="bl-add-input">
+            <option value="quick">quick</option>
+            <option value="standard" selected>standard</option>
+            <option value="major">major</option>
+          </select>
+          <button id="blAddSubmit" class="btn primary" type="button" data-i18n="backlog.addSubmit">Add</button>
+          <button id="blAddCancel" class="btn" type="button" data-i18n="backlog.addCancel">Cancel</button>
+          <span class="bl-add-error" id="blAddError" hidden></span>
         </div>
         <div class="table-scroll">
           <table class="backlog-table" id="backlogTable">
@@ -191,6 +207,35 @@
         <h2 class="panel-title" style="margin-top:28px"><span data-i18n="team.skillsTitle">Skills</span> <span class="count" id="skillsCount">0</span></h2>
         <p class="panel-sub" data-i18n-html="team.skillsSub">Evolving procedures — the <em>how</em>.</p>
         <div class="cards" id="skills"></div>
+      </div>
+    </section>
+
+    <!-- FILES (project file explorer: tree + view/edit Markdown, HTML and any text file) -->
+    <section class="panel" data-panel="files">
+      <div class="files-wrap">
+        <h2 class="panel-title" data-i18n="files.title">Files</h2>
+        <p class="panel-sub" data-i18n="files.sub">Browse the project's files — view Markdown &amp; HTML, edit any text file, create new ones.</p>
+        <div class="files-body">
+          <div class="files-tree-col">
+            <div class="files-toolbar">
+              <button id="filesNewFile" class="btn" type="button" data-i18n="files.newFile">+ File</button>
+              <button id="filesNewFolder" class="btn" type="button" data-i18n="files.newFolder">+ Folder</button>
+              <button id="filesRefresh" class="btn" type="button" title="Refresh" data-i18n-title="files.refresh">⟳</button>
+            </div>
+            <div class="files-create-form" id="filesCreateForm" hidden>
+              <input type="text" id="filesCreateInput" class="bl-add-input" autocomplete="off" />
+              <div class="files-create-actions">
+                <button id="filesCreateGo" class="btn primary" type="button" data-i18n="files.create">Create</button>
+                <button id="filesCreateCancel" class="btn" type="button" data-i18n="backlog.addCancel">Cancel</button>
+              </div>
+              <span class="files-error-tip" id="filesCreateError" hidden></span>
+            </div>
+            <div class="files-tree" id="filesTree"></div>
+          </div>
+          <div class="files-content-col" id="filesContent">
+            <div class="files-empty" data-i18n="files.pickFile">Select a file to view it.</div>
+          </div>
+        </div>
       </div>
     </section>
 
@@ -244,41 +289,47 @@
     </section>
 
     <!-- SETTINGS (change autonomy mode + output language → config.json) -->
-    <section class="panel" data-panel="settings">
+    <section class="panel" data-panel="personalize">
       <div class="settings-wrap">
         <h2 class="panel-title" data-i18n="nav.settings">Personalize</h2>
         <p class="panel-sub" data-i18n-html="settings.sub">Change how spectoflow runs. Writes <code>.spectoflow/config.json</code> — the agent picks it up on its next run.</p>
-        <div class="settings-card">
-          <label class="settings-field">
-            <span class="settings-field-label" data-i18n="info.activeAgent">Active agent</span>
-            <select id="setAgent" class="settings-select"></select>
-            <span class="settings-field-hint is-empty" id="setAgentHint" data-i18n="topbar.agent.none" hidden>No agent found</span>
-          </label>
-          <label class="settings-field">
-            <span class="settings-field-label" data-i18n="field.design">Dashboard design</span>
-            <select id="setDesign" class="settings-select"></select>
-          </label>
-          <label class="settings-field">
-            <span class="settings-field-label" data-i18n="field.mode">Autonomy mode</span>
-            <select id="setMode" class="settings-select">
-              <option value="autopilot" data-i18n="mode.autopilot.desc">autopilot — run freely, ask only on policy gates</option>
-              <option value="semi" data-i18n="mode.semi.desc">semi — autopilot + policy approvals</option>
-              <option value="manual" data-i18n="mode.manual.desc">manual — approve every step</option>
-            </select>
-          </label>
-          <label class="settings-field">
-            <span class="settings-field-label" data-i18n="field.lang">Output language</span>
-            <select id="setLang" class="settings-select">
-              <option value="en">en · English</option>
-              <option value="fr">fr · Français</option>
-              <option value="es">es · Español</option>
-              <option value="de">de · Deutsch</option>
-              <option value="pt">pt · Português</option>
-              <option value="it">it · Italiano</option>
-            </select>
-          </label>
-          <div class="settings-saved" id="settingsSaved" data-i18n="settings.saved" hidden>✓ saved</div>
+        <div class="settings-groups">
+          <div class="settings-card">
+            <h3 class="settings-card-title" data-i18n="settings.group.execution">Agent &amp; automation</h3>
+            <label class="settings-field">
+              <span class="settings-field-label" data-i18n="info.activeAgent">Active agent</span>
+              <select id="setAgent" class="settings-select"></select>
+              <span class="settings-field-hint is-empty" id="setAgentHint" data-i18n="topbar.agent.none" hidden>No agent found</span>
+            </label>
+            <label class="settings-field">
+              <span class="settings-field-label" data-i18n="field.mode">Autonomy mode</span>
+              <select id="setMode" class="settings-select">
+                <option value="autopilot" data-i18n="mode.autopilot.desc">autopilot — run freely, ask only on policy gates</option>
+                <option value="semi" data-i18n="mode.semi.desc">semi — autopilot + policy approvals</option>
+                <option value="manual" data-i18n="mode.manual.desc">manual — approve every step</option>
+              </select>
+            </label>
+          </div>
+          <div class="settings-card">
+            <h3 class="settings-card-title" data-i18n="settings.group.appearance">Appearance &amp; language</h3>
+            <label class="settings-field">
+              <span class="settings-field-label" data-i18n="field.design">Dashboard design</span>
+              <select id="setDesign" class="settings-select"></select>
+            </label>
+            <label class="settings-field">
+              <span class="settings-field-label" data-i18n="field.lang">Output language</span>
+              <select id="setLang" class="settings-select">
+                <option value="en">en · English</option>
+                <option value="fr">fr · Français</option>
+                <option value="es">es · Español</option>
+                <option value="de">de · Deutsch</option>
+                <option value="pt">pt · Português</option>
+                <option value="it">it · Italiano</option>
+              </select>
+            </label>
+          </div>
         </div>
+        <div class="settings-saved" id="settingsSaved" data-i18n="settings.saved" hidden>✓ saved</div>
         <div class="settings-readonly" id="settingsReadonly"></div>
 
         <!-- Customize: project-specific dashboards, skills and agents — described or auto-proposed,

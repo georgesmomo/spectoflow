@@ -180,7 +180,8 @@ test('attention points: add, edit, resolve, promote → task, delete', async () 
     const prom = await reqJSON(port, 'POST', '/api/attention/' + id + '/promote', {});
     assert.strictEqual(prom.status, 200);
     assert.match(prom.body.task.id, /^T-\d+$/);
-    const planText = fs.readFileSync(prom.body.task.file, 'utf8');
+    // task.file is a basename (matches readPlans' convention) — resolve it under the project's plans dir
+    const planText = fs.readFileSync(path.join(d, 'plans', prom.body.task.file), 'utf8');
     assert.ok(planText.includes(prom.body.task.id), 'plan file got the promoted task');
     const proj = await get(port, '/api/project');
     const it = (proj.body.runtime.attention || []).find((x) => x.id === id);
@@ -191,6 +192,75 @@ test('attention points: add, edit, resolve, promote → task, delete', async () 
     assert.strictEqual(del.status, 200);
     const proj2 = await get(port, '/api/project');
     assert.ok(!(proj2.body.runtime.attention || []).some((x) => x.id === id), 'note removed');
+  } finally { srv.kill(); }
+});
+
+test('POST /api/task creates a manual task without any agent involved', async () => {
+  const d = project();
+  const port = 4760 + Math.floor(Math.random() * 100);
+  const srv = await startServer(d, port);
+  try {
+    // empty title rejected
+    const bad = await reqJSON(port, 'POST', '/api/task', { title: '  ' });
+    assert.strictEqual(bad.status, 400);
+
+    // a fresh project has no plans yet — creates plans/inbox.md under a default "Backlog" phase
+    const first = await reqJSON(port, 'POST', '/api/task', { title: 'Wire up the billing webhook' });
+    assert.strictEqual(first.status, 200);
+    assert.match(first.body.task.id, /^T-\d+$/);
+    assert.strictEqual(first.body.task.file, 'inbox.md');
+    const text1 = fs.readFileSync(path.join(d, 'plans', 'inbox.md'), 'utf8');
+    assert.match(text1, /^## Backlog$/m);
+    assert.ok(text1.includes(`${first.body.task.id} Wire up the billing webhook`));
+
+    // a second task with an explicit phase/owner/level, and ids keep incrementing
+    const second = await reqJSON(port, 'POST', '/api/task', { title: 'Add rate limiting', phase: 'Hardening', owner: 'georges', level: 'major' });
+    assert.strictEqual(second.status, 200);
+    assert.notStrictEqual(second.body.task.id, first.body.task.id);
+    const text2 = fs.readFileSync(path.join(d, 'plans', 'inbox.md'), 'utf8');
+    assert.match(text2, /^## Hardening$/m);
+    assert.ok(text2.includes(`${second.body.task.id} Add rate limiting @georges ~major`));
+
+    // shows up in the project snapshot like any other task
+    const proj = await get(port, '/api/project');
+    const ids = (proj.body.plans || []).flatMap((pl) => pl.phases.flatMap((ph) => ph.tasks.map((t) => t.id)));
+    assert.ok(ids.includes(first.body.task.id) && ids.includes(second.body.task.id));
+  } finally { srv.kill(); }
+});
+
+test('File Explorer API: tree, read, write, mkdir, and path-traversal / .git guards', async () => {
+  const d = project();
+  const port = 4800 + Math.floor(Math.random() * 100);
+  const srv = await startServer(d, port);
+  try {
+    // tree includes real project files, not the framework's own .git-style noise
+    const t = await get(port, '/api/files/tree');
+    assert.strictEqual(t.status, 200);
+    assert.ok(Array.isArray(t.body.tree));
+    assert.ok(t.body.tree.some((e) => e.name === '.spectoflow' && e.type === 'dir'));
+
+    // write creates a new file (nested dirs included), read gets it back
+    const w = await reqJSON(port, 'POST', '/api/files/write', { path: 'notes/todo.md', content: '- [ ] one\n' });
+    assert.strictEqual(w.status, 200);
+    const r = await get(port, '/api/files/read?' + new URLSearchParams({ path: 'notes/todo.md' }));
+    assert.strictEqual(r.status, 200);
+    assert.strictEqual(r.body.content, '- [ ] one\n');
+
+    // mkdir creates an empty folder
+    const m = await reqJSON(port, 'POST', '/api/files/mkdir', { path: 'empty-folder' });
+    assert.strictEqual(m.status, 200);
+    assert.ok(fs.statSync(path.join(d, 'empty-folder')).isDirectory());
+
+    // path traversal is rejected, nothing written outside the project
+    const bad = await reqJSON(port, 'POST', '/api/files/write', { path: '../escape.txt', content: 'x' });
+    assert.strictEqual(bad.status, 400);
+    assert.ok(!fs.existsSync(path.join(path.dirname(d), 'escape.txt')));
+
+    // .git is off-limits for writes
+    fs.mkdirSync(path.join(d, '.git'));
+    const gitWrite = await reqJSON(port, 'POST', '/api/files/write', { path: '.git/config', content: 'x' });
+    assert.strictEqual(gitWrite.status, 400);
+    assert.ok(!fs.existsSync(path.join(d, '.git', 'config')));
   } finally { srv.kill(); }
 });
 

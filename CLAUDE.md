@@ -5,6 +5,41 @@ framework with a real-time local control plane. This file orients you to **build
 (it is not a spectoflow-managed project). Read `docs/` before making changes:
 `docs/ARCHITECTURE.md`, `docs/DECISIONS.md` (the full rationale, D1–D23), `docs/ROADMAP.md` (what's next).
 
+## What exists (v0.22.0 — see DECISIONS D52)
+
+Seven chantiers from real-usage feedback, shipped one at a time with live verification between
+each. **Route rename**: `/settings` → `/personalize` (matched the tab's own "Personalize" label;
+old bookmarks redirect). **Personalize redesigned**: two thematic cards ("Agent & automation" /
+"Appearance & language") in a responsive grid instead of one narrow stacked column; the "Extend
+spectoflow" generator grid collapses to one column while a block's form is open (`#czRoot.has-open`)
+to avoid the exact auto-fit empty-cell trap this round was fixing elsewhere. **Whitespace fixed**
+on Info/Backlog/Requests/Agents & Skills (uncentered fixed-width wraps widened; `.info-grid` stays a
+fixed 2 columns on purpose — an `auto-fit` grid with 5 sections and one forced full-span item leaves
+genuinely empty cells in 2-item rows). **Console sidebar now expand/collapse-able** (icon-only stays
+default; a rail-bottom chevron toggles labels visible, persisted per viewer). **Manual task
+creation** in Backlog (`store.addTask()`/`nextTaskId()`, `POST /api/task`, inline form) — bonus fix:
+`promoteAttention()`'s hand-rolled file path was wrong for a project with existing plans (invisible
+because the only test exercised a fresh project); now delegates to `store.addTask()`. **"Ultra pro"
+design pass**: decorative gradients removed (Console's corner glow, Neon Command's whole
+aurora/glass-card/gradient-button/gradient-text look — its "glassmorphism" identity toned down too,
+by explicit user choice) while functional gradients (progress bars, workflow flow lines, Orbit's
+progress ring) stay; 3 icons redrawn (`board` read as a bar chart, now reads as kanban columns;
+`agents` was a generic two-people glyph, now a bot head; `settings`/Personalize's leftover gear is
+now preference sliders). **File Explorer** (new "Files" tab): project tree + read/write/create,
+`templates/dashboard/files.js` (own module, `/api/files/{tree,read,write,mkdir}`, same
+traversal/symlink guard shape as `/api/agentfile` extended to the whole root, `.git` write-blocked),
+Markdown via the existing `mdLite`, HTML in a sandboxed iframe, plain text elsewhere — deliberately
+zero-dependency (no CodeMirror/Monaco), and deliberately **no native `prompt()`/`confirm()`/`alert()`**
+(they block the whole tab including SSE) — inline forms and a non-blocking "Discard" button instead.
+The three previously-reported bugs (Summarize leaving old messages, a refresh-loses-messages doubt,
+the floating widget's "No agent found") are confirmed fixed. Two more bugs found and fixed while
+building the File Explorer itself: a mixed-separator project root being rejected as invalid, and the
+MD/HTML editor not filling its available height (a `flex:1` textarea whose direct parent wasn't a
+flex container). QA: 187 tests (185 pass; the one failure is the already-documented
+full-suite-only flake, green in isolation), real end-to-end browser QA across all 6 designs
+including a full Orchestrate run (7 workflow steps, no dupes, nothing lost). `demo/` refreshed via
+`update` (0.21.0 → 0.22.0).
+
 ## What exists (v0.21.1 — see DECISIONS D51)
 
 Docs-and-housekeeping pass, no functional code changes. README restructured (the dense "Agents vs

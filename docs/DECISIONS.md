@@ -857,3 +857,109 @@
   une image, et des réglages de dépôt GitHub live (hors contrôle de version).
 - Fichiers : `README.md`, `docs/screenshot-board.png` (nouveau), `demo/.spectoflow/**` (rafraîchi via
   `update --force`, ~69 fichiers).
+
+### D52 — 0.22.0 : Personalize redessiné, whitespace corrigé partout, sidebar Console repliable,
+### ajout manuel de tâche, passe design "ultra pro" + icônes, File Explorer
+- **ACTÉ.** Grosse demande utilisateur après usage réel du dashboard publié, sept chantiers validés
+  un par un avec captures/tests en direct entre chaque étape (le mode d'exécution demandé
+  explicitement — pas de gros commit surprise).
+  - **Route `/settings` → `/personalize`** : la tab s'appelait déjà « Personalize » côté libellé mais
+    gardait l'id de route historique `settings`, donc l'URL réelle ne correspondait pas au nom affiché
+    (retour direct : « ce n'est pas bien »). `ROUTES` dans `app.js` renommé ; un ancien lien/bookmark
+    `/settings` est reconnu (`normalizeTab`) et son URL nettoyée en `/personalize` via
+    `history.replaceState` une fois résolu — jamais de panneau vide pour un lien existant.
+  - **Personalize redessiné** : les 4 champs (agent actif, mode, design, langue) étaient un seul bloc
+    empilé dans une colonne étroite (720px, non centrée) ; découpés en deux cartes thématiques
+    (« Agent & automation » / « Appearance & language ») dans une grille `repeat(auto-fit,
+    minmax(320px,1fr))` — colonnes qui se réduisent proprement à 1 sur mobile. La section « Extend
+    spectoflow » (dashboards/skills/agents personnalisés) passe aussi en grille (`#czRoot`), avec un
+    garde-fou : quand un bloc a son formulaire ouvert (`grid-column:1/-1` sur cet unique bloc), la
+    grille entière repasse à une colonne (`#czRoot.has-open`) — sinon un `auto-fit` qui compte les
+    pistes sur la largeur du conteneur (pas sur le nombre d'items par rangée) laisse des cellules
+    visuellement vides à côté des deux blocs fermés, exactement le défaut de whitespace que ce chantier
+    devait corriger ailleurs.
+  - **Whitespace corrigé sur Info / Backlog / Requests / Agents & Skills** : ces quatre pages avaient
+    un conteneur à largeur fixe (900–1200px) **non centré**, donc toute la colonne vide restait collée
+    à droite sur un écran large (capture utilisateur à l'appui sur Info). Élargis (1400–1500px selon la
+    page) ; la grille `.info-grid` reste volontairement à **2 colonnes fixes**, pas `auto-fit` — avec
+    exactement 5 sections dont une forcée pleine largeur (`nth-child(3)`), un nombre de colonnes
+    calculé sur la largeur du conteneur aurait laissé des rangées de 2 items avec des cellules vides à
+    côté (même piège que ci-dessus) ; 2 colonnes fixes remplissent toujours entièrement chaque rangée,
+    et c'est l'élargissement du conteneur qui rend chaque carte plus large — pas plus de colonnes.
+  - **Sidebar Console repliable/dépliable** : la barre d'icônes reste icône-seule par défaut (comme
+    demandé), avec un bouton chevron en bas de la barre (`#cxRailToggle`, hors du flux scrollable des
+    tabs) qui bascule `html[data-design="console"][data-rail="expanded"]` — la largeur du rail passe de
+    72px à 208px, les libellés des tabs redeviennent des éléments statiques inline au lieu de tooltips
+    au survol, transition CSS fluide sur `width`/`margin-left`/`padding-left` (le calcul du custom
+    property `--cx-rail-w` n'interpole pas nativement, mais la propriété `width` réelle qui en dérive,
+    si — donc pas besoin de `@property`). Persisté par viewer (`localStorage`), scindé de l'état
+    « ouvert/fermé » d'un item de menu individuel.
+  - **Ajout manuel de tâche dans le Backlog** : jusqu'ici une tâche ne pouvait naître que d'un agent
+    écrivant dans un plan. Nouveau `store.addTask()`/`store.nextTaskId()` (remplace un `nextTaskId()`
+    dupliqué en local dans `server.js`), nouvel endpoint `POST /api/task`, formulaire inline (titre
+    requis, phase/propriétaire/niveau optionnels, autocomplétion des phases existantes via un
+    `<datalist>`). **Bonus fix trouvé en écrivant `addTask()`** : `promoteAttention()` (Attention →
+    « valider » une note en tâche) construisait son chemin de fichier à la main
+    (`fs.readFileSync(plans[0].file)`) alors que `plans[0].file` est un nom **relatif** (convention de
+    `store.readPlans`), pas un chemin absolu — bug resté invisible parce que le seul test existant
+    l'exerçait sur un projet fraîchement initialisé (sans plan, donc branche de repli absolue jamais
+    contournée). `promoteAttention` délègue maintenant à `store.addTask()` ; le test existant corrigé
+    pour résoudre le chemin relatif retourné, plus 3 nouveaux tests API (`/api/task`) couvrant création,
+    incrémentation d'id, apparition dans `GET /api/project`.
+  - **Passe design « ultra pro »** : retrait des dégradés jugés superflus — lueur d'ambiance violet/cyan
+    dans les coins de Console (gardé : la trame de grille, purement structurelle) ; côté Neon Command
+    (identité « glassmorphism » assumée dans son propre descriptif), fond aurora, cartes en dégradé
+    translucide + flou, bouton et nom de marque en texte-dégradé — tous remplacés par des couleurs
+    pleines (validé explicitement avec l'utilisateur : nettoyer aussi les skins alternatives, pas
+    seulement le design par défaut). Dégradés **fonctionnels gardés partout** (barres de progression,
+    connecteurs de workflow, anneau de progression Orbit) — ce ne sont pas des effets décoratifs mais la
+    façon dont ces éléments sont dessinés. **3 icônes refaites** (`icons.js`) : Board/Dashboard (3 barres
+    inégales, lisait comme un graphique en barres → 3 colonnes égales avec un trait de « carte » en haut,
+    lecture kanban sans ambiguïté), Agents & Skills (deux silhouettes humaines, lues comme un onglet
+    « contacts » générique → tête de robot avec antenne, plus fidèle au concept d'agent IA du produit),
+    Personalize (l'engrenage restant de l'ancien nom « Settings » ne reflétait pas « personnaliser » →
+    3 curseurs de préférences, motif reconnu dans les apps pro).
+  - **File Explorer** (nouvel onglet « Files ») : arborescence du projet (exclut `.git`/`node_modules`,
+    inclut le reste dont `.spectoflow`), lecture/écriture de fichier, création de fichier/dossier — trois
+    nouveaux endpoints (`GET /api/files/tree`, `GET /api/files/read`, `POST /api/files/write`,
+    `POST /api/files/mkdir`) dans un module dédié `templates/dashboard/files.js` (même séparation que
+    `runner.js`/`summarize.js`), garde anti-traversée de chemin + garde symlink (même modèle que
+    `/api/agentfile` existant, étendu à toute la racine du projet plutôt qu'à `agents/skills`
+    uniquement) ; écriture bloquée sous `.git/`. Rendu Markdown via le `mdLite` déjà existant (drawer
+    Agents & Skills), aperçu HTML dans une `<iframe sandbox="">`, éditeur texte brut pour tout le reste
+    — **décision explicite avec l'utilisateur** de rester zero-dépendance (pas de CodeMirror/Monaco)
+    plutôt que d'accepter une dépendance externe pour un éditeur riche. **Aucun dialogue natif**
+    (`prompt()`/`confirm()`/`alert()`) : ces popups bloquent tout l'onglet y compris la connexion SSE
+    et cassent l'automatisation navigateur — création de fichier/dossier via un formulaire inline,
+    abandon de modifications non enregistrées via un bandeau d'erreur non-bloquant + bouton « Discard »
+    explicite plutôt qu'un `confirm()`.
+  - **Trois bugs signalés en usage réel, confirmés corrigés pendant ce round** : Summarize qui laissait
+    les anciens messages visibles (déjà corrigé avant ce chantier — `summarize.js` remplace le
+    sous-ensemble résumé au lieu d'ajouter, `renderChatLog` détecte une réduction du nombre de messages
+    et reconstruit le DOM) ; le doute sur une perte de messages au rafraîchissement (même cause racine,
+    non reproduit comme bug distinct) ; le widget de chat flottant affichant « Aucun agent trouvé »
+    (racine : process serveur qui ne relit jamais les modules mis à jour sans redémarrage — déjà réglé
+    par le redémarrage automatique post-`update`).
+  - **Deux bugs trouvés en écrivant le File Explorer, corrigés avant tout usage réel** : chemin racine
+    à séparateurs mixtes (`C:\...\Temp/mon-projet`, cas réel d'un environnement Windows) rejeté comme
+    invalide — `safePath()` normalise désormais `root` avant comparaison, régression testée ; éditeur
+    Markdown/HTML qui ne remplissait pas la hauteur disponible (le `textarea` avait `flex:1` mais son
+    parent direct n'était pas lui-même un conteneur flex) — classe `.files-body-col` ajoutée aux deux
+    wrappers concernés.
+- **QA** : 187 tests (185 passent ; le seul échec est le test déjà documenté comme instable sous forte
+  charge concurrente de la suite complète — vert à 100% en isolation, `node --test
+  test/cli-update.test.js` → 5/5). QA navigateur réelle, chantier par chantier : redirection
+  `/settings`→`/personalize` vérifiée dans les deux sens ; Personalize sur Console et Orbit ; whitespace
+  sur Info/Backlog/Requests/Agents & Skills ; sidebar repliable testée dans les deux sens avec
+  persistance après rechargement ; ajout de tâche manuel avec validation d'erreur et intégration au
+  drawer existant ; les 3 icônes et le retrait des dégradés sur Console et Neon Command ; File Explorer
+  de bout en bout (arborescence, création, édition MD avec aperçu + édition HTML avec iframe sandboxé,
+  sauvegarde, abandon non-bloquant) ; Chat/Summarize/Clear/widget flottant ; **Orchestrate** (workflow
+  complet à 7 étapes, aucun doublon, aucun message perdu) ; passage manuel des 6 templates de design sur
+  plusieurs pages (Board, Info, Backlog, Files, Personalize) sans régression visuelle. `demo/` remise à
+  niveau via `update` (0.21.0 → 0.22.0, 11 fichiers). Rapport de QA détaillé déposé en `QA_REPORT.md` à
+  la racine (non commité, à la demande de l'utilisateur — sera supprimé après relecture).
+- Fichiers : `templates/dashboard/public/{index.html,app.js,styles.css,i18n.js,icons.js}`,
+  `templates/dashboard/public/designs/{console.css,console.js}`, `templates/dashboard/files.js`
+  (nouveau), `templates/dashboard/server.js`, `templates/lib/store.js`, `test/files.test.js` (nouveau),
+  `test/dashboard-backend.test.js`, `demo/.spectoflow/**` (rafraîchi via `update`).
