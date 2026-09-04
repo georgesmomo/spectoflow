@@ -9,6 +9,7 @@ const adapters = require('../lib/adapters');
 const detect = require('../lib/detect');
 const ownership = require('../lib/ownership');
 const manifest = require('../lib/manifest');
+const registry = require('../lib/registry');
 const mcp = require('../lib/mcp');
 const { startRun } = require('../templates/dashboard/runner');
 const { buildCustomizePrompt } = require('../templates/lib/customize-prompts');
@@ -283,6 +284,28 @@ async function dashboard() {
   return startDashboard();
 }
 
+// ---- projects: the multi-project registry's CLI surface (~/.spectoflow/projects.json) ----
+function projectsCmd() {
+  const sub = argv[1];
+  if (sub === 'remove') return projectsRemove(argv[2]);
+  return projectsList();
+}
+function projectsList() {
+  console.log(wordmark());
+  const rows = registry.listProjects();
+  if (!rows.length) {
+    console.log(c.dim('  no projects registered yet — run `spectoflow dashboard` inside one'));
+    return;
+  }
+  const w = Math.max(4, ...rows.map((r) => r.name.length));
+  rows.forEach((r) => console.log(`  ${c.g(r.id)}  ${r.name.padEnd(w)}  ${c.dim(r.path)}`));
+}
+function projectsRemove(id) {
+  if (!id) { console.log('Usage: spectoflow projects remove <id>'); return; }
+  const ok = registry.removeProject(id);
+  console.log(ok ? `${c.g('✓')} removed ${id}` : `${c.y('!')} no project registered with id ${id}`);
+}
+
 // ---- Customize: `spectoflow skill/agent/dashboard create` — the CLI mirror of the dashboard's
 // Settings → Customize UI. Both surfaces build the same natural-language prompt (customize-prompts.js)
 // and post it through the same pipeline (runner.js's startRun — the function /api/run itself calls),
@@ -479,6 +502,7 @@ ${c.bold('Dashboard')}
   ${c.g('dashboard status')}             is it running? (url + pid)
   ${c.g('dashboard stop')}               stop it ${c.dim('(alias: stop)')}
   ${c.g('dashboard restart')}            stop then start
+  ${c.g('projects')} ${c.dim('[remove <id>]')}     list every project seen so far (~/.spectoflow/projects.json)
 
 ${c.bold('Customize')} ${c.dim('— same as Settings → Customize, from the terminal')}
   ${c.g('skill create')} ${c.dim('"<description>" | --auto')}      generate a project skill
@@ -522,6 +546,10 @@ const HELP = {
     ${c.g('stop')}      stop it            ${c.dim('(alias: spectoflow stop)')}
     ${c.g('restart')}   stop then start
     ${c.g('create')}    generate a custom dashboard, e.g. ${c.dim('spectoflow dashboard create "..." --auto')}`,
+  projects: `${c.bold('spectoflow projects')} ${c.dim('[remove <id>]')}\n
+  List every registered project in the global registry at ${c.dim('~/.spectoflow/projects.json')} (stored by
+  ${c.g('spectoflow dashboard')}) — id, name, path. ${c.g('remove <id>')} drops one (e.g. a project that moved
+  or was deleted) from this list only; it never touches that project's own files.`,
   skill: `${c.bold('spectoflow skill create')} ${c.dim('"<description>" [--agent=name]')}\n${c.bold('spectoflow skill create')} ${c.dim('--auto [--agent=name]')}\n
   Generate a project-specific skill — the CLI mirror of Settings → Customize → ${c.bold('Skills')} →
   ${c.bold('Add skill')} in the dashboard. Describe what it should do, or pass ${c.g('--auto')} to have
@@ -547,6 +575,7 @@ const showHelp = (name) => console.log('\n' + HELP[name].trim() + '\n');
 // ---- dispatch ---------------------------------------------------------------
 const fns = {
   init, update, dashboard, stop: stopDashboard, status, list: listAll, help, version,
+  projects: projectsCmd,
   agents: () => { console.log(wordmark()); printAgents(false); },
   skills: () => { console.log(wordmark()); printSkills(false); },
   workflow: () => { console.log(wordmark()); printWorkflow(false); },
