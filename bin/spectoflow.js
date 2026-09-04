@@ -10,6 +10,8 @@ const detect = require('../lib/detect');
 const ownership = require('../lib/ownership');
 const manifest = require('../lib/manifest');
 const mcp = require('../lib/mcp');
+const { startRun } = require('../templates/dashboard/runner');
+const { buildCustomizePrompt } = require('../templates/lib/customize-prompts');
 
 const KIT = path.resolve(__dirname, '..');
 const TPL = path.join(KIT, 'templates');
@@ -257,7 +259,60 @@ async function dashboard() {
   if (sub === 'stop') return stopDashboard();
   if (sub === 'status') return dashboardStatus();
   if (sub === 'restart') return restartDashboard();
+  if (sub === 'create') return runCustomize('dashboard');
   return startDashboard();
+}
+
+// ---- Customize: `spectoflow skill/agent/dashboard create` — the CLI mirror of the dashboard's
+// Settings → Customize UI. Both surfaces build the same natural-language prompt (customize-prompts.js)
+// and post it through the same pipeline (runner.js's startRun — the function /api/run itself calls),
+// so a generation triggered from the terminal behaves identically to one triggered from a click.
+function requireProjectRoot() {
+  const root = process.cwd();
+  if (!fs.existsSync(path.join(root, '.spectoflow'))) {
+    console.log('No spectoflow project here. Run: spectoflow init');
+    return null;
+  }
+  return root;
+}
+// "create <description words…> [--auto] [--agent=name]" → { description, auto, agentOverride }.
+// Words are re-joined with spaces so an unquoted multi-word description works the same as a quoted one.
+function parseCreateArgs(args) {
+  return {
+    auto: args.includes('--auto'),
+    agentOverride: (args.find((a) => a.startsWith('--agent=')) || '').split('=')[1] || undefined,
+    description: args.filter((a) => !a.startsWith('--')).join(' ').trim(),
+  };
+}
+function printCreateUsage(kind) {
+  console.log(`Usage: spectoflow ${kind} create "<description>" ${c.dim('[--agent=name]')}`);
+  console.log(`   or: spectoflow ${kind} create --auto ${c.dim('[--agent=name]')}`);
+}
+// Streams the same events the dashboard's SSE feed would show: raw output lines as-is, and
+// structured ::spectoflow sentinel messages as "[role] text" (skip the echoed user prompt — printed
+// separately, up front, so it isn't shown twice).
+function cliEmit(evt) {
+  if (evt.type === 'run-line') process.stdout.write(evt.chunk);
+  else if (evt.type === 'message' && evt.message && evt.message.role !== 'user') {
+    console.log(`${c.cy('[' + evt.message.role + ']')} ${evt.message.text}`);
+  }
+}
+async function runCustomize(kind) {
+  const root = requireProjectRoot();
+  if (!root) return;
+  if (argv[1] !== 'create') return printCreateUsage(kind);
+  const { auto, agentOverride, description } = parseCreateArgs(argv.slice(2));
+  let prompt;
+  try { prompt = buildCustomizePrompt(kind, { auto, description }); }
+  catch (e) { console.log(c.y(e.message)); console.log(''); return printCreateUsage(kind); }
+  console.log(c.dim(`→ ${prompt}`));
+  const code = await new Promise((resolve) => {
+    const r = startRun(root, { prompt, agent: agentOverride }, cliEmit);
+    if (r.error) { console.log(c.y(r.error)); return resolve(1); }
+    if (!r.child) return resolve(1); // spawn failed — cliEmit already printed the error
+    r.child.on('close', (exitCode) => resolve(exitCode == null ? 1 : exitCode));
+  });
+  process.exitCode = code;
 }
 
 // Start in the background and return control. Probes first so a second start just reports the running
@@ -396,6 +451,11 @@ ${c.bold('Dashboard')}
   ${c.g('dashboard stop')}               stop it ${c.dim('(alias: stop)')}
   ${c.g('dashboard restart')}            stop then start
 
+${c.bold('Customize')} ${c.dim('— same as Settings → Customize, from the terminal')}
+  ${c.g('skill create')} ${c.dim('"<description>" | --auto')}      generate a project skill
+  ${c.g('agent create')} ${c.dim('"<description>" | --auto')}      generate a project agent
+  ${c.g('dashboard create')} ${c.dim('"<description>" | --auto')}  generate a custom dashboard
+
 ${c.bold('Explore')}
   ${c.g('list')}                        agents, skills and the workflow at a glance
   ${c.g('agents')}                      list the team personas
@@ -421,12 +481,22 @@ const HELP = {
   to this CLI's version, ${c.bold('preserving your work')}: config.json, workflow.md, specs/, plans/
   and any agent/skill you edited are never overwritten (an edited file's new version lands as
   ${c.dim('*.new')} for you to merge). ${c.g('--dry-run')} previews without writing.`,
-  dashboard: `${c.bold('spectoflow dashboard')} ${c.dim('[--port=NNNN] [status|stop|restart]')}\n
+  dashboard: `${c.bold('spectoflow dashboard')} ${c.dim('[--port=NNNN] [status|stop|restart|create]')}\n
   Start the local control plane in the ${c.bold('background')} (default ${c.dim('4319')} or
   ${c.dim('$SPECTOFLOW_PORT')}) and hand the prompt back. Subcommands:
     ${c.g('status')}    is it running? (url + pid)
     ${c.g('stop')}      stop it            ${c.dim('(alias: spectoflow stop)')}
-    ${c.g('restart')}   stop then start`,
+    ${c.g('restart')}   stop then start
+    ${c.g('create')}    generate a custom dashboard, e.g. ${c.dim('spectoflow dashboard create "..." --auto')}`,
+  skill: `${c.bold('spectoflow skill create')} ${c.dim('"<description>" [--agent=name]')}\n${c.bold('spectoflow skill create')} ${c.dim('--auto [--agent=name]')}\n
+  Generate a project-specific skill — the CLI mirror of Settings → Customize → ${c.bold('Skills')} →
+  ${c.bold('Add skill')} in the dashboard. Describe what it should do, or pass ${c.g('--auto')} to have
+  the agent survey the project and propose candidates instead. Runs the configured agent headless
+  (${c.dim('config.json → agent')}, or override with ${c.g('--agent=')}), streaming its output live;
+  it clarifies first if the ask is ambiguous, and marks what it writes ${c.dim('origin: user-generated')}.`,
+  agent: `${c.bold('spectoflow agent create')} ${c.dim('"<description>" [--agent=name]')}\n${c.bold('spectoflow agent create')} ${c.dim('--auto [--agent=name]')}\n
+  Generate a project-specific agent — the CLI mirror of Settings → Customize → ${c.bold('Agents')} →
+  ${c.bold('Add agent')}. Same behaviour as ${c.g('spectoflow skill create')}, for an agent persona instead.`,
   status: `${c.bold('spectoflow status')}\n
   Print project progress from ${c.dim('plans/*.md')} (tasks done, specs, agents, skills, in-progress
   items) and whether the dashboard is currently running.`,
@@ -446,6 +516,8 @@ const fns = {
   agents: () => { console.log(wordmark()); printAgents(false); },
   skills: () => { console.log(wordmark()); printSkills(false); },
   workflow: () => { console.log(wordmark()); printWorkflow(false); },
+  skill: () => runCustomize('skill'),
+  agent: () => runCustomize('agent'),
 };
 const wantsHelp = argv.slice(1).some((a) => a === '-h' || a === '--help');
 

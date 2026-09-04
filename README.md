@@ -167,7 +167,17 @@ uses, so a generated dashboard automatically matches whatever design is active, 
 keeps matching if you switch designs later. Blocks can bind live to project stats (`bind:
 "phases.0.pct"`) or hold a static value. Generated skills and agents follow the same gold-standard
 shape as the shipped ones, cite real domain standards (OWASP, WCAG, C4/ADR, …) instead of generic
-advice, and are marked `origin: user-generated` so they're easy to tell apart in the UI.
+advice, and are marked `origin: user-generated` so they're easy to tell apart in the UI. The same
+generators are available from the terminal:
+
+```bash
+spectoflow skill create "reviews PRs for accessibility"      # or: --auto to propose candidates
+spectoflow agent create "owns accessibility review"          # or: --auto
+spectoflow dashboard create "a KPI overview for support"     # or: --auto
+```
+
+Each streams the agent's run live and exits with its status — the same pipeline the dashboard's
+Generate/Auto buttons use, just from a shell.
 
 ## Agents vs skills
 

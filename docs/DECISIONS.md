@@ -575,3 +575,43 @@
   `templates/skills/propose-customizations/SKILL.md` (nouveaux), `templates/dashboard/public/app.js`,
   `templates/dashboard/public/i18n.js` (+15 clés × 6 langues), `templates/dashboard/public/index.html`
   (+ correctif chemins absolus), `templates/dashboard/public/styles.css`.
+
+### D47 — 0.19.0 : `spectoflow skill/agent/dashboard create` (+ `--auto`) — Customize depuis le terminal
+- **ACTÉ.** Demande utilisateur directe, après la livraison de Customize (D46) : les mêmes actions
+  doivent être disponibles en CLI, pas seulement dans le dashboard, avec une option `--auto`.
+  - **`spectoflow skill create "<description>"`**, **`spectoflow agent create "<description>"`**,
+    **`spectoflow dashboard create "<description>"`** (nouvelle sous-commande de `dashboard`, aux côtés
+    de `status`/`stop`/`restart`) — chacune accepte **`--auto`** à la place d'une description (relit le
+    projet et propose des candidats, comme le bouton Auto du dashboard) et **`--agent=name`** pour
+    surcharger l'agent configuré.
+  - **Un seul et même pipeline que l'UI**, pas une réimplémentation : la CLI appelle directement
+    `templates/dashboard/runner.js`'s `startRun` — exactement la fonction que `POST /api/run` appelle
+    déjà — donc un run déclenché depuis le terminal produit le même log de chat, les mêmes sentinelles
+    `::spectoflow role=… kind=… msg=…` traduites en messages, et se comporte à l'identique d'un clic
+    dans le dashboard. La CLI bloque en avant-plan (contrairement à `spectoflow dashboard` qui détache),
+    diffuse la sortie de l'agent en direct sur stdout, et **ressort avec le code de sortie réel du run**.
+  - **Le texte du prompt est la seule source de vérité partagée** entre les deux surfaces : nouveau
+    module `templates/lib/customize-prompts.js` (`buildCustomizePrompt(kind, {description|auto})`),
+    dont les littéraux sont recopiés à l'identique dans `templates/dashboard/public/app.js`'s
+    `CZ_KINDS` — le navigateur ne peut pas `require()` un module Node (zéro build step), donc pas de
+    partage direct possible ; un test dédié (`test/customize-prompts.test.js`) relit `app.js` en texte
+    et vérifie que ses littéraux n'ont pas divergé, en garde-fou.
+  - **Pas de nouvelle plomberie serveur** : comme le dashboard, la CLI ne fait qu'appeler la fonction
+    `startRun` existante — aucune route API, aucun protocole ajouté.
+- **Piège trouvé en testant** : un fixture de test qui appelait `process.exit(1)` en tête de fichier,
+  placé sous `test/fixtures/`, était **auto-découvert par `node --test` lui-même** (tout `.js` sous un
+  dossier nommé `test`, à n'importe quelle profondeur, est candidat) et son exit code non nul était lu
+  comme un **fichier de test qui échoue**, faussant la suite. Remplacé par un script `node -e
+  process.exit(1)` inline dans la config du runner du test — aucun fichier fixture, donc rien à
+  découvrir par erreur.
+- **QA** : 12 tests bout-en-bout (spawn du vrai binaire CLI + agent stub, comme `runner.test.js`) —
+  les 3 commandes × description/`--auto` loggent exactement le même texte que l'UI, un mot multi-mots
+  non guillemeté se recompose correctement, `--agent=` bascule le runner utilisé, description manquante
+  sans `--auto` affiche l'usage sans démarrer de run, sous-commande absente n'écrase rien, hors d'un
+  projet spectoflow message clair, le code de sortie du process suit celui de l'agent. Plus une passe
+  manuelle réelle (`skill create`, `-h`, bare) confirmant le rendu terminal. 133/133 tests (132 passent,
+  1 skip inchangé).
+- Fichiers : `templates/lib/customize-prompts.js` (nouveau), `test/customize-prompts.test.js`,
+  `test/cli-customize.test.js` (nouveaux), `bin/spectoflow.js` (require, `requireProjectRoot`,
+  `parseCreateArgs`, `cliEmit`, `runCustomize`, sous-commande `dashboard create`, entrées `skill`/
+  `agent` dans `fns`, aide globale + `HELP.dashboard`/`HELP.skill`/`HELP.agent`).

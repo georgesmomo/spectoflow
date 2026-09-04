@@ -5,6 +5,19 @@ framework with a real-time local control plane. This file orients you to **build
 (it is not a spectoflow-managed project). Read `docs/` before making changes:
 `docs/ARCHITECTURE.md`, `docs/DECISIONS.md` (the full rationale, D1–D23), `docs/ROADMAP.md` (what's next).
 
+## What exists (v0.19.0 — see DECISIONS D47)
+
+**Customize from the terminal.** `spectoflow skill create "<description>"`, `spectoflow agent create
+"<description>"`, and `spectoflow dashboard create "<description>"` (a new `dashboard` subcommand,
+alongside `status`/`stop`/`restart`) are the CLI mirror of Settings → Customize — each also takes
+`--auto` (propose candidates instead of describing) and `--agent=name` (override the configured
+runner). No reimplementation: the CLI calls `templates/dashboard/runner.js`'s `startRun` directly — the
+same function `POST /api/run` calls — so a terminal-triggered run streams the same sentinel-derived
+chat messages and behaves identically to a dashboard click, just blocking in the foreground and exiting
+with the run's own exit code. The prompt text itself lives in one place, `templates/lib/
+customize-prompts.js`, mirrored by hand in `app.js`'s `CZ_KINDS` (no build step to share a Node module
+with the browser) and guarded by a test that greps `app.js` for drift.
+
 ## What exists (v0.18.0 — see DECISIONS D46)
 
 **Customize** — a project's dashboard user can now extend spectoflow itself from **Settings →

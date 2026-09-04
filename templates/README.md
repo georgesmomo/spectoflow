@@ -33,7 +33,9 @@ sit at the project root and just point back here.
 - **Extend spectoflow itself** from Settings → **Customize**: describe a project-specific dashboard,
   skill, or agent (or hit **Auto** to have it propose candidates from your project), and it's generated
   for you — a dashboard appears in the nav immediately, a skill/agent follows the same gold-standard
-  shape as the shipped ones and is marked `origin: user-generated`.
+  shape as the shipped ones and is marked `origin: user-generated`. Same thing from the terminal:
+  `spectoflow skill create "<description>"` / `agent create` / `dashboard create` (each also takes
+  `--auto`).
 - **Update the framework** to a newer kit: `spectoflow update` (preserves your edits; a file you
   changed is kept and its new version is written next to it as `*.new`).
 
