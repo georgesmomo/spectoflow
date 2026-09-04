@@ -114,6 +114,57 @@ constant.
   missing path just shows an error card on the hub page rather than silently disappearing (keeps the
   registry legible: nothing vanishes without the user asking).
 
+## Addendum (found while planning): the server must split in two
+
+`server.js` today is a monolith: one `http.createServer` listener plus every `/api/*` route handler,
+all closed over the single `ROOT` constant. A single hub process can only ever run **one** copy of
+that file — but the project's own core invariant ("canonical framework lives in `.spectoflow/`,"
+each project vendors its own copy so it can keep running against an older dashboard version even
+after `spectoflow` itself is upgraded globally) means different registered projects may legitimately
+carry *different versions* of that logic. Ruling (confirmed with the user): **the frontend is
+unavoidably global** — one browser tab can't run two versions of the same SPA depending on which
+project happens to be open, so the hub always serves the current globally-installed
+`templates/dashboard/public/*` regardless of project. **The backend route logic stays
+per-project-vendored**, split out so the hub can load it dynamically per project:
+
+- **`templates/dashboard/handlers.js`** (new, vendored exactly like `server.js` is today — copied by
+  `init`/`update`, owned by the ownership/manifest system the same way): everything `server.js`
+  currently does *except* the HTTP listener and the lock-file bootstrapping — `project()`,
+  `writeConfig()`, `promoteAttention()`, `findPlanFileForTask()`, and every `/api/*` branch,
+  parameterized on `root` (a function argument now, not a closed-over constant). Exports a factory,
+  e.g. `createHandlers(root) → { handleApi(req, res, u, emit) → Promise<boolean> }` (`true` = this
+  route was handled; `false` = fall through to static/SPA serving).
+- **`lib/hub-server.js`** (new, global — ships with the npm package under `lib/`, never copied into
+  any project's `.spectoflow/`): the actual process `spectoflow dashboard` spawns. Owns the HTTP
+  listener, the registry, `/` (hub landing page) and `/p/<id>/...` URL parsing, the per-project SSE
+  client map and `fs.watch` set, and — per registered project — `require()`s that project's own
+  `<path>/.spectoflow/dashboard/handlers.js` (Node's require cache keys by resolved absolute path, so
+  two projects' `handlers.js` files, even identically named, are cached and run completely
+  independently; no manual cache-busting needed).
+
+This turns "split server.js" into its own necessary sub-project (see decomposition below) — it did
+not exist as a distinct step in the original design.
+
+## Sub-project decomposition (discovered scope exceeds one plan)
+
+Sequenced, each independently planned/implemented/tested/shipped (same rhythm as this session's
+0.22.x chantiers) rather than one giant plan:
+
+1. **Registry + CLI `projects` commands** — `lib/registry.js`, `spectoflow projects list/remove`.
+   Fully standalone; no change to the dashboard server itself. *(This document's next plan.)*
+2. **Server split, single-project parity** — extract `handlers.js` out of today's `server.js`; new
+   `lib/hub-server.js` that runs exactly the one project it's pointed at (no `/p/<id>` prefix yet).
+   Goal: prove the split preserves 100% of today's behavior before adding concurrency.
+3. **True multi-project concurrency** — `/p/<id>/...` routing, per-project SSE/orchestrator-pending
+   maps, the hub landing page, client-side routing (`app.js`: project-aware fetch + navigation).
+4. **CLI integration finalized** — `spectoflow dashboard` auto-registers into and joins the one
+   global hub (global `~/.spectoflow/hub.lock`) instead of spawning its own server; `status/stop/
+   restart` operate on the hub.
+5. **Test-suite migration + hardening** — adapt the tests that spawn a real dashboard server
+   (`dashboard-backend.test.js`, `orchestrate-server.test.js`, `cli-update.test.js`) to the new
+   process model; update `CLAUDE.md`'s "Run & test" section (no more direct `node .spectoflow/
+   dashboard/server.js`).
+
 ## Explicitly out of scope for this pass
 
 - Running an agent/orchestration **across** two projects at once, or any cross-project data view —
