@@ -38,9 +38,15 @@ function runSummarize(root, { agent } = {}, emit) {
     + '\n\n' + formatLog(messages);
 
   const parts = cmdStr.split(/\s+/).filter(Boolean);
+  const runId = 'summarize-' + Date.now().toString(36);
+  // Emitted before the spawn attempt (same order runner.js uses) so the client's "agent running"
+  // indicator lights up immediately, and so a spawn failure below still gets a matching run-end
+  // rather than leaving that indicator stuck on.
+  if (emit) emit({ type: 'run-start', run: { id: runId } });
   let child;
-  try { child = spawn(parts[0], [...parts.slice(1), prompt], { cwd: root, env: process.env }); }
-  catch (e) { return { error: e.message }; }
+  // windowsHide: without it, spawning a .cmd-shimmed CLI on Windows pops up a real console window.
+  try { child = spawn(parts[0], [...parts.slice(1), prompt], { cwd: root, env: process.env, windowsHide: true }); }
+  catch (e) { if (emit) emit({ type: 'run-end', runId, code: 1 }); return { error: e.message }; }
   try { child.stdin && child.stdin.end(); } catch {}
 
   let out = '';
@@ -63,7 +69,7 @@ function runSummarize(root, { agent } = {}, emit) {
     fresh.messages = (fresh.messages || []).filter((m) => !summarizedIds.has(m.id));
     fresh.messages.push(summary);
     store.writeRuntime(root, fresh);
-    if (emit) { emit({ type: 'message', message: summary }); emit({ type: 'change' }); }
+    if (emit) { emit({ type: 'run-end', runId, code }); emit({ type: 'message', message: summary }); emit({ type: 'change' }); }
   });
   return { child };
 }

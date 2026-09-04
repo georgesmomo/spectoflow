@@ -76,6 +76,29 @@ test('emits the summary message and a change event', async () => {
   assert.ok(events.some((e) => e.type === 'change'));
 });
 
+test('emits run-start immediately and a matching run-end when the child closes — drives the client\'s "agent running" indicator', async () => {
+  const proj = installWithStub();
+  seedMessages(proj, [{ role: 'user', text: 'add login' }]);
+  const events = [];
+  const r = runSummarize(proj, { agent: 'claude' }, (e) => events.push(e));
+  // run-start fires synchronously, before the child has even closed
+  assert.ok(events.some((e) => e.type === 'run-start' && e.run && e.run.id));
+  const runId = events.find((e) => e.type === 'run-start').run.id;
+  await waitForClose(r);
+  assert.ok(events.some((e) => e.type === 'run-end' && e.runId === runId && e.code === 0));
+  // run-end must land before the summary message, so the client never shows "running" past the result
+  const endIdx = events.findIndex((e) => e.type === 'run-end');
+  const msgIdx = events.findIndex((e) => e.type === 'message');
+  assert.ok(endIdx < msgIdx);
+});
+
+test('does not emit run-start when there is nothing to summarize (returns before ever spawning)', () => {
+  const proj = installWithStub();
+  const events = [];
+  runSummarize(proj, { agent: 'claude' }, (e) => events.push(e));
+  assert.strictEqual(events.length, 0);
+});
+
 test('errors when there is nothing to summarize yet', () => {
   const proj = installWithStub();
   const r = runSummarize(proj, { agent: 'claude' }, () => {});

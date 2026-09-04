@@ -1046,3 +1046,49 @@
   rafraîchie via `update` (0.22.1 → 0.22.2, 4 fichiers).
 - Fichiers : `templates/dashboard/public/{index.html,app.js,styles.css,i18n.js}`,
   `demo/.spectoflow/**` (rafraîchi).
+
+### D55 — 0.22.3 : plus de fenêtre console Windows au lancement d'un agent, indicateur de chargement,
+### scrollbar du File Explorer stylée
+- **ACTÉ.** Trois retours en usage réel sur Windows, captures à l'appui : une fenêtre console noire
+  vide titrée « claude » qui s'affiche par-dessus le dashboard en cliquant Auto-generate dashboard ou
+  Summarize ; une demande explicite d'exécuter les commandes en arrière-plan avec « un joli loading »
+  à la place ; et la scrollbar native grise de Windows, visuellement discordante, dans l'arbre du
+  File Explorer.
+  - **Cause de la fenêtre console** : `spawn()` (dans `runner.js` et `summarize.js`) ne passait pas
+    `windowsHide: true`. Sur Windows, l'agent configuré (`claude`, `codex`, …) est presque toujours
+    installé globalement via npm, ce qui en fait un exécutable **shimmé en `.cmd`** — spawn un `.cmd`
+    passe forcément par `cmd.exe /c`, qui ouvre une vraie fenêtre console par défaut sauf si on le lui
+    interdit explicitement. La fenêtre était non seulement moche mais totalement inutile : stdout/
+    stderr du process étaient déjà capturés par pipe (`child.stdout.on('data', …)`), rien n'était
+    jamais lu depuis cette fenêtre. `windowsHide: true` ajouté aux deux `spawn()` — no-op sur
+    macOS/Linux, et n'affecte en rien la capture stdout/stderr déjà en place. `orchestrator.js` et la
+    commande CLI `spectoflow skill/agent/dashboard create` réutilisent tous deux `runner.js#startRun`,
+    donc corrigés gratuitement par le même changement.
+  - **Indicateur de chargement** : rien n'existait entre le clic sur Send/Orchestrate/Summarize et le
+    résultat qui apparaît — sans la fenêtre console (même vide), plus aucun signal visuel que quelque
+    chose se passait. `summarize.js` n'émettait d'ailleurs jamais d'événement `run-start`/`run-end`
+    (contrairement à `runner.js`, réutilisé par `/api/run` et chaque étape d'Orchestrate) — ajouté,
+    dans le même ordre que `runner.js` (avant la tentative de spawn, pour que même un échec de spawn
+    ait son `run-end` correspondant). Côté client, `updateChatBusyUI()` combine ce signal SSE avec
+    `runtime.orchestration.status==='running'` (qui reste vrai pendant les creux entre étapes d'une
+    orchestration, que le seul SSE run-start/run-end ferait clignoter) : désactive les 6 boutons Send/
+    Orchestrate/Summarize (widget + tab), affiche un petit spinner + « Agent running… » à la place de
+    l'avertissement habituel. `isChatBusy()` garde aussi le raccourci clavier Ctrl/Cmd+Entrée (qui
+    appelle `doRun()` directement, contournant l'état `disabled` du bouton).
+  - **Scrollbar du File Explorer** : `.files-tree` (et par cohérence `.files-view`/`.files-editor`,
+    même défaut potentiel) recevait la scrollbar native de l'OS — épaisse, grise, détonnant avec le
+    thème sombre. Repris le motif déjà existant pour `.wf-pipeline` (`scrollbar-width:thin` +
+    `::-webkit-scrollbar-thumb` coloré via `var(--line)`), jamais généralisé au reste de l'app avant
+    ce correctif.
+- **QA** : nouveaux tests dans `test/summarize.test.js` (run-start émis avant même la fin du spawn,
+  run-end avant le message de résumé, aucun run-start si rien à résumer) — 189 tests, 187 passent
+  (le seul échec, `update restarts...`, est le flake déjà documenté, environnemental). Vérifié en
+  direct dans le navigateur : spinner + boutons désactivés pendant un Send réel, ré-activation propre
+  à la fin ; `getComputedStyle` confirmant `scrollbar-width:thin` et la couleur de thème appliquées
+  sur `.files-tree`. La fenêtre console elle-même n'est pas vérifiable depuis cette machine de test
+  (l'agent configuré y est un script Node, jamais un `.cmd` shimmé) — le correctif est ciblé
+  précisément sur la cause identifiée (`windowsHide`) et sans risque de régression sur les autres
+  plateformes. `demo/` rafraîchie via `update` (0.22.2 → 0.22.3, 6 fichiers).
+- Fichiers : `templates/dashboard/{runner.js,summarize.js}`,
+  `templates/dashboard/public/{index.html,app.js,styles.css,i18n.js}`, `test/summarize.test.js`,
+  `demo/.spectoflow/**` (rafraîchi).

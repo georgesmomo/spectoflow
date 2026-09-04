@@ -5,6 +5,21 @@ framework with a real-time local control plane. This file orients you to **build
 (it is not a spectoflow-managed project). Read `docs/` before making changes:
 `docs/ARCHITECTURE.md`, `docs/DECISIONS.md` (the full rationale, D1–D23), `docs/ROADMAP.md` (what's next).
 
+## What exists (v0.22.3 — see DECISIONS D55)
+
+Three real-usage Windows bugs. **No more console window on every agent launch**: `spawn()` in
+`runner.js`/`summarize.js` now passes `windowsHide: true` — a globally-npm-installed CLI agent is a
+`.cmd` shim on Windows, and spawning one without this flag pops a real (and pointless — stdout/stderr
+were already piped) console window on top of the dashboard. `orchestrator.js` and the CLI's
+`skill/agent/dashboard create` commands reuse `runner.js#startRun`, so they're fixed for free.
+**A loading indicator now fills the gap that window used to (accidentally) signal**: `summarize.js`
+gained the `run-start`/`run-end` SSE events `runner.js` already had; the client combines that with
+`runtime.orchestration.status` to disable Send/Orchestrate/Summarize and show a spinner +
+"Agent running…" for as long as a run is actually in flight (also guards the Ctrl/Cmd+Enter shortcut,
+which bypasses the disabled button). **File Explorer's tree scrollbar** now uses the app's existing
+thin/themed scrollbar pattern (previously only on `.wf-pipeline`) instead of the OS-native one.
+`demo/` refreshed via `update` (0.22.2 → 0.22.3).
+
 ## What exists (v0.22.2 — see DECISIONS D54)
 
 Real-usage feedback on the Board's Kanban view: 6 status columns at a 228px minimum each need

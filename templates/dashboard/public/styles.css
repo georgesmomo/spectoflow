@@ -304,7 +304,10 @@ body { background:var(--bg); color:var(--ink); font-family:var(--sans); font-siz
 .files-create-form .bl-add-input { width:100%; }
 .files-create-actions { display:flex; gap:8px; }
 .files-create-actions .btn { font-size:12px; padding:6px 11px; }
-.files-tree { flex:1; min-height:0; overflow:auto; border:1px solid var(--line); border-radius:var(--radius); padding:8px; background:var(--surface); }
+.files-tree { flex:1; min-height:0; overflow:auto; border:1px solid var(--line); border-radius:var(--radius); padding:8px; background:var(--surface); scrollbar-width:thin; scrollbar-color:var(--line) transparent; }
+.files-tree::-webkit-scrollbar { width:8px; }
+.files-tree::-webkit-scrollbar-thumb { background:var(--line); border-radius:8px; }
+.files-tree::-webkit-scrollbar-track { background:transparent; }
 .files-content-col { flex:1; min-width:0; display:flex; flex-direction:column; min-height:0; border:1px solid var(--line); border-radius:var(--radius); background:var(--surface); overflow:hidden; }
 .files-empty,.files-binary { padding:40px; text-align:center; color:var(--faint); font-style:italic; }
 .f-row { display:flex; align-items:center; gap:6px; padding:4px 6px; border-radius:6px; cursor:pointer; font-size:12.5px; white-space:nowrap; color:var(--muted); }
@@ -320,6 +323,10 @@ body { background:var(--bg); color:var(--ink); font-family:var(--sans); font-siz
 .files-actions { display:flex; gap:8px; flex-shrink:0; }
 .files-actions .btn { font-size:12px; padding:6px 11px; }
 .files-body-col { flex:1; min-height:0; display:flex; flex-direction:column; }
+.files-view,.files-editor { scrollbar-width:thin; scrollbar-color:var(--line) transparent; }
+.files-view::-webkit-scrollbar,.files-editor::-webkit-scrollbar { width:8px; }
+.files-view::-webkit-scrollbar-thumb,.files-editor::-webkit-scrollbar-thumb { background:var(--line); border-radius:8px; }
+.files-view::-webkit-scrollbar-track,.files-editor::-webkit-scrollbar-track { background:transparent; }
 .files-view { flex:1; min-height:0; overflow:auto; padding:16px 20px; }
 .files-editor { flex:1; min-height:0; width:100%; border:0; resize:none; padding:16px 20px; font-family:var(--mono); font-size:12.5px; line-height:1.6; background:var(--surface); color:var(--ink); outline:none; }
 .files-iframe { flex:1; min-height:0; width:100%; border:0; background:#fff; }
@@ -457,6 +464,13 @@ body { background:var(--bg); color:var(--ink); font-family:var(--sans); font-siz
 .chat-ta:focus { outline:2px solid var(--cool); outline-offset:1px; }
 .chat-send { flex:0 0 auto; align-self:auto; padding:8px 16px; }
 .chat-warn { font-size:10.5px; color:var(--signal); margin:6px 12px 10px; }
+body.chat-busy .chat-warn { display:none; } /* the running status below replaces it — one message at a time */
+.chat-status { display:flex; align-items:center; gap:8px; font-size:11.5px; color:var(--signal); margin:6px 12px 10px; font-weight:600; }
+.chat-status[hidden] { display:none; }
+.chat-status .spinner { width:12px; height:12px; border-radius:50%; flex-shrink:0; border:2px solid color-mix(in srgb,var(--signal) 28%,transparent); border-top-color:var(--signal); animation:chat-spin .7s linear infinite; }
+@keyframes chat-spin { to { transform:rotate(360deg); } }
+.chat-send:disabled,.mini-btn:disabled { opacity:.5; cursor:not-allowed; }
+@media (prefers-reduced-motion: reduce) { .chat-status .spinner { animation:none; } }
 .approval { display:flex; flex-direction:column; gap:8px; padding:10px 12px; background:var(--surface-2); border:1px solid color-mix(in srgb,var(--signal) 40%,var(--line)); border-radius:var(--radius); box-shadow:var(--shadow); }
 .approval .c-actions { display:flex; gap:8px; }
 #orchBtn,#tabOrchBtn { background:var(--cool); color:#04202a; border-color:transparent; font-weight:600; }
@@ -478,7 +492,7 @@ body { background:var(--bg); color:var(--ink); font-family:var(--sans); font-siz
 .chat-tab-input { display:flex; gap:10px; margin-top:10px; }
 .chat-tab-input .chat-ta { flex:1; min-height:56px; max-height:180px; }
 .chat-tab-actions { display:flex; flex-direction:column; gap:8px; flex-shrink:0; }
-.chat-tab-wrap .chat-warn { margin:8px 0 0; }
+.chat-tab-wrap .chat-warn,.chat-tab-wrap .chat-status { margin:8px 0 0; }
 @media (max-width:640px){ .chat-tab-input { flex-direction:column; } .chat-tab-actions { flex-direction:row; } }
 
 /* ---- chart & panel motion --------------------------------------------- */

@@ -77,7 +77,10 @@ function startRun(root, { prompt, agent, logPrompt = true }, emit) {
   runStart(root, run); emit({ type: 'run-start', run }); emit({ type: 'change' });
 
   let child;
-  try { child = spawn(parts[0], [...parts.slice(1), p], { cwd: root, env: process.env }); }
+  // windowsHide: without it, spawning a .cmd-shimmed CLI (e.g. a global npm install of `claude` on
+  // Windows) pops up a real, empty console window on top of the browser — jarring, and pointless
+  // since stdout/stderr are already piped and captured below, never read from that window anyway.
+  try { child = spawn(parts[0], [...parts.slice(1), p], { cwd: root, env: process.env, windowsHide: true }); }
   catch (e) {
     runEnd(root, runId, 1);
     emit({ type: 'run-line', runId, chunk: 'spawn error: ' + e.message + '\n' });

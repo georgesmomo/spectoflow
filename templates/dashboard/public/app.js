@@ -35,7 +35,7 @@ function connect(){
   es.onmessage = (ev)=>{
     let m; try{ m=JSON.parse(ev.data); }catch{ return; }
     if(m.type==='change'||m.type==='message') return scheduleLoad(); // messages live from runtime.messages
-    if(m.type==='run-start'||m.type==='run-end') { chatState.forEach(st=>{ st.rawBlock=null; }); return; }
+    if(m.type==='run-start'||m.type==='run-end') { chatState.forEach(st=>{ st.rawBlock=null; }); sseBusy=(m.type==='run-start'); updateChatBusyUI(); return; }
     if(m.type==='run-line') return appendRaw(m.chunk);          // raw output is ephemeral (not logged)
   };
   es.onerror = ()=>{ $('#sync').classList.add('offline'); $('#syncLabel').textContent='offline'; };
@@ -115,7 +115,11 @@ function setChat(open){
 // doRun/doOrchestrate default to the floating widget's textarea/select; the Chat tab has its own
 // #tabRunPrompt/#tabRunAgent (an id can't be shared by two elements) and passes them explicitly —
 // one code path, same endpoints, for both surfaces.
+// isChatBusy() also guards the Ctrl/Cmd+Enter keyboard shortcuts, which call doRun() directly and
+// would otherwise bypass the buttons' own disabled state.
+function isChatBusy(){ return sseBusy || (P&&P.runtime&&P.runtime.orchestration&&P.runtime.orchestration.status==='running'); }
 async function doRun(promptEl,agentEl){
+  if(isChatBusy()) return;
   promptEl=promptEl||$('#runPrompt'); agentEl=agentEl||$('#runAgent');
   const prompt=promptEl.value.trim(); if(!prompt) return;
   const agent=agentEl.value;
@@ -123,6 +127,7 @@ async function doRun(promptEl,agentEl){
   promptEl.value=''; // the prompt renders as a bubble from the message log
 }
 async function doOrchestrate(promptEl){
+  if(isChatBusy()) return;
   promptEl=promptEl||$('#runPrompt');
   const prompt=promptEl.value.trim(); if(!prompt) return;
   await fetch('/api/orchestrate',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({request:prompt})});
@@ -132,6 +137,7 @@ async function approve(decision){ await fetch('/api/orchestrate/approve',{method
 // ---- chat context management: condense the log via the agent, or wipe it (Chat tab only — the
 // floating widget stays "quick access", full controls live where there's room to read them) ----
 async function summarizeChat(agentEl){
+  if(isChatBusy()) return;
   const agent=(agentEl||$('#tabRunAgent'))?.value;
   flash();
   await fetch('/api/chat/summarize',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({agent})});
@@ -144,6 +150,23 @@ async function patchTask(id,patch){ flash(); await fetch('/api/task/'+encodeURIC
 async function addComment(id,text,action){ flash(); await fetch('/api/task/'+encodeURIComponent(id)+'/comment',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({text,action})}); }
 async function toggleStep(name){ flash(); await fetch('/api/workflow/toggle',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({name})}); }
 function flash(){ const s=$('#sync'); s.classList.add('saving'); $('#syncLabel').textContent='writing…'; setTimeout(()=>{ s.classList.remove('saving'); $('#syncLabel').textContent='live'; },800); }
+
+// ---- "agent is running" state — no visible feedback used to exist between clicking Send/
+// Orchestrate/Summarize and the result showing up (the only outward sign, on Windows, was a real
+// console window popping up behind the agent's own spawn — now suppressed, so this replaces it):
+// a small spinner + disabled buttons for as long as an agent run is actually in flight. Driven by
+// two signals — SSE run-start/run-end (Send, Summarize, each individual Orchestrate step) and
+// runtime.orchestration.status (stays 'running' across the gaps between orchestrate steps, which
+// SSE run-start/run-end alone would flicker through). ----
+let sseBusy=false;
+function updateChatBusyUI(){
+  const orchStatus=P&&P.runtime&&P.runtime.orchestration&&P.runtime.orchestration.status;
+  const busy=sseBusy||orchStatus==='running';
+  document.body.classList.toggle('chat-busy',!!busy);
+  [$('#runBtn'),$('#orchBtn'),$('#widgetSummarizeBtn'),$('#tabRunBtn'),$('#tabOrchBtn'),$('#tabSummarizeBtn')].forEach(b=>{ if(b) b.disabled=!!busy; });
+  const tabStatus=$('#tabChatStatus'); if(tabStatus) tabStatus.hidden=!busy;
+  const widgetStatus=$('#widgetChatStatus'); if(widgetStatus) widgetStatus.hidden=!busy;
+}
 
 function render(){
   const c = P.config||{};
@@ -165,7 +188,7 @@ function render(){
   if(meter) meter.title=`${t('kpi.globalProgress')}: ${s.pct}% (${s.done}/${s.total} ${t('kpi.tasksLabel')})`;
   renderOverview(); renderBoard(); renderBacklog(); renderWorkflow(); renderTeam();
   renderChatLog($('#chatLog')); renderChatLog($('#chatTabLog'));
-  renderSidebar(); renderRequests(); renderAttention(); renderInfo(); renderDocs(); renderSettings(); renderFiles(); applySideHidden();
+  renderSidebar(); renderRequests(); renderAttention(); renderInfo(); renderDocs(); renderSettings(); renderFiles(); applySideHidden(); updateChatBusyUI();
   renderCustomDashboards(); // adds/removes nav tabs + panels before applyActiveTab() below reads them
   applyActiveTab(); // re-apply the current tab so an SSE-driven re-render never resets to Board
   applyI18nStatic(); // re-translate the static markup (nav, headers, placeholders…) for this tick's language
