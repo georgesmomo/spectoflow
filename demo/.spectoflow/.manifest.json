@@ -1,5 +1,5 @@
 {
-  "version": "0.22.4",
+  "version": "0.22.5",
   "files": {
     "AGENTS.md": "00a96b7fb107d17aeb6d262df24d9edde86a0026292dfae582f0d7eac3e79dc4",
     "README.md": "80beafaae9e6ec9f554de4a1ae937f891346c9501117db9fd73584a3f410c80b",
@@ -18,6 +18,7 @@
     "capabilities.md": "c583871f981c7d3dcbbf5eee2e10112681e81cfdfe5f11eab8b7b3a0b03586c1",
     "dashboard/custom/.gitkeep": "6bd49227dc74d43f4e5b0a73057119029b14b0073b201594cba8d11417221ec7",
     "dashboard/files.js": "6d4e25bdaf32c986ab9256ff4976f6900865d6288ae0a454050e4f59ebceae48",
+    "dashboard/handlers.js": "349c318fce92cd9e5220fdfc35af083c4ffc8ac64fe3eb7fbe71c1400789f6d5",
     "dashboard/orchestrator.js": "1529553b80d0bb45ec7c9ac7ca150ec841d14274f5b900c92ebb083f6a69e7f1",
     "dashboard/public/app.js": "f2de3038e6d1b3be0628c3441565f38d74e68b11b5c5727b5791f4e83b58f159",
     "dashboard/public/charts.js": "19015e799aed5a6e040dca0d282bc87827e4b06cc2e8865c518adc1e41d8f59b",
@@ -44,9 +45,9 @@
     "dashboard/public/logo-dark.png": "d2dd085001805b4e992d45bd2bdec7e4484cde55b421dc69c70c13397c33c82f",
     "dashboard/public/logo-white.png": "cba8b91b97fbaeb2165077c00273f722464b0fdcae487d98b4daf9196e57a37b",
     "dashboard/public/stats.js": "508e8edae926fd3b9874025d9ea34172ec205329a6b4728774c786392ca18344",
-    "dashboard/public/styles.css": "733a489b49a3d4b76642ada36c41f33b45b67b313405f8ee889c9691fe981363",
+    "dashboard/public/styles.css": "b693b6130f999704f5d333bed03a58d5ad1a8523fab911bc757e802503a802a4",
     "dashboard/runner.js": "baabaae78f20e04c64db5de79a0437dae91864b68c55a35dd5073755fc4fd20d",
-    "dashboard/server.js": "03aadf1c1b262ae6125c404e427b7ac8995989ba186109f26d7ea6d902752df8",
+    "dashboard/server.js": "c698c9bdb7d6db1434f952721afb6d1badc9cc23abdd01f0ea041052a3853e46",
     "dashboard/summarize.js": "db3a143b8c1c40822a15041541aba6fad585daa91a0df7b1ff452d7125df9c16",
     "hooks/spec-drift.js": "c6e03ae530f0dc8190e554b8358e890ed0778d9d735b917593fca17cf241c8f4",
     "lib/agents-registry.js": "dc39d4bdb8350ac3e580eb9a7cf975e8e3e03abcf74044a40f41a10b7f525361",

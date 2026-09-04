@@ -6,5 +6,6 @@
   "runners": {
     "claude": "claude -p --permission-mode acceptEdits",
     "codex": "codex exec"
-  }
+  },
+  "design": "console"
 }

@@ -1138,3 +1138,33 @@
   rafraîchie via `update` (0.22.3 → 0.22.4, 4 fichiers).
 - Fichiers : `templates/dashboard/public/{index.html,app.js,styles.css,i18n.js}`,
   `demo/.spectoflow/**` (rafraîchi).
+
+### D57 — 0.22.5 : coloration syntaxique du File Explorer — `===`/`!==` illisibles (ligatures de police)
+- **ACTÉ.** Trouvé lors d'un audit QA e2e en vrai navigateur (demandé explicitement par l'utilisateur :
+  « fais tous les tests end to end pour t'assurer que tout est parfait »), pas un retour utilisateur
+  direct cette fois — un audit systématique de tous les onglets/designs du dashboard demo (v0.22.4).
+  - **Symptôme** : dans le File Explorer, tout opérateur `===`/`!==` s'affichait comme un bloc
+    illisible (les trois `=` fusionnés visuellement) au lieu de trois caractères distincts — à la fois
+    en aperçu et en édition, sur n'importe quel fichier `.js`.
+  - **Cause** : la technique d'incrustation du File Explorer (D53 puis affinée en D56 — un
+    `<pre><code>` coloré en fond, un `<textarea transparent>` exactement par-dessus) dépend d'un
+    alignement pixel-parfait, caractère par caractère, entre les deux calques. `--mono` résout vers
+    `ui-monospace`/Cascadia Code par défaut sous Windows, et vers `'JetBrains Mono'` sur le design
+    Obsidian Ops — deux polices qui **fusionnent par défaut** les séquences `===`/`!==`/`=>` etc. en un
+    seul glyphe ligaturé (fonctionnalité OpenType `calt`/`liga`, pensée pour la lecture de code, pas
+    pour un rendu superposé qui doit rester caractère-par-caractère). Le tokenizer lui-même
+    (`filesHighlight()`) était innocent — `=` n'est traité par aucune règle, il ressort en texte brut
+    inchangé ; le bug était purement au niveau du rendu de police, invisible à la lecture du code JS.
+  - **Fix** : `font-variant-ligatures:none; font-feature-settings:"liga" 0,"calt" 0;` ajouté aux DEUX
+    calques (`.files-code-backdrop` et `.files-code-wrap .files-code-input`) — sans ça, désactiver les
+    ligatures sur un seul des deux calques aurait simplement déplacé le désalignement au lieu de le
+    résoudre.
+- **QA** : reproduit puis corrigé, vérifié en direct dans le navigateur (avant/après capture d'écran
+  zoomée sur `ext==='.woff2'` dans `server.js`) — trois `=` bien distincts et lisibles après le fix, sur
+  le design par défaut (Console) où le bug était le plus visible. Reste du dashboard audité dans le
+  même passage (Board, Requests, Backlog, Workflow, Agents & Skills, Chat, Files, Info, Personalize,
+  Documentation en Console ; spot-check Orbit/Control Room/Obsidian Ops) : aucune autre anomalie
+  fonctionnelle trouvée — boutons bien positionnés, aucun chevauchement, aucune erreur console JS.
+  211 tests, 210 passent (le seul échec est le flake déjà documenté, environnemental). `demo/`
+  rafraîchie via `update` (0.22.4 → 0.22.5).
+- Fichiers : `templates/dashboard/public/styles.css`, `demo/.spectoflow/**` (rafraîchi).

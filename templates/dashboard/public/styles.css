@@ -338,9 +338,12 @@ body { background:var(--bg); color:var(--ink); font-family:var(--sans); font-siz
    line up; the backdrop never scrolls on its own (overflow:hidden), its scroll position is just
    copied from the textarea on every scroll event. */
 .files-code-wrap { position:relative; flex:1; min-height:0; }
-.files-code-backdrop { position:absolute; inset:0; margin:0; overflow:hidden; pointer-events:none; white-space:pre-wrap; word-break:break-word; padding:16px 20px; font-family:var(--mono); font-size:12.5px; line-height:1.6; color:var(--ink); background:transparent; }
+/* Ligatures (calt/liga — e.g. "===", "!==", "=>" fused into one glyph, common in Cascadia Code and
+   JetBrains Mono) must be off on BOTH layers: this overlay depends on the backdrop and the textarea
+   laying out every character at an identical pixel width, and a fused ligature glyph breaks that. */
+.files-code-backdrop { position:absolute; inset:0; margin:0; overflow:hidden; pointer-events:none; white-space:pre-wrap; word-break:break-word; padding:16px 20px; font-family:var(--mono); font-size:12.5px; line-height:1.6; color:var(--ink); background:transparent; font-variant-ligatures:none; font-feature-settings:"liga" 0,"calt" 0; }
 .files-code-backdrop code { font:inherit; background:none; }
-.files-code-wrap .files-code-input { position:absolute; inset:0; background:transparent; color:transparent; caret-color:var(--ink); white-space:pre-wrap; word-break:break-word; }
+.files-code-wrap .files-code-input { position:absolute; inset:0; background:transparent; color:transparent; caret-color:var(--ink); white-space:pre-wrap; word-break:break-word; font-variant-ligatures:none; font-feature-settings:"liga" 0,"calt" 0; }
 .hl-comment { color:var(--faint); font-style:italic; }
 .hl-string { color:var(--s-done); }
 .hl-number { color:var(--cool); }

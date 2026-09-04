@@ -5,6 +5,23 @@ framework with a real-time local control plane. This file orients you to **build
 (it is not a spectoflow-managed project). Read `docs/` before making changes:
 `docs/ARCHITECTURE.md`, `docs/DECISIONS.md` (the full rationale, D1–D23), `docs/ROADMAP.md` (what's next).
 
+## What exists (v0.22.5 — see DECISIONS D57)
+
+A single fix found via a full end-to-end browser QA audit of the dashboard (all tabs, all 6 designs,
+explicitly requested by the user to confirm "everything is perfect" — not a user bug report this
+time). The File Explorer's `===`/`!==` (any 3-char operator) rendered as an unreadable fused block in
+both preview and edit mode, on any `.js` file. Root cause: the syntax-highlighting overlay (D53/D56 —
+a colored `<pre><code>` backdrop under a transparent `<textarea>`) depends on pixel-perfect,
+character-by-character alignment between its two layers; `--mono` resolves to `ui-monospace`/Cascadia
+Code on Windows (and `'JetBrains Mono'` on the Obsidian Ops design) — both fonts fuse `===`/`!==`/`=>`
+into a single ligature glyph by default (the `calt`/`liga` OpenType feature), which breaks that
+alignment. Fixed with `font-variant-ligatures:none; font-feature-settings:"liga" 0,"calt" 0;` on both
+layers (`.files-code-backdrop` and `.files-code-wrap .files-code-input` — disabling it on only one
+would have just moved the misalignment, not fixed it). The rest of the dashboard (every tab on the
+default Console design, plus a spot-check of Orbit/Control Room/Obsidian Ops) was audited in the same
+pass and confirmed clean — no other functional or layout issues found. `demo/` refreshed via `update`
+(0.22.4 → 0.22.5).
+
 ## What exists (v0.22.4 — see DECISIONS D56)
 
 File Explorer follow-ups from real-usage feedback. **Bigger panel**: `.files-wrap`'s excess
