@@ -1321,6 +1321,7 @@ function renderDocs(){
 // event refreshes the TREE listing but never overwrites an open file's editor buffer, so an
 // unrelated agent write elsewhere can't clobber unsaved work here. ----
 let filesTreeData=null, filesOpenPath=null, filesOpenDirty=false;
+let filesSelectedDir=''; // '' = project root — the folder + File/+ Folder create inside
 const filesOpenDirs=new Set(); // persists which tree folders are expanded across a refresh
 async function loadFilesTree(){
   try{
@@ -1338,7 +1339,8 @@ function renderFiles(){
   loadFilesTree();
 }
 function fNode(entry){
-  const row=el('div','f-row'+(entry.type==='dir'&&filesOpenDirs.has(entry.path)?' is-open':'')+(entry.path===filesOpenPath?' is-active':''));
+  const isTarget=entry.type==='dir'&&entry.path===filesSelectedDir;
+  const row=el('div','f-row'+(entry.type==='dir'&&filesOpenDirs.has(entry.path)?' is-open':'')+(entry.path===filesOpenPath?' is-active':'')+(isTarget?' is-target':''));
   row.tabIndex=0;
   if(entry.type==='dir'){
     const chev=document.createElementNS('http://www.w3.org/2000/svg','svg');
@@ -1353,10 +1355,17 @@ function fNode(entry){
     const kids=el('div','f-children'); kids.hidden=!filesOpenDirs.has(entry.path);
     (entry.children||[]).forEach(c=> kids.append(fNode(c)));
     wrap.append(kids);
+    // a click both toggles expand/collapse AND marks this folder as where +File/+Folder create —
+    // the two are independent ideas but sharing the click keeps the tree from needing a second,
+    // easy-to-miss gesture just to pick a target folder.
     row.addEventListener('click',()=>{
       const open=filesOpenDirs.has(entry.path);
       if(open) filesOpenDirs.delete(entry.path); else filesOpenDirs.add(entry.path);
       row.classList.toggle('is-open',!open); kids.hidden=open;
+      filesSelectedDir=entry.path;
+      const root=$('#filesRootRow'); if(root) root.classList.remove('is-target');
+      $$('#filesTree .f-row.is-target').forEach(r=> r!==row && r.classList.remove('is-target'));
+      row.classList.add('is-target');
     });
   } else {
     row.addEventListener('click',()=> openFilesFile(entry.path));
@@ -1366,10 +1375,104 @@ function fNode(entry){
 function renderFilesTree(){
   const box=$('#filesTree'); if(!box) return;
   box.innerHTML='';
+  const root=$('#filesRootRow'); if(root) root.classList.toggle('is-target',filesSelectedDir==='');
   if(!filesTreeData || !filesTreeData.length){ box.append(el('div','empty',t('files.empty'))); return; }
   filesTreeData.forEach(e=> box.append(fNode(e)));
 }
 function filesExt(p){ const m=/\.([a-z0-9]+)$/i.exec(p||''); return m?m[1].toLowerCase():''; }
+
+// ---- lightweight syntax highlighting — zero-dependency (no CodeMirror/Monaco, per the explicit
+// call made when this tab was designed): a single char-scanner tokenizer good enough to make code
+// readable at a glance in a file browser, not a language-correct parser. Anything not recognized
+// (or with no lang mapping) just renders as plain, unstyled text — never a rendering error. ----
+const FILES_HL_LANG = {
+  js: { comments:[['//','\n'],['/*','*/']], strings:['"',"'",'`'],
+    keywords:'const let var function return if else for while do switch case break continue new class extends super this typeof instanceof in of try catch finally throw async await yield import export default from as null undefined true false void delete'.split(' ') },
+  json: { comments:[], strings:['"'], keywords:'true false null'.split(' ') },
+  css: { comments:[['/*','*/']], strings:['"',"'"], keywords:[] },
+  html: { comments:[['<!--','-->']], strings:['"',"'"], keywords:[], tags:true },
+  py: { comments:[['#','\n']], strings:['"',"'"],
+    keywords:'def class return if elif else for while break continue pass import from as try except finally raise with lambda yield async await None True False and or not in is del global nonlocal'.split(' ') },
+  sh: { comments:[['#','\n']], strings:['"',"'"],
+    keywords:'if then else elif fi for while do done case esac function return exit export local readonly'.split(' ') },
+  yml: { comments:[['#','\n']], strings:['"',"'"], keywords:'true false null'.split(' ') },
+};
+function filesHlLang(ext){
+  if(['js','mjs','cjs','ts','jsx','tsx'].includes(ext)) return 'js';
+  if(ext==='json') return 'json';
+  if(ext==='css') return 'css';
+  if(['html','htm'].includes(ext)) return 'html';
+  if(ext==='py') return 'py';
+  if(['sh','bash'].includes(ext)) return 'sh';
+  if(['yml','yaml'].includes(ext)) return 'yml';
+  return null;
+}
+// Scans `src` one character at a time, classifying spans as it goes; returns an HTML string with
+// each span wrapped in a colored <span> (escaped — this is the only place raw file content becomes
+// markup, so nothing here may skip escHtml).
+function filesHighlight(src,langKey){
+  const lang=FILES_HL_LANG[langKey];
+  if(!lang) return escHtml(src);
+  const n=src.length;
+  let i=0,html='',plain='';
+  const flushPlain=()=>{ if(plain){ html+=escHtml(plain); plain=''; } };
+  const isWordChar=c=>/[A-Za-z0-9_$]/.test(c);
+  while(i<n){
+    let matched=false;
+    // comments
+    for(const [open,close] of lang.comments){
+      if(src.startsWith(open,i)){
+        const end = close==='\n' ? (src.indexOf('\n',i)===-1?n:src.indexOf('\n',i)) : (src.indexOf(close,i+open.length)===-1?n:src.indexOf(close,i+open.length)+close.length);
+        flushPlain(); html+='<span class="hl-comment">'+escHtml(src.slice(i,end))+'</span>'; i=end; matched=true; break;
+      }
+    }
+    if(matched) continue;
+    // strings
+    if(lang.strings.includes(src[i])){
+      const q=src[i]; let j=i+1;
+      while(j<n && src[j]!==q){ if(src[j]==='\\') j++; j++; }
+      j=Math.min(j+1,n);
+      flushPlain(); html+='<span class="hl-string">'+escHtml(src.slice(i,j))+'</span>'; i=j; continue;
+    }
+    // html tags (bonus: <tag ...> / </tag>) — a light touch, not full attribute-vs-value parsing
+    if(lang.tags && src[i]==='<' && /[a-zA-Z/!]/.test(src[i+1]||'')){
+      const end=src.indexOf('>',i); const j=end===-1?n:end+1;
+      flushPlain(); html+='<span class="hl-tag">'+escHtml(src.slice(i,j))+'</span>'; i=j; continue;
+    }
+    // numbers
+    if(/[0-9]/.test(src[i]) && !isWordChar(src[i-1]||'')){
+      let j=i; while(j<n && /[0-9.]/.test(src[j])) j++;
+      flushPlain(); html+='<span class="hl-number">'+escHtml(src.slice(i,j))+'</span>'; i=j; continue;
+    }
+    // keywords
+    if(isWordChar(src[i]) && !isWordChar(src[i-1]||'')){
+      let j=i; while(j<n && isWordChar(src[j])) j++;
+      const word=src.slice(i,j);
+      if(lang.keywords.includes(word)){ flushPlain(); html+='<span class="hl-keyword">'+escHtml(word)+'</span>'; i=j; continue; }
+      plain+=word; i=j; continue;
+    }
+    plain+=src[i]; i++;
+  }
+  flushPlain();
+  return html;
+}
+// A textarea can't render colored text itself, so this overlays one, transparent, on top of a
+// highlighted <pre><code> "backdrop" showing through it (the standard technique for a highlighted
+// plain-text editor without a full editor component) — same font metrics on both, scroll positions
+// kept in lockstep, backdrop re-rendered on every keystroke.
+function filesCodeEditor(content,langKey,onInput){
+  const wrap=el('div','files-code-wrap');
+  const pre=document.createElement('pre'); pre.className='files-code-backdrop'; pre.setAttribute('aria-hidden','true');
+  const code=document.createElement('code'); pre.append(code);
+  const ta=el('textarea','files-editor files-code-input'); ta.spellcheck=false; ta.value=content;
+  const paint=()=>{ code.innerHTML=filesHighlight(ta.value,langKey)+'\n'; }; // trailing \n: a final blank line still gets backdrop height
+  const syncScroll=()=>{ pre.scrollTop=ta.scrollTop; pre.scrollLeft=ta.scrollLeft; };
+  ta.addEventListener('input',()=>{ paint(); if(onInput) onInput(ta.value); });
+  ta.addEventListener('scroll',syncScroll);
+  paint();
+  wrap.append(pre,ta);
+  return { wrap, textarea:ta };
+}
 async function openFilesFile(relPath){
   // no native confirm() dialog (it blocks the whole tab, including our own SSE/automation) — a
   // dirty editor just refuses to switch until the user explicitly saves or discards.
@@ -1432,15 +1535,19 @@ function renderFilesMd(box,actions,relPath,content){
   const showEditor=()=>{
     body.innerHTML='';
     const tb=el('div','files-md-toolbar');
-    const ta=el('textarea','files-editor'); ta.value=content;
-    const wrapSel=(before,after)=>{ const s=ta.selectionStart,e=ta.selectionEnd; const v=ta.value; ta.value=v.slice(0,s)+before+v.slice(s,e)+after+v.slice(e); ta.focus(); ta.selectionStart=s+before.length; ta.selectionEnd=e+before.length; content=ta.value; filesOpenDirty=true; };
+    const {wrap,textarea:ta}=filesCodeEditor(content,null,(v)=>{ content=v; filesOpenDirty=true; });
+    const wrapSel=(before,after)=>{
+      const s=ta.selectionStart,e=ta.selectionEnd; const v=ta.value;
+      ta.value=v.slice(0,s)+before+v.slice(s,e)+after+v.slice(e);
+      ta.dispatchEvent(new Event('input')); // repaints the backdrop and marks dirty via the same path as typing
+      ta.focus(); ta.selectionStart=s+before.length; ta.selectionEnd=e+before.length;
+    };
     [['B','**','**'],['I','_','_'],['H','## ',''],['Link','[','](url)']].forEach(([label,a,b])=>{
       const bt=el('button',null,label); bt.type='button'; bt.addEventListener('click',()=>wrapSel(a,b)); tb.append(bt);
     });
     const saveBtn=el('button',null,t('files.save')); saveBtn.type='button'; saveBtn.addEventListener('click',()=>{ content=ta.value; filesSave(relPath,content,actions); });
     tb.append(saveBtn,filesDiscardBtn(relPath));
-    ta.addEventListener('input',()=>{ content=ta.value; filesOpenDirty=true; });
-    body.append(tb,ta); ta.focus(); editBtn.textContent=t('files.preview');
+    body.append(tb,wrap); ta.focus(); editBtn.textContent=t('files.preview');
   };
   editBtn.addEventListener('click',()=>{ editing=!editing; if(editing) showEditor(); else showPreview(); });
   showPreview();
@@ -1461,23 +1568,21 @@ function renderFilesHtml(box,actions,relPath,content){
   };
   const showEditor=()=>{
     body.innerHTML='';
-    const ta=el('textarea','files-editor'); ta.value=content;
-    ta.addEventListener('input',()=>{ content=ta.value; filesOpenDirty=true; });
+    const {wrap,textarea:ta}=filesCodeEditor(content,'html',(v)=>{ content=v; filesOpenDirty=true; });
     const saveBtn=el('button','btn primary',t('files.save')); saveBtn.type='button'; saveBtn.addEventListener('click',()=>filesSave(relPath,content,actions));
     const tb=el('div','files-md-toolbar'); tb.append(saveBtn,filesDiscardBtn(relPath));
-    body.append(tb,ta); ta.focus(); editBtn.textContent=t('files.preview');
+    body.append(tb,wrap); ta.focus(); editBtn.textContent=t('files.preview');
   };
   editBtn.addEventListener('click',()=>{ editing=!editing; if(editing) showEditor(); else showPreview(); });
   showPreview();
 }
 // Anything else that reads as text: a plain monospace editor, editable straight away.
 function renderFilesText(box,actions,relPath,content){
-  const ta=el('textarea','files-editor'); ta.value=content;
-  ta.addEventListener('input',()=>{ filesOpenDirty=true; });
+  const {wrap,textarea:ta}=filesCodeEditor(content,filesHlLang(filesExt(relPath)),()=>{ filesOpenDirty=true; });
   const saveBtn=el('button','btn primary',t('files.save')); saveBtn.type='button';
   saveBtn.addEventListener('click',()=>filesSave(relPath,ta.value,actions));
   actions.append(saveBtn,filesDiscardBtn(relPath));
-  box.append(ta); ta.focus();
+  box.append(wrap); ta.focus();
 }
 // "+ File"/"+ Folder" open the same inline form (never a native prompt()/alert() — those block the
 // whole tab, including our own SSE connection, until dismissed).
@@ -1488,6 +1593,7 @@ function openFilesCreateForm(kind){
   const input=$('#filesCreateInput');
   input.placeholder = kind==='dir' ? t('files.newFolderPrompt') : t('files.newFilePrompt');
   input.value='';
+  const target=$('#filesCreateTarget'); if(target) target.textContent=t('files.creatingIn',{path:filesSelectedDir||t('files.projectRoot')});
   const err=$('#filesCreateError'); if(err) err.hidden=true;
   form.hidden=false; form.classList.add('is-open');
   input.focus();
@@ -1500,7 +1606,7 @@ async function submitFilesCreate(){
   const input=$('#filesCreateInput'); const err=$('#filesCreateError');
   const name=(input.value||'').trim();
   if(!name){ if(err){ err.textContent=t('backlog.addTitleRequired'); err.hidden=false; } return; }
-  const rel=name.replace(/^\/+/,'');
+  const rel=(filesSelectedDir?filesSelectedDir+'/':'')+name.replace(/^\/+/,'');
   const kind=filesCreateKind;
   const endpoint = kind==='dir' ? '/api/files/mkdir' : '/api/files/write';
   const payload = kind==='dir' ? {path:rel} : {path:rel,content:''};
@@ -1638,6 +1744,12 @@ $$('#backlogTable thead th').forEach(th=> th.addEventListener('click', ()=>{
 const filesNewFileBtn=$('#filesNewFile'); if(filesNewFileBtn) filesNewFileBtn.addEventListener('click',()=>openFilesCreateForm('file'));
 const filesNewFolderBtn=$('#filesNewFolder'); if(filesNewFolderBtn) filesNewFolderBtn.addEventListener('click',()=>openFilesCreateForm('dir'));
 const filesRefreshBtn=$('#filesRefresh'); if(filesRefreshBtn) filesRefreshBtn.addEventListener('click',loadFilesTree);
+const filesRootRowBtn=$('#filesRootRow');
+if(filesRootRowBtn) filesRootRowBtn.addEventListener('click',()=>{
+  filesSelectedDir='';
+  $$('#filesTree .f-row.is-target').forEach(r=> r.classList.remove('is-target'));
+  filesRootRowBtn.classList.add('is-target');
+});
 const filesCreateGoBtn=$('#filesCreateGo'); if(filesCreateGoBtn) filesCreateGoBtn.addEventListener('click',submitFilesCreate);
 const filesCreateCancelBtn=$('#filesCreateCancel'); if(filesCreateCancelBtn) filesCreateCancelBtn.addEventListener('click',closeFilesCreateForm);
 const filesCreateInputEl=$('#filesCreateInput'); if(filesCreateInputEl) filesCreateInputEl.addEventListener('keydown',e=>{ if(e.key==='Enter') submitFilesCreate(); });

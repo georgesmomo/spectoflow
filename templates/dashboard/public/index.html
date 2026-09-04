@@ -226,6 +226,7 @@
               <button id="filesRefresh" class="btn" type="button" title="Refresh" data-i18n-title="files.refresh">⟳</button>
             </div>
             <div class="files-create-form" id="filesCreateForm" hidden>
+              <div class="files-create-target" id="filesCreateTarget"></div>
               <input type="text" id="filesCreateInput" class="bl-add-input" autocomplete="off" />
               <div class="files-create-actions">
                 <button id="filesCreateGo" class="btn primary" type="button" data-i18n="files.create">Create</button>
@@ -233,6 +234,7 @@
               </div>
               <span class="files-error-tip" id="filesCreateError" hidden></span>
             </div>
+            <div class="f-row f-root" id="filesRootRow" tabindex="0" data-i18n="files.projectRoot">project root</div>
             <div class="files-tree" id="filesTree"></div>
           </div>
           <div class="files-content-col" id="filesContent">

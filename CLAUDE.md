@@ -5,6 +5,23 @@ framework with a real-time local control plane. This file orients you to **build
 (it is not a spectoflow-managed project). Read `docs/` before making changes:
 `docs/ARCHITECTURE.md`, `docs/DECISIONS.md` (the full rationale, D1–D23), `docs/ROADMAP.md` (what's next).
 
+## What exists (v0.22.4 — see DECISIONS D56)
+
+File Explorer follow-ups from real-usage feedback. **Bigger panel**: `.files-wrap`'s excess
+padding/height cap (inherited from the normal-scrolling-page pattern, not appropriate for this
+flex-constrained page) trimmed — the tree's own scrollbar now only appears once content genuinely
+exceeds the taller area, not before. **Click a folder to target it**: `+ File`/`+ Folder` create
+inside whichever folder is selected in the tree (`.is-target` highlight, a "project root" pseudo-row
+to reset), the form now asks only for a name ("Creating in: <folder>") instead of a full path typed
+by hand. **Syntax highlighting, still zero-dependency**: a transparent `<textarea>` sits exactly over
+a highlighted `<pre><code>` backdrop (same font metrics, backdrop repainted on every keystroke, its
+scroll position copied from the textarea) — `filesHighlight()` is one generic char-scanner tokenizer
+(comments/strings/numbers/keywords, plus a light HTML-tag pass) shared across JS/TS/JSON/CSS/HTML/
+Python/shell/YAML, falling back to plain text for anything unrecognized. Wired into all three text
+editors (generic, Markdown-edit, HTML-edit); the Markdown toolbar's programmatic `.value=` changes now
+dispatch a synthetic `input` event so the backdrop repaints (native `input` never fires on a
+script-set `.value`). `demo/` refreshed via `update` (0.22.3 → 0.22.4).
+
 ## What exists (v0.22.3 — see DECISIONS D55)
 
 Three real-usage Windows bugs. **No more console window on every agent launch**: `spawn()` in

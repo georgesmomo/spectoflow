@@ -1092,3 +1092,49 @@
 - Fichiers : `templates/dashboard/{runner.js,summarize.js}`,
   `templates/dashboard/public/{index.html,app.js,styles.css,i18n.js}`, `test/summarize.test.js`,
   `demo/.spectoflow/**` (rafraîchi).
+
+### D56 — 0.22.4 : File Explorer — panneau agrandi, création dans un dossier choisi dans l'arbre,
+### coloration syntaxique zero-dep
+- **ACTÉ.** Suite directe des retours sur le File Explorer : « il faut donc augmenter [la zone] et
+  que la barre de scroll ne s'affiche qu'à un certain niveau, tu agrandis la zone d'affichage du
+  contenu du fichier aussi, et ajoute la coloration syntaxique, et aussi pour la création des
+  dossiers/fichiers, on sélectionne un dossier dans lequel on veut créer. »
+  - **Panneau agrandi** : `.files-wrap` gagnait un `padding-bottom` de 60px et une hauteur limitée à
+    `calc(100vh - 130px)` — généreux à l'excès pour une page qui est déjà contrainte en flex (pas une
+    page à défilement normal comme les autres onglets, d'où ces marges héritées du même patron).
+    Réduit à un padding de 16px et `calc(100vh - 90px)` — l'arbre et l'éditeur (qui partagent le même
+    parent flex) gagnent tous les deux la même dizaine de pourcents de hauteur utile, donc la
+    scrollbar de l'arbre n'apparaît plus que si le contenu dépasse vraiment cette hauteur agrandie —
+    pas avant.
+  - **Création dans un dossier choisi** : jusqu'ici « + File »/« + Folder » demandait de taper le
+    chemin complet à la main. Cliquer un dossier dans l'arbre le marque maintenant comme cible
+    (surbrillance `.is-target`, distincte de `.is-active` réservée au fichier actuellement ouvert —
+    aucun conflit possible, `is-active` n'a jamais visé un dossier) ; une ligne « project root »
+    fixe en haut de l'arbre permet de revenir explicitement à la racine. Le formulaire affiche
+    « Creating in: <dossier> » et ne demande plus qu'un **nom**, préfixé du dossier cible côté client
+    avant l'appel à `/api/files/write`/`mkdir` — le serveur ne change pas, cette combinaison est déjà
+    exactement ce que `path` attend.
+  - **Coloration syntaxique, zero-dépendance** : décision déjà actée avec l'utilisateur à la
+    conception du File Explorer de rester sans dépendance externe (pas de CodeMirror/Monaco) — tenue
+    ici aussi. Un `<textarea>` ne peut pas colorer son propre texte ; technique standard reprise : un
+    `<pre><code>` en fond, coloré, avec un `<textarea>` **transparent** exactement par-dessus (même
+    police/padding/interligne, `color:transparent` + `caret-color` réel pour garder curseur et
+    sélection natifs) — le fond est repeint à chaque frappe, son défilement recopié depuis le
+    textarea à chaque `scroll`. Le tokenizer (`filesHighlight()`) est un scanner caractère par
+    caractère générique (commentaires, chaînes, nombres, mots-clés — pas un vrai parseur par
+    grammaire de langage) partagé par JS/TS/JSX, JSON, CSS, HTML (avec un passage bonus pour les
+    balises), Python, shell, YAML ; toute extension non reconnue retombe sur du texte brut, jamais
+    d'erreur de rendu. Branché sur les trois éditeurs de texte existants (générique, Markdown en mode
+    édition, HTML en mode édition) — la barre d'outils Markdown (gras/italique/titre/lien) continue de
+    fonctionner à l'identique puisqu'elle manipule le même `<textarea>` réel, avec un `dispatchEvent
+    (new Event('input'))` ajouté après ses modifications programmatiques pour forcer le repaint du
+    fond (un `.value=` en JS ne déclenche jamais nativement l'évènement `input`).
+- **QA** : vérifié en direct dans le navigateur — panneau visiblement plus haut ; clic sur un dossier
+  puis « + File » → étiquette « Creating in: notes » correcte, fichier créé au bon endroit
+  (`notes/script.js`, confirmé sur disque) ; coloration JS (mots-clés en gras, chaînes en vert,
+  nombres en cyan, commentaire en italique) et balises HTML (`<h1>`, `</p>`, …) toutes deux rendues
+  correctement, alignement caractère-par-caractère parfait entre le fond et le textarea transparent.
+  189 tests, 187 passent (le seul échec est le flake déjà documenté, environnemental). `demo/`
+  rafraîchie via `update` (0.22.3 → 0.22.4, 4 fichiers).
+- Fichiers : `templates/dashboard/public/{index.html,app.js,styles.css,i18n.js}`,
+  `demo/.spectoflow/**` (rafraîchi).
