@@ -68,8 +68,9 @@ test('GET /api/project exposes knownAgents and installedAgents', async () => {
   try {
     const r = await req(port, 'GET', '/api/project');
     assert.strictEqual(r.status, 200);
-    assert.ok(Array.isArray(r.body.knownAgents) && r.body.knownAgents.length >= 7);
+    assert.ok(Array.isArray(r.body.knownAgents) && r.body.knownAgents.length >= 13);
     assert.ok(r.body.knownAgents.some((a) => a.id === 'opencode' && a.label));
+    assert.ok(r.body.knownAgents.some((a) => a.id === 'copilot' && /^https:\/\//.test(a.docsUrl)));
     assert.ok(r.body.installedAgents.includes('claude'));
     assert.ok(!r.body.installedAgents.includes('opencode'), 'opencode is not on PATH in this test');
   } finally { srv.kill(); }

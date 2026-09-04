@@ -28,6 +28,8 @@ sit at the project root and just point back here.
   ```
 - **See what you got:** `spectoflow list` (agents, skills & workflow at a glance), or `spectoflow
   agents` / `spectoflow skills` / `spectoflow workflow`. Append `-h` to any command for its help.
+  (These "agents" are spectoflow's own team personas below, not the coding-agent CLI you're typing
+  into — see the dashboard's **Documentation** tab for which coding-agent CLIs spectoflow can drive.)
 - **Change how it runs** in the dashboard's **Personalize** tab (the **active agent**, always shown
   in the topbar too — switching is verified against what's actually installed before it activates —
   plus autonomy mode, output language, and the dashboard **design**), or by editing `config.json`.

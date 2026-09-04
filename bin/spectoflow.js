@@ -474,10 +474,12 @@ ${c.dim('Docs:')} https://github.com/georgesmomo/spectoflow`);
 const HELP = {
   init: `${c.bold('spectoflow init')} ${c.dim('[dir] [--agent=a,b]')}\n
   Scaffold spectoflow into <dir> (default: current directory).
-  Auto-detects installed agents (${c.dim('claude, codex, cursor, gemini')}) and writes their entry
-  shims; override with ${c.g('--agent=claude,codex')}. Also wires ${c.bold('Playwright MCP')} into the
-  project's ${c.dim('.mcp.json')} (idempotent — never touches an existing entry).
-  ${c.dim('An existing CLAUDE.md is preserved as CLAUDE.md.tomerge for you to merge on first run.')}`,
+  Auto-detects installed agents (${c.dim('claude, codex, cursor, gemini, opencode, kiro, antigravity,')}
+  ${c.dim('copilot, amazon-q, droid, auggie, goose, kimi')}) and writes their entry shims; override
+  with ${c.g('--agent=claude,codex')}. Also wires ${c.bold('Playwright MCP')} into the project's
+  ${c.dim('.mcp.json')} (idempotent — never touches an existing entry).
+  ${c.dim('An existing CLAUDE.md is preserved as CLAUDE.md.tomerge for you to merge on first run.')}
+  ${c.dim('Full list with docs links: the dashboard\'s Documentation tab, or the README.')}`,
   update: `${c.bold('spectoflow update')} ${c.dim('[--dry-run] [--force|-f]')}\n
   Refresh framework-owned files (engine, dashboard, default agents & skills, AGENTS.md, policy…)
   to this CLI's version, ${c.bold('preserving your work')}: config.json, workflow.md, specs/, plans/

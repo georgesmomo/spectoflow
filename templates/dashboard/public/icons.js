@@ -25,6 +25,8 @@
     attention: wrap('<line x1="4.5" y1="2.4" x2="4.5" y2="15.6"/><path d="M4.5 3.4h8.2l-1.7 2.6 1.7 2.6H4.5z"/>'),
     // gear — settings (proper cog with teeth)
     settings: wrap('<circle cx="9" cy="9" r="2.4"/><path d="M9 1.6v2.2M9 14.2v2.2M16.4 9h-2.2M3.8 9H1.6M14.2 3.8l-1.55 1.55M5.35 12.65 3.8 14.2M14.2 14.2l-1.55-1.55M5.35 5.35 3.8 3.8"/>'),
+    // open book — documentation
+    docs: wrap('<path d="M9 5.4C7.4 4.2 5.2 3.7 2.8 4v9c2.4-.3 4.6.2 6.2 1.4 1.6-1.2 3.8-1.7 6.2-1.4V4c-2.4-.3-4.6.2-6.2 1.4z"/><line x1="9" y1="5.4" x2="9" y2="14.4"/>'),
     // crescent moon — theme toggle
     theme: wrap('<path d="M14.6 10.8A5.6 5.6 0 0 1 7.2 3.4 5.7 5.7 0 1 0 14.6 10.8z"/>'),
   };

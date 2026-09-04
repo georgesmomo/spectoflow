@@ -78,3 +78,26 @@ test('defaultRunners never seeds a runner for a non-headless agent', () => {
   assert.ok(runners.claude);
   assert.ok(!('kimi' in runners), 'kimi has no runner to seed');
 });
+
+test('copilot never uses .github as a detect dir (false-positive risk: any CI project has one)', () => {
+  const copilot = adapters.REGISTRY.find((a) => a.id === 'copilot');
+  assert.ok(copilot, 'copilot is registered');
+  assert.deepStrictEqual(copilot.detect.dirs, [], 'PATH-only detection for copilot');
+  assert.strictEqual(copilot.detect.bin, 'copilot');
+});
+
+test('generate writes the shared AGENTS.md once for copilot + amazon-q + droid + auggie + goose', () => {
+  const proj = tmp();
+  const written = adapters.generate(proj, ['copilot', 'amazon-q', 'droid', 'auggie', 'goose']);
+  assert.deepStrictEqual(written, ['AGENTS.md'], 'shared file written a single time');
+});
+
+test('the September 2026 wave (copilot, amazon-q, droid, auggie, goose) are all headless with a runner and a docsUrl', () => {
+  for (const id of ['copilot', 'amazon-q', 'droid', 'auggie', 'goose']) {
+    const a = adapters.REGISTRY.find((x) => x.id === id);
+    assert.ok(a, `${id} is registered`);
+    assert.strictEqual(a.headless, true, `${id} is headless`);
+    assert.ok(a.runner && a.runner.length, `${id} has a runner`);
+    assert.match(a.docsUrl, /^https:\/\//, `${id} has a docs URL`);
+  }
+});

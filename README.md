@@ -20,13 +20,39 @@ An **agent-agnostic** spec-driven development framework with a **real-time local
 You speak in plain language; the framework classifies your intent and runs the right workflow. No
 ceremonial command to start.
 
-**Works with whichever coding agent you have** — Claude Code, Codex, Cursor, Gemini CLI, OpenCode,
-Kiro CLI, Antigravity, and Kimi CLI are auto-detected at `init`. The dashboard's topbar always shows
-the **active agent**, front and center, with a switcher: pick another and it's verified as genuinely
-installed before activating (a red **"No agent found"** if none is) — it never silently activates
-something that isn't there. (Kimi CLI doesn't yet ship a non-interactive run mode, so spectoflow can
-set it as active but won't try to spawn it — the agent pickers that launch a run grey it out rather
-than hide it.)
+**Works with whichever coding agent you have.** `init` auto-detects what's installed; the dashboard's
+topbar always shows the **active agent**, front and center, with a switcher — pick another and it's
+verified as genuinely installed before activating (a red **"No agent found"** if none is), never
+silently activating something that isn't there.
+
+> Note the terminology: "agent" is overloaded here on purpose, matching how the ecosystem uses the
+> word. The table below is about **coding-agent CLIs** — the tool you already run in your terminal
+> (Claude Code, Copilot CLI, …). spectoflow's own **team personas** (developer, qa-engineer, …) are a
+> different, unrelated use of "agent" — see [Agents vs skills](#agents-vs-skills) further down.
+
+| Coding agent | Headless run | Docs |
+|---|---|---|
+| Claude Code | ✓ | [code.claude.com/docs/en/cli-reference](https://code.claude.com/docs/en/cli-reference) |
+| Codex | ✓ | [developers.openai.com/codex/cli/reference](https://developers.openai.com/codex/cli/reference) |
+| Cursor CLI | ✓ | [cursor.com/docs/cli/overview](https://cursor.com/docs/cli/overview) |
+| Gemini CLI | ✓ | [github.com/google-gemini/gemini-cli](https://github.com/google-gemini/gemini-cli) |
+| OpenCode | ✓ | [opencode.ai/docs/cli](https://opencode.ai/docs/cli/) |
+| Kiro CLI | ✓ | [kiro.dev/docs/cli/headless](https://kiro.dev/docs/cli/headless/) |
+| Antigravity | ✓ | [antigravity.google/docs/cli/headless](https://antigravity.google/docs/cli/headless/) |
+| GitHub Copilot CLI | ✓ | [docs.github.com/copilot/…/about-copilot-cli](https://docs.github.com/copilot/concepts/agents/about-copilot-cli) |
+| Amazon Q Developer CLI | ✓ | [docs.aws.amazon.com/amazonq/…/command-line-chat](https://docs.aws.amazon.com/amazonq/latest/qdeveloper-ug/command-line-chat.html) |
+| Factory Droid CLI | ✓ | [docs.factory.ai/droid-exec/overview](https://docs.factory.ai/droid-exec/overview) |
+| Auggie CLI (Augment Code) | ✓ | [docs.augmentcode.com/cli/overview](https://docs.augmentcode.com/cli/overview) |
+| Goose CLI (Block) | ✓ | [block.github.io/goose](https://block.github.io/goose/) |
+| Kimi CLI | detectable, manual only | [github.com/MoonshotAI/kimi-cli](https://github.com/MoonshotAI/kimi-cli) |
+
+"Headless run" means spectoflow can actually spawn it non-interactively (`Run`/`Orchestrate`/
+`Summarize` work). Kimi CLI has no confirmed one-shot mode as of this writing — spectoflow still
+detects it and lets you set it as the active agent, it just won't try to spawn it (the pickers that
+launch a run grey it out rather than hide it); drive it yourself in its own terminal meanwhile. The
+same live table, with your own install status, is in the dashboard's **Documentation** tab. Missing
+one you use? `config.json → runners` still takes any custom command by hand — see
+[`templates/README.md`](templates/README.md) — or open an issue.
 
 ## Install
 
@@ -141,16 +167,19 @@ spectoflow dashboard                     # → http://localhost:4319 (or --port=
 `spectoflow dashboard` is the simple way — it prints the URL and won't double-start (it detects a
 dashboard already running on the port). `spectoflow status` tells you whether one is up. Running the
 `server.js` directly still works for a manual/embedded setup. Zero dependencies, updates live via SSE +
-file watching. Eight tabs behind a dense icon-tab header (brand logo · subtitle · a slim
-global-progress meter · a sync dot · a **Run** quick-action · a **settings** gear): **Board** (the
-control-room Overview — KPI cards, a status donut, a **scope-vs-delivered area curve**, a
+file watching. Ten tabs behind a dense icon-tab header (brand logo · subtitle · **active agent** ·
+autonomy mode · language · a slim global-progress meter · a sync dot · a **Run** quick-action): **Board**
+(the control-room Overview — compact KPI cards, a status donut, a **scope-vs-delivered area curve**, a
 workflow-at-a-glance strip, per-phase progress bars, filter chips + search — plus the phase board),
-**Requests** (tasks awaiting you — `to_validate`/`to_analyze`), **Attention** (points the agent raised
-via a `::spectoflow attention msg=…` sentinel or that you noted — edit/resolve/delete, or **validate →
-task**), **Backlog** (a flat sortable/filterable, paginated table of every task, defaulting to open
-work), **Workflow** (the pipeline as step cards — click one to enable/disable it, which edits
-`workflow.md`), **Agents & Skills** (enriched cards that open a full-body markdown drawer), **Chat** (a
-full-height group-chat panel), and **Info** (a project-at-a-glance summary). URLs are real routes
+**Chat** (a full-height group-chat panel with **Summarize**/**Clear**), **Requests** (tasks awaiting
+you — `to_validate`/`to_analyze`), **Attention** (points the agent raised via a `::spectoflow attention
+msg=…` sentinel or that you noted — edit/resolve/delete, or **validate → task**), **Backlog** (a flat
+sortable/filterable, paginated table of every task, defaulting to open work), **Workflow** (the
+pipeline as step cards — click one to enable/disable it, which edits `workflow.md`), **Agents &
+Skills** (enriched cards that open a full-body markdown drawer), **Info** (a project-at-a-glance
+summary), **Documentation** (the supported-agents table above, live with your own install status and
+links, plus the CLI command reference), and **Personalize** (autonomy mode, language, design, the
+active agent, and **Extend spectoflow** — described under *Customize* below). URLs are real routes
 (`/board`, `/backlog/T-012`, …). Charts are zero-dep, hand-rolled SVG in `dashboard/public/charts.js`
 (donut/area/bars/ring, animated, `prefers-reduced-motion`-aware), and every aggregate is computed
 client-side.
@@ -175,7 +204,8 @@ read-only endpoint, `GET /api/agentfile?path=` (scoped to `.spectoflow/agents/**
 `.spectoflow/skills/**`, path-traversal-safe) — the framework's only other server surface is
 unchanged.
 
-**Customize.** Settings → **Customize** lets you extend the project's own spectoflow install: add a
+**Customize.** Personalize → **Extend spectoflow** lets you extend the project's own spectoflow
+install: add a
 dashboard, a skill, or an agent by describing what you want (or hit **Auto** to have the agent survey
 the project and propose candidates), and it clarifies first if the ask is ambiguous. Dashboards are
 never raw HTML — they're a small **declarative block spec** (`markdown`, `kpi-row`, `chart-bars`,

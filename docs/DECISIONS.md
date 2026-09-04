@@ -752,3 +752,63 @@
   `templates/dashboard/server.js` (`headless` exposé dans `/api/project`, garde sur le seed de runner),
   `templates/dashboard/public/{index.html,app.js,styles.css}`, `test/adapters.test.js`,
   `test/agents-registry.test.js`, `test/runner.test.js`.
+
+### D50 — 0.21.0 : registre élargi à 13 agents (recherche croisée OpenSpec/spec-kit), onglet Documentation avec liens, cartes KPI compactées
+- **ACTÉ.** Trois demandes utilisateur, après avoir buté sur GitHub Copilot CLI absent du registre.
+  - **5 nouveaux agents, recherchés et vérifiés individuellement** (jamais devinés) : **GitHub Copilot
+    CLI** (`copilot -s --allow-all-tools -p`, lit AGENTS.md/CLAUDE.md/GEMINI.md nativement),
+    **Amazon Q Developer CLI** (`q chat --no-interactive --trust-all-tools`, mémoire NON native —
+    câblage réel via `.amazonq/rules/**/*.md`, pointeur AGENTS.md laissé quand même par cohérence avec
+    le reste du registre), **Factory Droid CLI** (`droid exec`, AGENTS.md natif), **Auggie CLI**
+    (`auggie --quiet --print`, AGENTS.md + CLAUDE.md natifs), **Goose CLI** (`goose run -t`, convention
+    mémoire non confirmée). **Registre à 13 agents au total.** Deux listes de référence citées par
+    l'utilisateur (OpenSpec `docs/supported-tools.md`, spec-kit `reference/integrations.html`, ~40
+    entrées chacune) ont servi à **découvrir des noms**, pas à valider le headless — ce sont des listes
+    d'intégration IDE/slash-command, aucune ne documente un mode non-interactif ; chaque entrée ajoutée
+    a été vérifiée indépendamment sur la doc primaire de l'outil.
+  - **Ordre des flags dans `runner` corrigé/documenté** : `runner.js` ajoute toujours le prompt en
+    **dernier** argument (`[...parts.slice(1), prompt]`) — un flag qui attend une valeur (`-p`,
+    `--print`, `-t`) doit donc être le **dernier** token de la chaîne `runner`, sinon le prompt atterrit
+    sur le mauvais flag (piège trouvé en assemblant `copilot`/`auggie`, dont la doc montre le prompt
+    juste après `-p`/`--print` alors que d'autres flags suivaient dans la doc — réordonné pour rester
+    sûr quelle que soit l'interprétation du parser).
+  - **`copilot` ne détecte jamais via `.github/`** : ce dossier existe sur n'importe quel projet avec
+    des GitHub Actions, Copilot ou pas — l'utiliser comme signal aurait donné des faux positifs
+    massifs. Détection PATH uniquement (`detect.dirs: []`), avec un test de régression dédié.
+  - **`docsUrl` ajouté à chaque entrée** (les 13, pas seulement les nouvelles) — la doc officielle de
+    l'agent, citée depuis la même passe de recherche que `runner`/`headless`, jamais devinée ; exposée
+    telle quelle par `GET /api/project` et testée pour être un vrai `https://`.
+  - **Nouvel onglet Dashboard « Documentation »** (icône livre ouvert, nouvelle, style cohérent avec le
+    reste) : un tableau « Agents pris en charge » construit en direct depuis `P.knownAgents`/
+    `P.installedAgents` (statut Installé/Non installé, badge « Manuel uniquement » pour Kimi, lien
+    cliquable vers la doc officielle de chacun) — répond directement au retour « je ne sais pas de quel
+    agent il s'agit » — et un tableau « Commandes » (référence CLI complète, alignée avec le README).
+    Un lien de bas de page renvoie vers le dépôt GitHub complet.
+  - **`mdLite` sait désormais rendre des liens** : syntaxe `[texte](url)` **et** auto-linkification des
+    URL brutes `https://…` déjà présentes dans le texte (protégée contre le double-lien via une classe
+    de caractères qui exclut ce qui suit déjà `href="`). Bénéfice immédiat et gratuit : toutes les
+    sections Références des agents/skills existants (déjà pleines d'URL brutes, ex. OWASP) deviennent
+    cliquables sans avoir touché un seul de ces fichiers.
+  - **Cartes KPI (Progression globale / En cours / À valider / Exécution) réduites** sur tous les
+    designs à la fois (padding, tailles de police, anneau de progression 72px→52px, écart de grille) —
+    un seul point de retouche dans `styles.css` (`.kpi`/`.kpi-row`/`.ring-wrap`) puisque tous les
+    designs partagent ce socle, aucune surcharge par design à dupliquer.
+  - **README restructuré** : tableau « Coding agent · Headless run · Docs » (13 lignes, liens vers
+    chaque doc officielle, note sur la collision de terminologie « agent » = CLI de code vs personas
+    spectoflow), description des tabs mise à jour (Documentation, Personalize, Chat en 2ᵉ position),
+    paragraphe Customize corrigé (« Personalize → Extend spectoflow », plus l'ancien « Settings »).
+    `templates/README.md` et l'aide `spectoflow init -h` mis à jour avec la liste complète + un
+    pointeur vers l'onglet Documentation/le README pour les liens (le terminal n'est pas fait pour ça).
+- **QA** : nouveaux tests (garde anti-dérive étendue à `label`/`docsUrl`, détection des 5 nouveaux
+  binaires, non-régression `.github`, `docsUrl` exposé et testé côté API). QA navigateur réel : les 13
+  agents listés avec statut et lien correct dans l'onglet Documentation (EN + FR vérifiés), lien
+  Copilot CLI vérifié pointant vers la bonne URL, auto-linkification confirmée sur un vrai fichier
+  agent existant (Security Engineer, références OWASP), cartes KPI visiblement plus compactes, zéro
+  erreur console. 176/176 tests (175 passent, 1 skip inchangé — même défaillance isolée déjà documentée
+  en D49, non reproduite en isolation).
+- Fichiers : `lib/adapters.js`, `templates/lib/agents-registry.js`, `templates/dashboard/server.js`
+  (`docsUrl` exposé), `templates/dashboard/public/{index.html,app.js,styles.css,i18n.js,icons.js}`
+  (nouvel onglet Documentation, icône `docs`, +25 clés × 6 langues, cartes KPI compactées),
+  `bin/spectoflow.js` (aide `init` mise à jour), `README.md`, `templates/README.md`,
+  `test/adapters.test.js`, `test/agents-registry.test.js`, `test/detect.test.js`,
+  `test/dashboard-agents-api.test.js`.

@@ -5,6 +5,21 @@ framework with a real-time local control plane. This file orients you to **build
 (it is not a spectoflow-managed project). Read `docs/` before making changes:
 `docs/ARCHITECTURE.md`, `docs/DECISIONS.md` (the full rationale, D1–D23), `docs/ROADMAP.md` (what's next).
 
+## What exists (v0.21.0 — see DECISIONS D50)
+
+**13 agents (was 8), a Documentation tab with links, compact KPI cards.** Five more coding agents
+researched and added to `lib/adapters.js`/`templates/lib/agents-registry.js`, each independently
+verified against its own primary docs (never guessed): GitHub Copilot CLI, Amazon Q Developer CLI,
+Factory Droid CLI, Auggie CLI, Goose CLI. Cross-checked against OpenSpec's and spec-kit's published
+tool lists for *names* — neither documents headless CLI support, so that part was still verified
+per-agent. Every entry (all 13) now carries a `docsUrl`, surfaced by a new dashboard **Documentation**
+tab: a live "supported agents" table (install status + a clickable link to each one's own docs) plus
+the CLI command reference — the direct answer to "which agent is this and where do I read about it".
+`mdLite` gained real link support (`[text](url)` and auto-linked bare `https://…`), so every existing
+agent/skill's References section is clickable now too, for free. The four KPI overview cards
+(Progress/In progress/To validate/Running) are meaningfully smaller across every design at once (one
+shared CSS block, no per-design overrides to touch).
+
 ## What exists (v0.20.1 — see DECISIONS D49)
 
 Four corrections after real-usage feedback on v0.20.0's agent work. **Kimi CLI added** to the

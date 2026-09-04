@@ -151,7 +151,7 @@ function render(){
   if(meter) meter.title=`${t('kpi.globalProgress')}: ${s.pct}% (${s.done}/${s.total} ${t('kpi.tasksLabel')})`;
   renderOverview(); renderBoard(); renderBacklog(); renderWorkflow(); renderTeam();
   renderChatLog($('#chatLog')); renderChatLog($('#chatTabLog'));
-  renderSidebar(); renderRequests(); renderAttention(); renderInfo(); renderSettings();
+  renderSidebar(); renderRequests(); renderAttention(); renderInfo(); renderDocs(); renderSettings();
   renderCustomDashboards(); // adds/removes nav tabs + panels before applyActiveTab() below reads them
   applyActiveTab(); // re-apply the current tab so an SSE-driven re-render never resets to Board
   applyI18nStatic(); // re-translate the static markup (nav, headers, placeholders…) for this tick's language
@@ -264,7 +264,7 @@ function renderOverview(){
 
   // KPI row
   const kpis=el('div','kpi-row');
-  kpis.append(kpiCard(t('kpi.globalProgress'), ring(s.pct,72), `${s.done}/${s.total} ${t('kpi.tasksLabel')}`, cssv('--s-done')));
+  kpis.append(kpiCard(t('kpi.globalProgress'), ring(s.pct,52), `${s.done}/${s.total} ${t('kpi.tasksLabel')}`, cssv('--s-done')));
   kpis.append(kpiCard(t('status.in_progress'), numBlock(s.byStatus.in_progress||0,'var(--s-in_progress)'), t('kpi.tasksLabel'), cssv('--s-in_progress')));
   kpis.append(kpiCard(t('status.to_validate'), numBlock(s.byStatus.to_validate||0,'var(--s-to_validate)'), t('kpi.awaitingReview'), cssv('--s-to_validate')));
   const r=s.running||{};
@@ -967,7 +967,7 @@ async function czSubmit(kind,description,agent){
 // A custom dashboard (Customize page) gets its own tab id "custom:<id>" and its own URL shape
 // /custom/<id> — kept out of ROUTES (a fixed list) since the set of custom ids is dynamic; recognized
 // by a dedicated branch in tabFromPath()/navigateTab() instead.
-const ROUTES=['board','requests','attention','backlog','workflow','team','chat','info','settings'];
+const ROUTES=['board','requests','attention','backlog','workflow','team','chat','info','docs','settings'];
 function tabFromPath(){
   const s=location.pathname.split('/').filter(Boolean);
   if(s[0]==='custom'&&s[1]) return 'custom:'+decodeURIComponent(s[1]);
@@ -1046,7 +1046,11 @@ function mdLite(raw){
   // 2) escape HTML — everything below builds markup only from this escaped text
   text=escHtml(text);
   // 3) convert a small markdown subset to HTML
-  const inline=s=> s.replace(/`([^`]+)`/g,'<code>$1</code>').replace(/\*\*([^*]+)\*\*/g,'<strong>$1</strong>');
+  const inline=s=> s
+    .replace(/`([^`]+)`/g,'<code>$1</code>')
+    .replace(/\*\*([^*]+)\*\*/g,'<strong>$1</strong>')
+    .replace(/\[([^\]]+)\]\((https?:\/\/[^\s)]+)\)/g,'<a href="$2" target="_blank" rel="noopener">$1</a>') // [text](url)
+    .replace(/(^|[^"'>])(https?:\/\/[^\s<]+)/g,'$1<a href="$2" target="_blank" rel="noopener">$2</a>'); // bare https://… URLs, skipping ones already inside an href/text we just built
   const lines=text.split('\n');
   let html='', inCode=false, codeBuf=[], listBuf=[], paraBuf=[];
   const flushPara=()=>{ if(paraBuf.length){ html+='<p>'+paraBuf.join(' ')+'</p>'; paraBuf=[]; } };
@@ -1163,6 +1167,73 @@ function renderInfo(){
     wfList.append(row);
   });
   box.append(infoSection(t('info.workflowLabel'),'workflow',wfList));
+}
+
+// ---- Documentation tab: which coding agents spectoflow can drive (with links to each one's own
+// docs, sourced from the same registry the topbar switcher reads) + the CLI command reference.
+// Never build this table from anything but P.knownAgents/P.installedAgents — that data comes from a
+// real PATH/config-dir test on the server, never a guess spectoflow hasn't verified. ----
+function linkEl(text,url){ const a=document.createElement('a'); a.href=url; a.target='_blank'; a.rel='noopener'; a.textContent=text; return a; }
+function docsAgentsTable(){
+  const known=P.knownAgents||[], installed=P.installedAgents||[];
+  const wrap=el('div','table-scroll'); const tbl=el('table','backlog-table');
+  const thead=el('thead'); const htr=el('tr');
+  [t('docs.colAgent'),t('docs.colStatus'),t('docs.colDocs')].forEach(c=>htr.append(el('th',null,c)));
+  thead.append(htr); tbl.append(thead);
+  const tbody=el('tbody');
+  known.forEach(a=>{
+    const tr=el('tr');
+    tr.append(el('td',null,a.label));
+    const statusTd=el('td');
+    const isInstalled=installed.includes(a.id);
+    const chip=el('span','chip s-'+(isInstalled?'done':'todo'), isInstalled?t('docs.installed'):t('docs.notInstalled'));
+    statusTd.append(chip);
+    if(!a.headless){ statusTd.append(document.createTextNode(' ')); statusTd.append(el('span','docs-manual-badge',t('docs.manualOnly'))); }
+    tr.append(statusTd);
+    const docsTd=el('td');
+    if(a.docsUrl) docsTd.append(linkEl(t('docs.officialDocs'),a.docsUrl));
+    tr.append(docsTd);
+    tbody.append(tr);
+  });
+  tbl.append(tbody); wrap.append(tbl);
+  return wrap;
+}
+function docsCommandsTable(){
+  const rows=[
+    ['spectoflow init [dir] [--agent=a,b]', t('docs.cmd.init')],
+    ['spectoflow update [--dry-run] [--force|-f]', t('docs.cmd.update')],
+    ['spectoflow status', t('docs.cmd.status')],
+    ['spectoflow dashboard [--port=NNNN]', t('docs.cmd.dashboard')],
+    ['spectoflow dashboard status|stop|restart', t('docs.cmd.dashboardSub')],
+    ['spectoflow dashboard create "…" | --auto', t('docs.cmd.dashboardCreate')],
+    ['spectoflow skill create "…" | --auto', t('docs.cmd.skillCreate')],
+    ['spectoflow agent create "…" | --auto', t('docs.cmd.agentCreate')],
+    ['spectoflow list', t('docs.cmd.list')],
+    ['spectoflow agents · skills · workflow', t('docs.cmd.explore')],
+  ];
+  const wrap=el('div','table-scroll'); const tbl=el('table','backlog-table');
+  const thead=el('thead'); const htr=el('tr');
+  [t('docs.colCommand'),t('docs.colWhatItDoes')].forEach(c=>htr.append(el('th',null,c)));
+  thead.append(htr); tbl.append(thead);
+  const tbody=el('tbody');
+  rows.forEach(([cmd,desc])=>{
+    const tr=el('tr');
+    const cmdTd=el('td'); const code=el('code',null,cmd); cmdTd.append(code); tr.append(cmdTd);
+    tr.append(el('td',null,desc));
+    tbody.append(tr);
+  });
+  tbl.append(tbody); wrap.append(tbl);
+  return wrap;
+}
+function renderDocs(){
+  const box=$('#docsBody'); if(!box) return;
+  box.innerHTML='';
+  box.append(infoSection(t('docs.agentsTitle'),'agents',docsAgentsTable()));
+  box.append(infoSection(t('docs.commandsTitle'),'run',docsCommandsTable()));
+  const note=el('p','docs-note');
+  note.append(document.createTextNode(t('docs.moreNote')+' '));
+  note.append(linkEl('github.com/georgesmomo/spectoflow','https://github.com/georgesmomo/spectoflow'));
+  box.append(note);
 }
 
 function openDrawer(id,keep){

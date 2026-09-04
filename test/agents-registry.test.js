@@ -16,17 +16,25 @@ function bindir(...bins) {
   return d;
 }
 
-test('KNOWN_AGENTS covers every id, bin, runner and headless flag in adapters.REGISTRY (no drift)', () => {
+test('KNOWN_AGENTS covers every id, label, bin, runner, headless flag and docsUrl in adapters.REGISTRY (no drift)', () => {
   const known = new Map(registry.KNOWN_AGENTS.map((a) => [a.id, a]));
   for (const a of adapters.REGISTRY) {
     const k = known.get(a.id);
     assert.ok(k, `agents-registry.js is missing "${a.id}"`);
+    assert.strictEqual(k.label, a.label, `${a.id}: label mismatch`);
     assert.strictEqual(k.bin, a.detect.bin, `${a.id}: bin mismatch`);
     assert.strictEqual(k.runner, a.runner, `${a.id}: runner mismatch`);
     assert.strictEqual(k.headless, a.headless, `${a.id}: headless mismatch`);
+    assert.strictEqual(k.docsUrl, a.docsUrl, `${a.id}: docsUrl mismatch`);
     assert.deepStrictEqual(k.dirs || [], a.detect.dirs || [], `${a.id}: dirs mismatch`);
   }
   assert.strictEqual(registry.KNOWN_AGENTS.length, adapters.REGISTRY.length, 'no extra/orphaned entries either way');
+});
+
+test('every KNOWN_AGENTS entry has a real https:// docsUrl', () => {
+  for (const a of registry.KNOWN_AGENTS) {
+    assert.match(a.docsUrl || '', /^https:\/\//, `${a.id} has a docs URL`);
+  }
 });
 
 test('every KNOWN_AGENTS entry has a label and an explicit headless flag', () => {

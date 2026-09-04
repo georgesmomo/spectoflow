@@ -57,6 +57,7 @@
       <button class="tab" data-tab="workflow" data-i18n-title="nav.workflow" title="Workflow"><span class="tab-ico" data-icon="workflow"></span><span class="tab-label" data-i18n="nav.workflow">Workflow</span></button>
       <button class="tab" data-tab="team" data-i18n-title="nav.team" title="Agents &amp; Skills"><span class="tab-ico" data-icon="agents"></span><span class="tab-label" data-i18n="nav.team">Agents &amp; Skills</span></button>
       <button class="tab" data-tab="info" data-i18n-title="nav.info" title="Info"><span class="tab-ico" data-icon="info"></span><span class="tab-label" data-i18n="nav.info">Info</span></button>
+      <button class="tab" data-tab="docs" data-i18n-title="nav.docs" title="Documentation"><span class="tab-ico" data-icon="docs"></span><span class="tab-label" data-i18n="nav.docs">Documentation</span></button>
       <button class="tab" data-tab="settings" data-i18n-title="nav.settings" title="Personalize"><span class="tab-ico" data-icon="settings"></span><span class="tab-label" data-i18n="nav.settings">Personalize</span></button>
     </nav>
     <div class="top-right">
@@ -230,6 +231,15 @@
         <h2 class="panel-title" data-i18n="info.title">Info</h2>
         <p class="panel-sub" data-i18n="info.sub">Project overview — configuration, counts, specs and active workflow.</p>
         <div class="info-grid" id="infoGrid"></div>
+      </div>
+    </section>
+
+    <!-- DOCUMENTATION (agent compatibility + CLI command reference — filled by renderDocs() in app.js) -->
+    <section class="panel" data-panel="docs">
+      <div class="info-wrap">
+        <h2 class="panel-title" data-i18n="docs.title">Documentation</h2>
+        <p class="panel-sub" data-i18n="docs.sub">Which coding agents spectoflow can drive, and the commands that drive them.</p>
+        <div class="info-grid docs-grid" id="docsBody"></div>
       </div>
     </section>
 

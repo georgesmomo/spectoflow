@@ -46,3 +46,9 @@ test('detectAgents finds the newer agent CLIs too (opencode, kiro-cli, agy)', ()
   const found = detect.detectAgents(tmp(), { env: { PATH: d }, platform: 'linux' });
   assert.deepStrictEqual(found.sort(), ['antigravity', 'kiro', 'opencode'].sort());
 });
+
+test('detectAgents finds the September 2026 wave too (copilot, q, droid, auggie, goose)', () => {
+  const d = bindir('copilot', 'q', 'droid', 'auggie', 'goose');
+  const found = detect.detectAgents(tmp(), { env: { PATH: d }, platform: 'linux' });
+  assert.deepStrictEqual(found.sort(), ['copilot', 'amazon-q', 'droid', 'auggie', 'goose'].sort());
+});
