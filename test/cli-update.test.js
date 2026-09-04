@@ -24,6 +24,25 @@ test('update just after init reports everything up to date and writes no .new', 
   assert.ok(!found.some((f) => f.endsWith('.new')), 'no .new sidecars for a fresh install');
 });
 
+test('update --force overwrites a diverged file and clears the manifest divergence', () => {
+  const proj = install();
+  const sf = path.join(proj, '.spectoflow');
+  fs.writeFileSync(path.join(sf, 'AGENTS.md'), 'DRIFTED — not the kit content');
+  run(proj, ['update', '--force']);
+  assert.ok(!fs.existsSync(path.join(sf, 'AGENTS.md.new')), 'no .new sidecar left behind');
+  const kitContent = fs.readFileSync(path.join(__dirname, '..', 'templates', 'AGENTS.md'), 'utf8');
+  assert.strictEqual(fs.readFileSync(path.join(sf, 'AGENTS.md'), 'utf8'), kitContent);
+});
+
+test('update -f is the short form of --force', () => {
+  const proj = install();
+  const sf = path.join(proj, '.spectoflow');
+  fs.writeFileSync(path.join(sf, 'AGENTS.md'), 'DRIFTED');
+  const out = run(proj, ['update', '-f']);
+  assert.match(out, /force/i);
+  assert.ok(!fs.existsSync(path.join(sf, 'AGENTS.md.new')));
+});
+
 test('update --dry-run leaves the manifest untouched', () => {
   const proj = install();
   const sf = path.join(proj, '.spectoflow');

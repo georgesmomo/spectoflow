@@ -226,10 +226,11 @@ function update() {
     return console.log('No spectoflow project here. Run: spectoflow init');
   }
   const dryRun = argv.includes('--dry-run');
-  const r = require('../lib/update').runUpdate({ projectRoot: root, templatesDir: TPL, version: VERSION, dryRun });
+  const force = argv.includes('--force') || argv.includes('-f');
+  const r = require('../lib/update').runUpdate({ projectRoot: root, templatesDir: TPL, version: VERSION, dryRun, force });
 
   const from = r.fromVersion || 'unknown';
-  const changed = r.refreshed.length + r.created.length + r.adopted.length + r.newSidecar.length;
+  const changed = r.refreshed.length + r.created.length + r.adopted.length + r.newSidecar.length + r.forced.length;
   const row = (sym, label, list, painter, note) => {
     if (!list.length) return;
     const n = c.dim(String(list.length).padStart(2));
@@ -237,18 +238,19 @@ function update() {
     console.log(`  ${sym}  ${painter(label.padEnd(9))} ${n}   ${detail}`);
   };
   console.log(logo());
-  console.log(`  ${c.bold('spectoflow update')}   ${c.dim(from)} ${c.amber('→')} ${c.bold(r.toVersion)}${dryRun ? c.dim('   (dry-run)') : ''}`);
+  console.log(`  ${c.bold('spectoflow update')}   ${c.dim(from)} ${c.amber('→')} ${c.bold(r.toVersion)}${dryRun ? c.dim('   (dry-run)') : ''}${force ? c.y('   (force)') : ''}`);
   console.log('');
   row(c.g('✓'), 'refreshed', r.refreshed, c.g);
   row(c.cy('+'), 'created', r.created, c.cy);
   row(c.b('~'), 'adopted', r.adopted, c.b);
-  row(c.y('!'), '.new', r.newSidecar, c.y, 'you edited these — new version saved as *.new, merge by hand');
+  row(c.y('!'), 'forced', r.forced, c.y, 'overwrote a diverged file — its previous content is gone');
+  row(c.y('!'), '.new', r.newSidecar, c.y, 'you edited these — new version saved as *.new, merge by hand (or re-run with --force)');
   if (r.unchanged.length) console.log(`  ${c.dim('·')}  ${c.dim('unchanged'.padEnd(9))} ${c.dim(String(r.unchanged.length).padStart(2))}`);
   console.log(`  ${c.dim('=')}  ${c.dim('preserved'.padEnd(9))}      ${c.dim('config.json · workflow.md · specs/ · plans/ · your custom agents & skills')}`);
   console.log('');
   if (dryRun) console.log(`  ${c.dim('(dry-run — nothing was written)')}`);
   else console.log(`  ${changed ? c.g('✓ Done') : c.dim('Already up to date')}${changed ? c.dim(` · ${changed} file(s) changed`) : ''}`);
-  if (r.newSidecar.length && !dryRun) console.log(`  ${c.y('→')} ${c.dim(`${r.newSidecar.length} *.new file(s) to review and merge`)}`);
+  if (r.newSidecar.length && !dryRun) console.log(`  ${c.y('→')} ${c.dim(`${r.newSidecar.length} *.new file(s) to review and merge — or re-run: spectoflow update --force`)}`);
   console.log('');
 }
 
@@ -442,7 +444,7 @@ ${c.dim('Usage:')} spectoflow ${c.g('<command>')} ${c.dim('[options]')}   ${c.di
 
 ${c.bold('Project')}
   ${c.g('init')} ${c.dim('[dir] [--agent=a,b]')}    scaffold a project (auto-detects agents; wires Playwright MCP)
-  ${c.g('update')} ${c.dim('[--dry-run]')}          refresh framework files to this kit version
+  ${c.g('update')} ${c.dim('[--dry-run|--force]')}  refresh framework files to this kit version
   ${c.g('status')}                      progress + whether the dashboard is running
 
 ${c.bold('Dashboard')}
@@ -476,11 +478,14 @@ const HELP = {
   shims; override with ${c.g('--agent=claude,codex')}. Also wires ${c.bold('Playwright MCP')} into the
   project's ${c.dim('.mcp.json')} (idempotent — never touches an existing entry).
   ${c.dim('An existing CLAUDE.md is preserved as CLAUDE.md.tomerge for you to merge on first run.')}`,
-  update: `${c.bold('spectoflow update')} ${c.dim('[--dry-run]')}\n
+  update: `${c.bold('spectoflow update')} ${c.dim('[--dry-run] [--force|-f]')}\n
   Refresh framework-owned files (engine, dashboard, default agents & skills, AGENTS.md, policy…)
   to this CLI's version, ${c.bold('preserving your work')}: config.json, workflow.md, specs/, plans/
   and any agent/skill you edited are never overwritten (an edited file's new version lands as
-  ${c.dim('*.new')} for you to merge). ${c.g('--dry-run')} previews without writing.`,
+  ${c.dim('*.new')} for you to merge). ${c.g('--dry-run')} previews without writing.
+  ${c.g('--force')} (${c.g('-f')}) overwrites a diverged file in place instead of dropping a ${c.dim('*.new')}
+  — use it when you know you have no local edits worth keeping (e.g. a file stuck diverged from an
+  earlier update). It never touches config.json, workflow.md, specs/ or plans/.`,
   dashboard: `${c.bold('spectoflow dashboard')} ${c.dim('[--port=NNNN] [status|stop|restart|create]')}\n
   Start the local control plane in the ${c.bold('background')} (default ${c.dim('4319')} or
   ${c.dim('$SPECTOFLOW_PORT')}) and hand the prompt back. Subcommands:

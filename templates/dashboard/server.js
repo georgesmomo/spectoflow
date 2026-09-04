@@ -10,7 +10,9 @@ const fs = require('fs');
 const path = require('path');
 const store = require('../lib/store');
 const { startRun } = require('./runner');
+const { runSummarize } = require('./summarize');
 const orchestrator = require('./orchestrator');
+const agentsRegistry = require('../lib/agents-registry');
 
 const PORT = process.env.SPECTOFLOW_PORT ? Number(process.env.SPECTOFLOW_PORT) : 4319;
 const PUBLIC = path.join(__dirname, 'public');
@@ -30,6 +32,11 @@ function project(){
   const p = store.readProject(ROOT);
   const v = frameworkVersion(); if (v) p.version = v;
   p.projectName = path.basename(ROOT); // the actual project folder, always shown in the topbar
+  // Known vs. actually-installed agents — the topbar switcher needs both: the full list to offer,
+  // and which ones are real (bin on PATH, or the project already has that agent's config dir) so it
+  // can refuse to activate one that isn't there.
+  p.knownAgents = agentsRegistry.KNOWN_AGENTS.map((a) => ({ id: a.id, label: a.label }));
+  p.installedAgents = agentsRegistry.installedAgents(ROOT);
   return p;
 }
 function sendJSON(res,code,obj){ res.writeHead(code,{'Content-Type':'application/json; charset=utf-8'}); res.end(JSON.stringify(obj)); }
@@ -44,6 +51,20 @@ function writeConfig(patch){
   if (patch.mode && ['autopilot','semi','manual'].includes(patch.mode)) cfg.mode = patch.mode;
   if (typeof patch.language === 'string' && patch.language.trim()) cfg.language = patch.language.trim();
   if (typeof patch.design === 'string' && /^[a-z0-9-]{1,40}$/.test(patch.design)) cfg.design = patch.design;
+  if (typeof patch.agent === 'string' && patch.agent.trim()) {
+    const id = patch.agent.trim();
+    // Never activate an agent whose CLI isn't actually there — a picked-but-absent agent would just
+    // fail silently the next time something tries to run it.
+    if (!agentsRegistry.isAgentInstalled(id, ROOT)) {
+      const known = agentsRegistry.KNOWN_AGENTS.find((a) => a.id === id);
+      const label = known ? known.label : id;
+      throw new Error(`${label} isn't installed here (its command wasn't found on PATH). Install it, then try again.`);
+    }
+    cfg.agent = id;
+    // Seed a default runner if this agent was never configured (e.g. installed after init/update).
+    const known = agentsRegistry.KNOWN_AGENTS.find((a) => a.id === id);
+    if (known) { cfg.runners = cfg.runners || {}; if (!cfg.runners[id]) cfg.runners[id] = known.runner; }
+  }
   fs.writeFileSync(cp, JSON.stringify(cfg, null, 2) + '\n');
   return cfg;
 }
@@ -141,6 +162,19 @@ const server = http.createServer(async (req,res)=>{
       const r=startRun(ROOT,{prompt,agent},emit);
       if(r.error) return sendJSON(res,400,{error:r.error});
       return sendJSON(res,200,{runId:r.runId});
+    }
+
+    // ---- chat context management: condense the log via the agent, or wipe it ----
+    if (p === '/api/chat/summarize' && req.method === 'POST') {
+      const { agent } = await body(req);
+      const r = runSummarize(ROOT, { agent }, emit);
+      if (r.error) return sendJSON(res, 400, { error: r.error });
+      return sendJSON(res, 200, { ok: true });
+    }
+    if (p === '/api/chat/clear' && req.method === 'POST') {
+      const rt = store.readRuntime(ROOT); rt.messages = []; store.writeRuntime(ROOT, rt);
+      emit({ type: 'change' });
+      return sendJSON(res, 200, { ok: true });
     }
 
     // ---- orchestrator ----

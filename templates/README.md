@@ -28,16 +28,18 @@ sit at the project root and just point back here.
   ```
 - **See what you got:** `spectoflow list` (agents, skills & workflow at a glance), or `spectoflow
   agents` / `spectoflow skills` / `spectoflow workflow`. Append `-h` to any command for its help.
-- **Change how it runs** in the dashboard's **Settings** tab (autonomy mode, output language, and the
-  dashboard **design**), or by editing `config.json`.
-- **Extend spectoflow itself** from Settings → **Customize**: describe a project-specific dashboard,
+- **Change how it runs** in the dashboard's **Personalize** tab (the **active agent**, always shown
+  in the topbar too — switching is verified against what's actually installed before it activates —
+  plus autonomy mode, output language, and the dashboard **design**), or by editing `config.json`.
+- **Extend spectoflow itself** from Personalize, further down the same tab: describe a project-specific dashboard,
   skill, or agent (or hit **Auto** to have it propose candidates from your project), and it's generated
   for you — a dashboard appears in the nav immediately, a skill/agent follows the same gold-standard
   shape as the shipped ones and is marked `origin: user-generated`. Same thing from the terminal:
   `spectoflow skill create "<description>"` / `agent create` / `dashboard create` (each also takes
   `--auto`).
 - **Update the framework** to a newer kit: `spectoflow update` (preserves your edits; a file you
-  changed is kept and its new version is written next to it as `*.new`).
+  changed is kept and its new version is written next to it as `*.new` — `--force`/`-f` overwrites it
+  in place instead, once you're sure you have nothing worth keeping there).
 
 ## Where your work lives
 

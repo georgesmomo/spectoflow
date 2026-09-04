@@ -88,6 +88,45 @@ test('legacy install (no manifest): adopts a matching file, .new for a divergent
   assert.ok(manifest.readManifest(sf).files['capabilities.md'], 'adopted file now tracked in manifest');
 });
 
+test('force overwrites a diverged file instead of dropping a .new sidecar', () => {
+  const { proj, sf, newKit } = install();
+  fs.writeFileSync(sfp(sf, 'agents/developer.md'), 'MY EDITS');
+  fs.writeFileSync(path.join(newKit, 'agents', 'developer.md'), 'KIT V2');
+  const report = runUpdate({ projectRoot: proj, templatesDir: newKit, version: '9.9.9', force: true });
+  assert.ok(report.forced.includes('agents/developer.md'), 'reported as forced');
+  assert.ok(!report.newSidecar.length, 'no .new written under force');
+  assert.strictEqual(read(sfp(sf, 'agents/developer.md')), 'KIT V2', 'disk now matches the kit');
+  assert.ok(!fs.existsSync(sfp(sf, 'agents/developer.md.new')), 'no leftover .new file');
+});
+
+test('force still refreshes untouched files normally (reported as refreshed, not forced)', () => {
+  const { proj, sf, newKit } = install();
+  fs.writeFileSync(path.join(newKit, 'AGENTS.md'), 'NEW BRAIN');
+  const report = runUpdate({ projectRoot: proj, templatesDir: newKit, version: '9.9.9', force: true });
+  assert.ok(report.refreshed.includes('AGENTS.md'));
+  assert.ok(!report.forced.includes('AGENTS.md'), 'an untouched file is a normal refresh, not a forced one');
+});
+
+test('force never touches user-owned config.json and workflow.md', () => {
+  const { proj, sf, newKit } = install();
+  fs.writeFileSync(sfp(sf, 'config.json'), '{"mode":"manual"}');
+  fs.writeFileSync(sfp(sf, 'workflow.md'), '# my workflow');
+  fs.writeFileSync(path.join(newKit, 'config.json'), '{"mode":"autopilot"}');
+  fs.writeFileSync(path.join(newKit, 'workflow.md'), '# kit workflow');
+  runUpdate({ projectRoot: proj, templatesDir: newKit, version: '9.9.9', force: true });
+  assert.strictEqual(read(sfp(sf, 'config.json')), '{"mode":"manual"}');
+  assert.strictEqual(read(sfp(sf, 'workflow.md')), '# my workflow');
+});
+
+test('force + dry-run reports the forced overwrite but writes nothing', () => {
+  const { proj, sf, newKit } = install();
+  fs.writeFileSync(sfp(sf, 'agents/developer.md'), 'MY EDITS');
+  fs.writeFileSync(path.join(newKit, 'agents', 'developer.md'), 'KIT V2');
+  const report = runUpdate({ projectRoot: proj, templatesDir: newKit, version: '9.9.9', force: true, dryRun: true });
+  assert.ok(report.forced.includes('agents/developer.md'));
+  assert.strictEqual(read(sfp(sf, 'agents/developer.md')), 'MY EDITS', 'disk untouched in dry-run');
+});
+
 test('--dry-run reports actions but writes nothing to disk', () => {
   const { proj, sf, newKit } = install();
   fs.writeFileSync(path.join(newKit, 'AGENTS.md'), 'NEW BRAIN');

@@ -40,3 +40,9 @@ test('detectAgents returns [] when nothing is installed and no agent dirs exist'
   const found = detect.detectAgents(tmp(), { env: { PATH: tmp() }, platform: 'linux' });
   assert.deepStrictEqual(found, []);
 });
+
+test('detectAgents finds the newer agent CLIs too (opencode, kiro-cli, agy)', () => {
+  const d = bindir('opencode', 'kiro-cli', 'agy');
+  const found = detect.detectAgents(tmp(), { env: { PATH: d }, platform: 'linux' });
+  assert.deepStrictEqual(found.sort(), ['antigravity', 'kiro', 'opencode'].sort());
+});

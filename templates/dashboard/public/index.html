@@ -26,13 +26,15 @@
           <span class="brand-project" id="projectName">—</span>
         </div>
         <div class="brand-sub" id="brandSub">
-          <select id="topMode" class="brand-mini-select" data-i18n-title="topbar.mode.title" data-i18n-aria="field.mode" aria-label="Autonomy mode" title="Autonomy mode — change from here or in Settings">
+          <select id="topAgent" class="brand-mini-select brand-agent-select" data-i18n-title="topbar.agent.title" data-i18n-aria="info.activeAgent" aria-label="Active agent" title="Active agent — change from here or in Personalize"></select>
+          <span class="brand-sub-sep">·</span>
+          <select id="topMode" class="brand-mini-select" data-i18n-title="topbar.mode.title" data-i18n-aria="field.mode" aria-label="Autonomy mode" title="Autonomy mode — change from here or in Personalize">
             <option value="autopilot">autopilot</option>
             <option value="semi">semi</option>
             <option value="manual">manual</option>
           </select>
           <span class="brand-sub-sep">·</span>
-          <select id="topLang" class="brand-mini-select" data-i18n-title="topbar.lang.title" data-i18n-aria="field.lang" aria-label="Output language" title="Output language — change from here or in Settings">
+          <select id="topLang" class="brand-mini-select" data-i18n-title="topbar.lang.title" data-i18n-aria="field.lang" aria-label="Output language" title="Output language — change from here or in Personalize">
             <option value="en">en</option>
             <option value="fr">fr</option>
             <option value="es">es</option>
@@ -47,15 +49,15 @@
       </div>
     </div>
     <nav class="tabs" id="tabs">
-      <button class="tab is-active" data-tab="board"><span class="tab-ico" data-icon="board"></span><span class="tab-label" data-i18n="nav.board">Board</span></button>
-      <button class="tab" data-tab="chat"><span class="tab-ico" data-icon="chat"></span><span class="tab-label" data-i18n="nav.chat">Chat</span></button>
-      <button class="tab" data-tab="requests"><span class="tab-ico" data-icon="requests"></span><span class="tab-label" data-i18n="nav.requests">Requests</span></button>
-      <button class="tab" data-tab="attention"><span class="tab-ico" data-icon="attention"></span><span class="tab-label" data-i18n="nav.attention">Attention</span><span class="tab-badge" id="attnBadge" hidden>0</span></button>
-      <button class="tab" data-tab="backlog"><span class="tab-ico" data-icon="backlog"></span><span class="tab-label" data-i18n="nav.backlog">Backlog</span></button>
-      <button class="tab" data-tab="workflow"><span class="tab-ico" data-icon="workflow"></span><span class="tab-label" data-i18n="nav.workflow">Workflow</span></button>
-      <button class="tab" data-tab="team"><span class="tab-ico" data-icon="agents"></span><span class="tab-label" data-i18n="nav.team">Agents &amp; Skills</span></button>
-      <button class="tab" data-tab="info"><span class="tab-ico" data-icon="info"></span><span class="tab-label" data-i18n="nav.info">Info</span></button>
-      <button class="tab" data-tab="settings"><span class="tab-ico" data-icon="settings"></span><span class="tab-label" data-i18n="nav.settings">Settings</span></button>
+      <button class="tab is-active" data-tab="board" data-i18n-title="nav.board" title="Board"><span class="tab-ico" data-icon="board"></span><span class="tab-label" data-i18n="nav.board">Board</span></button>
+      <button class="tab" data-tab="chat" data-i18n-title="nav.chat" title="Chat"><span class="tab-ico" data-icon="chat"></span><span class="tab-label" data-i18n="nav.chat">Chat</span></button>
+      <button class="tab" data-tab="requests" data-i18n-title="nav.requests" title="Requests"><span class="tab-ico" data-icon="requests"></span><span class="tab-label" data-i18n="nav.requests">Requests</span></button>
+      <button class="tab" data-tab="attention" data-i18n-title="nav.attention" title="Attention"><span class="tab-ico" data-icon="attention"></span><span class="tab-label" data-i18n="nav.attention">Attention</span><span class="tab-badge" id="attnBadge" hidden>0</span></button>
+      <button class="tab" data-tab="backlog" data-i18n-title="nav.backlog" title="Backlog"><span class="tab-ico" data-icon="backlog"></span><span class="tab-label" data-i18n="nav.backlog">Backlog</span></button>
+      <button class="tab" data-tab="workflow" data-i18n-title="nav.workflow" title="Workflow"><span class="tab-ico" data-icon="workflow"></span><span class="tab-label" data-i18n="nav.workflow">Workflow</span></button>
+      <button class="tab" data-tab="team" data-i18n-title="nav.team" title="Agents &amp; Skills"><span class="tab-ico" data-icon="agents"></span><span class="tab-label" data-i18n="nav.team">Agents &amp; Skills</span></button>
+      <button class="tab" data-tab="info" data-i18n-title="nav.info" title="Info"><span class="tab-ico" data-icon="info"></span><span class="tab-label" data-i18n="nav.info">Info</span></button>
+      <button class="tab" data-tab="settings" data-i18n-title="nav.settings" title="Personalize"><span class="tab-ico" data-icon="settings"></span><span class="tab-label" data-i18n="nav.settings">Personalize</span></button>
     </nav>
     <div class="top-right">
       <span class="sync" id="sync"><span class="sync-dot"></span><span id="syncLabel">live</span></span>
@@ -199,7 +201,11 @@
             <h2 class="panel-title" data-i18n="nav.chat">Chat</h2>
             <p class="panel-sub" data-i18n="chat.tabSub">Full conversation with the runner — the same run as the widget, more room to read it.</p>
           </div>
-          <select id="tabRunAgent" class="chat-agent" title="Agent"></select>
+          <div class="chat-tab-head-actions">
+            <button id="tabSummarizeBtn" class="mini-btn" data-i18n-title="chat.summarizeTitle" data-i18n="action.summarize" title="Condense the recent activity into a summary">Summarize</button>
+            <button id="tabClearBtn" class="mini-btn" data-i18n-title="chat.clearTitle" data-i18n="action.clear" title="Clear the chat log">Clear</button>
+            <select id="tabRunAgent" class="chat-agent" title="Agent"></select>
+          </div>
         </div>
         <div class="chat-tab-log" id="chatTabLog">
           <div class="chat-idle" data-i18n-html="chat.idle">Type a request — the agent runs headless in this project with full memory
@@ -228,9 +234,14 @@
     <!-- SETTINGS (change autonomy mode + output language → config.json) -->
     <section class="panel" data-panel="settings">
       <div class="settings-wrap">
-        <h2 class="panel-title" data-i18n="nav.settings">Settings</h2>
+        <h2 class="panel-title" data-i18n="nav.settings">Personalize</h2>
         <p class="panel-sub" data-i18n-html="settings.sub">Change how spectoflow runs. Writes <code>.spectoflow/config.json</code> — the agent picks it up on its next run.</p>
         <div class="settings-card">
+          <label class="settings-field">
+            <span class="settings-field-label" data-i18n="info.activeAgent">Active agent</span>
+            <select id="setAgent" class="settings-select"></select>
+            <span class="settings-field-hint is-empty" id="setAgentHint" data-i18n="topbar.agent.none" hidden>No agent found</span>
+          </label>
           <label class="settings-field">
             <span class="settings-field-label" data-i18n="field.design">Dashboard design</span>
             <select id="setDesign" class="settings-select"></select>
@@ -261,7 +272,7 @@
         <!-- Customize: project-specific dashboards, skills and agents — described or auto-proposed,
              generated by the configured agent through the same Run/Chat pipeline as any other ask. -->
         <div class="cz-wrap">
-          <h2 class="panel-title" data-i18n="customize.title">Customize</h2>
+          <h2 class="panel-title" data-i18n="customize.title">Extend spectoflow</h2>
           <p class="panel-sub" data-i18n="customize.sub">Add project-specific dashboards, skills and agents — describe what you want, or let Auto propose candidates from this project.</p>
           <div id="czRoot"></div>
         </div>
@@ -283,7 +294,7 @@
     <div class="footer-right">
       <a href="https://github.com/georgesmomo/spectoflow" target="_blank" rel="noopener">GitHub</a>
       <a href="https://www.npmjs.com/package/spectoflow" target="_blank" rel="noopener">npm</a>
-      <button class="footer-link" id="footerSettings" data-i18n="nav.settings">Settings</button>
+      <button class="footer-link" id="footerSettings" data-i18n="nav.settings">Personalize</button>
     </div>
   </footer>
 

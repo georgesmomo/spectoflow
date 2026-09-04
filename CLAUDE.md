@@ -5,6 +5,27 @@ framework with a real-time local control plane. This file orients you to **build
 (it is not a spectoflow-managed project). Read `docs/` before making changes:
 `docs/ARCHITECTURE.md`, `docs/DECISIONS.md` (the full rationale, D1–D23), `docs/ROADMAP.md` (what's next).
 
+## What exists (v0.20.0 — see DECISIONS D48)
+
+**7 agents, an always-visible verified switcher, Personalize, nav tooltips, chat Summarize/Clear,
+`update --force`.** `lib/adapters.js` now knows **OpenCode**, **Kiro CLI**, and **Antigravity**
+(researched and cited headless invocations — never guessed), alongside claude/codex/cursor/gemini;
+Kimi CLI and DeepSeek Harness were deliberately left out (no confirmed one-shot headless mode as of
+this research pass — a comment in the registry explains why). New `templates/lib/agents-registry.js`
+gives the *running dashboard* its own self-contained view of the same roster (id/label/bin/dirs/
+runner) — duplicated from `lib/adapters.js` on purpose (`.spectoflow/` must be self-contained) and
+kept in sync by a drift-guard test. The topbar's `#topAgent` select — first in the bar, ahead of mode
+and language — always shows the active agent; switching is verified server-side against what's
+genuinely installed (PATH or the project's own config dir) before it activates, and a project with
+nothing installed shows **"No agent found"** in red instead of a dead selector. **Settings → 
+Personalize** (the tab now hosts the active agent too, not just mode/language/design); the inner
+generator section is **"Extend spectoflow"** to avoid colliding with the new tab name. Every nav tab
+gets a hover tooltip reusing its own i18n label key (zero new strings). Chat tab: **Summarize**
+(condenses the recent log into one digest via the active agent, `templates/dashboard/summarize.js`,
+deliberately separate from `runner.js`) and **Clear**. `spectoflow update --force`/`-f` overwrites a
+diverged file in place instead of dropping a `.new` — resolves the "stuck diverging forever" case a
+real user hit (five dashboard files silently never refreshing across several prior updates).
+
 ## What exists (v0.19.0 — see DECISIONS D47)
 
 **Customize from the terminal.** `spectoflow skill create "<description>"`, `spectoflow agent create

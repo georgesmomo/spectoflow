@@ -615,3 +615,83 @@
   `test/cli-customize.test.js` (nouveaux), `bin/spectoflow.js` (require, `requireProjectRoot`,
   `parseCreateArgs`, `cliEmit`, `runCustomize`, sous-commande `dashboard create`, entrées `skill`/
   `agent` dans `fns`, aide globale + `HELP.dashboard`/`HELP.skill`/`HELP.agent`).
+
+### D48 — 0.20.0 : agents élargis (7 CLI) + agent actif visible/vérifié dans la bar, « Personnalisation », tooltips nav, résumer/effacer le chat, `update --force`
+- **ACTÉ.** Six demandes utilisateur groupées, toutes issues du même retour d'usage réel.
+  - **Registre d'agents élargi** (`lib/adapters.js`) : trois nouveaux CLI headless recherchés et
+    vérifiés (jamais devinés) — **OpenCode** (`opencode run --quiet`, lit `AGENTS.md` nativement),
+    **Kiro CLI** (`kiro-cli chat --no-interactive --trust-all-tools`, lit `AGENTS.md` comme steering),
+    **Antigravity** (`agy -p`, aucune lecture native d'`AGENTS.md` documentée — le pointeur est quand
+    même écrit, sans coût, au cas où). **Kimi CLI** et **DeepSeek Harness** ont été délibérément
+    **exclus** après recherche : aucun des deux ne documente, à ce jour, un vrai mode headless one-shot
+    (prompt en dernier argument, stdout, sortie) compatible avec le modèle `spawn` de `runner.js` —
+    Kimi est interactif/ACP uniquement, DeepSeek Harness est un framework d'app web en preview
+    développeur. Un commentaire dans `lib/adapters.js` explique ce choix pour ne pas le refaire à
+    l'aveugle plus tard. **7 agents connus au total** (claude/codex/cursor/gemini/opencode/kiro/
+    antigravity).
+  - **Nouveau registre runtime partagé** `templates/lib/agents-registry.js` (id/label/bin/dirs/runner)
+    — le dashboard, une fois installé dans `.spectoflow/`, doit être **autonome** (il ne peut pas
+    requérir le `lib/adapters.js` du paquet npm, qui ne s'expédie pas dans le projet) ; dupliqué
+    délibérément avec `lib/adapters.js`, comme d'autres frontières Node/navigateur du projet, mais
+    gardé aligné par un test dédié (`test/agents-registry.test.js`) qui compare les deux listes
+    id/bin/runner à chaque run.
+  - **Agent actif toujours visible et vérifié** : nouveau sélecteur `#topAgent` dans la barre partagée
+    (avant même mode/langue — priorité visuelle demandée explicitement), et un champ « Active agent »
+    en tête de l'onglet Personalize. Les deux lisent `P.knownAgents`/`P.installedAgents`, exposés par
+    `GET /api/project` (`agentsRegistry.installedAgents(ROOT)` — un vrai test PATH/dossier, jamais une
+    supposition) ; les options non installées sont visibles mais **désactivées** dans le menu (on ne
+    peut physiquement pas les choisir). En défense supplémentaire, `POST /api/settings` **revalide**
+    côté serveur avant d'écrire `config.json` — si l'agent choisi n'est en réalité pas installé, la
+    requête échoue avec un message clair et `config.agent` n'est jamais modifié. Si **aucun** agent
+    connu n'est installé, la bar et l'onglet affichent **« No agent found »** en rouge (`--s-blocked`,
+    le token « danger » déjà utilisé pour les tâches bloquées) au lieu d'un sélecteur inerte.
+  - **« Settings » → « Personalize »** (`nav.settings`, i18n sur les 6 langues) : le nom ne
+    correspondait plus à ce que l'onglet contient réellement (mode, langue, design, agent actif, ET
+    la section Customize). La section interne de génération de dashboards/skills/agents est renommée
+    **« Extend spectoflow »** (`customize.title`) pour ne pas dupliquer le mot avec le nouveau nom de
+    l'onglet.
+  - **Tooltips au survol du menu** : chaque bouton d'onglet (`#tabs .tab`) reçoit un `data-i18n-title`
+    qui réutilise **la même clé** que son libellé (`nav.board`, `nav.chat`, …) — zéro nouvelle clé
+    i18n, le tooltip est donc toujours dans la langue active et ne peut pas diverger du libellé. Utile
+    surtout sur Console (rail d'icônes) et Orbit (menu radial), où le texte n'est pas toujours visible.
+  - **Résumer / Effacer le chat** : deux boutons dans l'en-tête de l'onglet Chat (pas dans le widget
+    flottant, volontairement gardé « accès rapide, vue complète dans l'onglet Chat »). *Effacer* vide
+    `runtime.messages` (`POST /api/chat/clear`). *Résumer* passe par **le même pipeline agent que
+    partout ailleurs** — nouveau module `templates/dashboard/summarize.js` (`runSummarize`, testé
+    unitairement comme `runner.js`, dont il est délibérément distinct : il capture la sortie brute du
+    process en **un seul** message `kind:'summary'`, pas un flux de lignes sentinelles) — le journal
+    récent (40 derniers messages, hors résumés précédents pour ne pas composer) est formaté en texte et
+    envoyé en prompt à l'agent configuré ; sa réponse devient le résumé.
+  - **`spectoflow update --force`/`-f`** : résout directement l'incident de la session précédente (5
+    fichiers du dashboard restés bloqués en `.new` sur le vrai projet de l'utilisateur, certains depuis
+    plusieurs versions). `runUpdate({force:true})` écrase en place un fichier divergent au lieu de
+    poser un `.new` (nouveau champ de rapport `forced`, distinct de `refreshed`) — **ne touche jamais**
+    `config.json`/`workflow.md`/`specs/`/`plans/` (protégés structurellement, en dehors de l'ensemble
+    des fichiers du framework). `spectoflow update` (sans `--force`) affiche désormais un rappel de
+    cette option à côté de chaque `.new` restant.
+- **Incident annexe** (retour utilisateur, hors périmètre de cette demande) : `spectoflow update` sur
+  le vrai projet de l'utilisateur avait affiché la bonne version (v0.18.0) sans que la section
+  Customize n'apparaisse — diagnostiqué en direct sur son projet (`D:\projet_tmp\todo-list-v2`) : 5
+  fichiers (`app.js`, `index.html`, `styles.css`, `i18n.js`, `dashboard/server.js`) étaient bloqués en
+  `.new` depuis une version antérieure. Diff confirmé purement additif (aucune édition personnelle
+  perdue) → `.new` promus manuellement en fichiers vivants, hashes du manifeste réparés. `--force`
+  (ci-dessus) est la solution pérenne pour quiconque retombe sur ce cas.
+- **QA** : 163 → 178 tests (agents-registry, dashboard-agents-api en HTTP réel avec PATH isolé du vrai
+  poste de dev — piège trouvé et corrigé : fusionner un PATH de test avec `process.env.PATH` réel rend
+  le test dépendant de ce qui est *réellement* installé sur la machine qui l'exécute ; corrigé en
+  isolant totalement le PATH du test, ne gardant que le dossier de `node` lui-même + le(s) faux
+  binaire(s) voulu(s)), summarize, update --force (unit + CLI). QA navigateur réel sur projet jetable
+  isolé (mauvais export de `SPECTOFLOW_ROOT` dans le script manuel de QA détecté et corrigé en route —
+  le serveur pointait par erreur sur le dépôt spectoflow lui-même, sans aucun dégât, juste une 400 sur
+  un `config.json` absent) : agent actif visible et bascule vérifiée (acceptée si installé, rejetée
+  avec message clair sinon, état « No agent found » en rouge simulé et confirmé), onglet renommé
+  « Personalize » en EN et « Personnalisation » en FR sans collision avec « Extend spectoflow »,
+  tooltips corrects dans les deux langues, Résumer/Effacer fonctionnels de bout en bout (vrai résumé
+  généré par l'agent configuré, log vidé et confirmé après rechargement), zéro erreur console.
+- Fichiers : `lib/adapters.js`, `lib/update.js`, `lib/detect.js` (inchangé, déjà générique), `bin/
+  spectoflow.js` (`--force`/`-f`), `templates/lib/agents-registry.js` (nouveau),
+  `templates/dashboard/summarize.js` (nouveau), `templates/dashboard/server.js` (agents dans
+  `/api/project`, validation dans `writeConfig`, `/api/chat/summarize`, `/api/chat/clear`),
+  `templates/dashboard/public/{index.html,app.js,styles.css,i18n.js}`, `test/agents-registry.test.js`,
+  `test/dashboard-agents-api.test.js`, `test/summarize.test.js` (nouveaux), `test/adapters.test.js`,
+  `test/detect.test.js`, `test/update.test.js`, `test/cli-update.test.js`.

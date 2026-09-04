@@ -20,6 +20,12 @@ An **agent-agnostic** spec-driven development framework with a **real-time local
 You speak in plain language; the framework classifies your intent and runs the right workflow. No
 ceremonial command to start.
 
+**Works with whichever coding agent you have** — Claude Code, Codex, Cursor, Gemini CLI, OpenCode,
+Kiro CLI, and Antigravity are auto-detected at `init`. The dashboard's topbar always shows the
+**active agent**, front and center, with a switcher: pick another and it's verified as genuinely
+installed before activating (a red **"No agent found"** if none is) — it never silently activates
+something that isn't there.
+
 ## Install
 
 ```bash
@@ -39,13 +45,17 @@ Every command works both ways — `spectoflow <cmd>` when installed globally, or
 
 ```
 spectoflow init [dir] [--agent=claude,codex]   scaffold a project (auto-detects agents; wires Playwright MCP)
-spectoflow update [--dry-run]                  refresh framework files to this kit version
+spectoflow update [--dry-run] [--force|-f]     refresh framework files to this kit version
 spectoflow status                              progress + whether the dashboard is running
 
 spectoflow dashboard [--port=NNNN]             start the control plane in the background (hands the prompt back)
 spectoflow dashboard status                    is it running? (url + pid)
 spectoflow dashboard stop   (or: stop)         stop the running dashboard
 spectoflow dashboard restart                   stop then start
+spectoflow dashboard create "..." | --auto     generate a custom dashboard
+
+spectoflow skill create "..." | --auto         generate a project skill
+spectoflow agent create "..." | --auto         generate a project agent
 
 spectoflow list                                agents, skills and the workflow at a glance
 spectoflow agents                              list the team personas
@@ -79,7 +89,10 @@ update` refreshes **framework-owned** files (engine, dashboard, `AGENTS.md`, `ca
 `policy.md`, default agents & skills) to the CLI's version, while **preserving your work** —
 `config.json`, `workflow.md`, `specs/`, `plans/`, and any agent/skill you created or edited are never
 touched. A file you edited is preserved and its new version is written next to it as `<file>.new`
-for you to merge by hand. Add `--dry-run` to preview.
+for you to merge by hand. Add `--dry-run` to preview, or `--force`/`-f` to overwrite a diverged file
+in place instead of dropping a `.new` — use it once you're sure you have no local edits worth keeping
+in that file (e.g. it's been stuck diverged since an earlier update); it still never touches
+`config.json`, `workflow.md`, `specs/` or `plans/`.
 
 First refresh the kit, then run update from your project — the flow is the same whichever way you
 installed:
@@ -154,9 +167,11 @@ A floating **💬 chat widget** (bottom-right, redesigned) and the **Chat** tab 
 itself by printing `::spectoflow role=… kind=… msg=…` sentinels, which become labelled messages
 (analyst / developer / qa …); other output streams raw. The board refreshes live as it edits plans.
 Either surface can also **Orchestrate** the enabled workflow: each step runs its agent, gated by mode
-+ policy. The Agents & Skills drawer is served by the one read-only endpoint, `GET
-/api/agentfile?path=` (scoped to `.spectoflow/agents/**` + `.spectoflow/skills/**`,
-path-traversal-safe) — the framework's only other server surface is unchanged.
++ policy. The Chat tab can also **Summarize** the recent log into one digest (via the active agent)
+or **Clear** it outright, when it's grown long. The Agents & Skills drawer is served by the one
+read-only endpoint, `GET /api/agentfile?path=` (scoped to `.spectoflow/agents/**` +
+`.spectoflow/skills/**`, path-traversal-safe) — the framework's only other server surface is
+unchanged.
 
 **Customize.** Settings → **Customize** lets you extend the project's own spectoflow install: add a
 dashboard, a skill, or an agent by describing what you want (or hit **Auto** to have the agent survey

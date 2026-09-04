@@ -114,6 +114,17 @@ async function doOrchestrate(promptEl){
   promptEl.value='';
 }
 async function approve(decision){ await fetch('/api/orchestrate/approve',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({decision})}); }
+// ---- chat context management: condense the log via the agent, or wipe it (Chat tab only — the
+// floating widget stays "quick access", full controls live where there's room to read them) ----
+async function summarizeChat(agentEl){
+  const agent=(agentEl||$('#tabRunAgent'))?.value;
+  flash();
+  await fetch('/api/chat/summarize',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({agent})});
+}
+async function clearChat(){
+  flash();
+  await fetch('/api/chat/clear',{method:'POST'});
+}
 async function patchTask(id,patch){ flash(); await fetch('/api/task/'+encodeURIComponent(id),{method:'PATCH',headers:{'Content-Type':'application/json'},body:JSON.stringify(patch)}); }
 async function addComment(id,text,action){ flash(); await fetch('/api/task/'+encodeURIComponent(id)+'/comment',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({text,action})}); }
 async function toggleStep(name){ flash(); await fetch('/api/workflow/toggle',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({name})}); }
@@ -701,6 +712,47 @@ function fillLangSelect(sel,lang){
 }
 function setLangSelect(lang){ fillLangSelect($('#setLang'),lang); fillLangSelect($('#topLang'),lang); }
 function setModeSelects(mode){ [$('#setMode'),$('#topMode')].forEach(s=>{ if(s) s.value=mode; }); }
+
+// ---- active agent: always visible (topbar #topAgent) + editable (Settings #setAgent). Never lets
+// the user activate an agent that isn't actually installed — options for a not-installed known agent
+// are present but disabled, and P.installedAgents itself comes from the server testing each agent's
+// real CLI (bin on PATH, or the project's own config dir), not a guess.
+function fillAgentSelect(sel,known,installed,active){
+  if(!sel) return;
+  const empty=!installed.length;
+  sel.classList.toggle('is-empty',empty);
+  sel.disabled=empty;
+  if(empty){ sel.innerHTML=''; const o=document.createElement('option'); o.value=''; o.textContent=t('topbar.agent.none'); sel.append(o); return; }
+  const sig=known.map(a=>a.id+':'+(installed.includes(a.id)?1:0)).join(',');
+  if(sel.dataset.sig!==sig){
+    sel.innerHTML='';
+    known.forEach(a=>{
+      const o=document.createElement('option'); o.value=a.id; o.textContent=a.label;
+      if(!installed.includes(a.id)) o.disabled=true;
+      sel.append(o);
+    });
+    sel.dataset.sig=sig;
+  }
+  if(active) sel.value=active;
+}
+function setAgentSelects(){
+  const c=(P&&P.config)||{};
+  const known=P.knownAgents||[], installed=P.installedAgents||[];
+  fillAgentSelect($('#topAgent'),known,installed,c.agent);
+  fillAgentSelect($('#setAgent'),known,installed,c.agent);
+  const hint=$('#setAgentHint'); if(hint){ const empty=!installed.length; hint.hidden=!empty; hint.classList.toggle('is-empty',empty); if(empty) hint.textContent=t('topbar.agent.none'); }
+}
+function showAgentError(msg){
+  const hint=$('#setAgentHint'); if(!hint) return;
+  hint.hidden=false; hint.classList.add('is-empty'); hint.textContent=msg;
+  setTimeout(()=>{ if(P&&P.installedAgents&&P.installedAgents.length) hint.hidden=true; },4000);
+}
+async function saveAgent(id){
+  if(!id) return;
+  flash();
+  const r=await fetch('/api/settings',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({agent:id})});
+  if(!r.ok){ const body=await r.json().catch(()=>({})); showAgentError(body.error||t('topbar.agent.none')); setAgentSelects(); return; }
+}
 // ---- design skins (data-design) — switchable, persisted per viewer + as the project default ----
 function currentDesign(){ return document.documentElement.getAttribute('data-design')||'console'; }
 function applyDesign(id){ document.documentElement.setAttribute('data-design',id); try{ localStorage.setItem('spf-design',id); }catch{} }
@@ -710,6 +762,7 @@ function renderSettings(){
   const c=(P&&P.config)||{};
   setModeSelects(c.mode||'semi');
   setLangSelect(c.language||'en');
+  setAgentSelects();
   // design switcher — options from the DESIGNS registry (designs.js)
   const dsel=$('#setDesign');
   if(dsel){
@@ -1212,6 +1265,8 @@ $('#setLang').addEventListener('change',onLangSelectChange);
 const topModeSel=$('#topMode'); if(topModeSel) topModeSel.addEventListener('change',onModeSelectChange);
 const topLangSel=$('#topLang'); if(topLangSel) topLangSel.addEventListener('change',onLangSelectChange);
 const setDesignSel=$('#setDesign'); if(setDesignSel) setDesignSel.addEventListener('change',()=>saveDesign(setDesignSel.value));
+const topAgentSel=$('#topAgent'); if(topAgentSel) topAgentSel.addEventListener('change',(e)=>saveAgent(e.target.value));
+const setAgentSel=$('#setAgent'); if(setAgentSel) setAgentSel.addEventListener('change',(e)=>saveAgent(e.target.value));
 // theme
 (function(){ const s=localStorage.getItem('spf-theme'); if(s)document.documentElement.setAttribute('data-theme',s);
   $('#themeToggle').addEventListener('click',()=>{ const c=document.documentElement.getAttribute('data-theme'); const n=c==='dark'?'light':'dark'; document.documentElement.setAttribute('data-theme',n); localStorage.setItem('spf-theme',n); }); })();
@@ -1246,6 +1301,8 @@ $('#runPrompt').addEventListener('keydown',e=>{ if((e.metaKey||e.ctrlKey)&&e.key
 // Chat tab — same doRun/doOrchestrate/approve, its own textarea/select (#tabRunPrompt/#tabRunAgent)
 $('#tabRunBtn').addEventListener('click',()=>doRun($('#tabRunPrompt'),$('#tabRunAgent')));
 $('#tabOrchBtn').addEventListener('click',()=>doOrchestrate($('#tabRunPrompt')));
+$('#tabSummarizeBtn').addEventListener('click',()=>summarizeChat($('#tabRunAgent')));
+$('#tabClearBtn').addEventListener('click',clearChat);
 $('#tabRunPrompt').addEventListener('keydown',e=>{ if((e.metaKey||e.ctrlKey)&&e.key==='Enter')doRun($('#tabRunPrompt'),$('#tabRunAgent')); });
 $('#drawerClose').addEventListener('click',closeDrawer);
 $('#drawerScrim').addEventListener('click',closeDrawer);
