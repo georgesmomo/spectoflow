@@ -963,3 +963,53 @@
   `templates/dashboard/public/designs/{console.css,console.js}`, `templates/dashboard/files.js`
   (nouveau), `templates/dashboard/server.js`, `templates/lib/store.js`, `test/files.test.js` (nouveau),
   `test/dashboard-backend.test.js`, `demo/.spectoflow/**` (rafraîchi via `update`).
+
+### D53 — 0.22.1 : menu radial Orbit qui ne se chevauche plus, barre d'onglets qui s'adapte réellement
+- **ACTÉ.** Deux retours en usage réel dès la mise à jour vers 0.22.0 (donc directement causés par le
+  nouvel onglet Files qui fait passer le nombre total de tabs de 10 à 11) — capture à l'appui pour
+  chacun.
+  - **Orbit : les cercles du menu radial se chevauchaient** (« les menus se marchent déjà dessus »).
+    Cause : `orbit.js` répartit déjà les items sur 360° en fonction de leur nombre réel (`angle = -90 +
+    i * (360/n)`, jamais figé), mais le **rayon** de l'anneau restait une constante (98px desktop /
+    72px mobile) réglée à l'œil pour ~9 items — à 11 items la distance en corde entre deux items
+    adjacents (`2 × rayon × sin(π/n)`) devient plus petite que le diamètre des cercles eux-mêmes,
+    donc chevauchement géométrique garanti, peu importe l'angle. Corrigé en calculant le rayon
+    nécessaire pour garder un espacement minimal (`ringRadius()`, résout la même formule de corde à
+    l'envers) à l'ouverture du menu — jamais en dessous du rayon d'origine (qui reste le mieux pour
+    ≤9 items), mais qui grandit automatiquement avec n. Le budget d'espacement inclut une marge pour
+    le **libellé texte** sous chaque icône (pas seulement le cercle), qui peut être plus large que
+    l'icône elle-même (« Agents & Skills » est le cas le plus large) — un premier passage qui ne
+    comptait que le diamètre du cercle laissait les libellés se toucher alors que les cercles étaient
+    déjà visiblement séparés. `--ob-r` calculé en JS et posé en variable CSS inline sur `.ob-dial`
+    (hérite vers chaque `.ob-item` par défaut) ; les deux endroits qui utilisaient encore `98px`/`72px`
+    en dur dans `orbit.css` (le keyframe d'ouverture + la règle `prefers-reduced-motion`) lisent
+    maintenant `var(--ob-r, …)`, la valeur en dur ne servant plus que de repli si jamais la feuille de
+    style se charge avant que `orbit.js` n'ait tourné.
+  - **Barre d'onglets horizontale (Control Room / Obsidian / Neon Command / Mission Control) :
+    « Personnalisation » invisible sur certains templates.** Cause : un seul point de rupture CSS fixe
+    (`@media (max-width:1180px)`) décidait quand passer les tabs en icône-seule — réglé à l'œil pour
+    « les 8 tabs libellés » (commentaire d'origine, lui-même déjà obsolète : le compte réel était
+    passé à 10 avant même ce chantier). Un seuil en pixels de viewport ne peut pas savoir combien
+    de tabs existent réellement ; ajouter un tab (Files) a fait déborder la rangée à des largeurs qui
+    « marchaient » avant, avec `overflow-x:auto` qui rend le débordement techniquement scrollable mais
+    sans aucune indication visuelle (barre de scroll masquée volontairement, `scrollbar-width:none`) —
+    d'où l'impression que le menu manquait purement et simplement. Remplacé par une mesure réelle :
+    nouveau `fitTabs()` dans `app.js`, qui compare `#tabs`.scrollWidth à .clientWidth (au repos,
+    libellés visibles) et ajoute une classe `.tabs-compact` (→ `.tab-label{display:none}`) seulement si
+    ça déborde vraiment — correct à n'importe quel nombre de tabs et n'importe quelle largeur d'écran,
+    plus jamais lié à un total historique. Appelé depuis `applyActiveTab()` (donc à chaque tick de
+    rendu, y compris quand `renderCustomDashboards()` change le nombre de tabs) et sur `resize`
+    (debounced 120ms). Explicitement sauté pour Console (rail vertical, sa propre gestion via le
+    chantier D52) et Orbit (`#tabs` cliché en `display:none`, jamais affiché nativement) — éviter tout
+    conflit de spécificité CSS avec la gestion des libellés propre à chacun de ces deux designs.
+- **QA** : les deux corrections vérifiées en direct dans le navigateur, projet de test isolé avec
+  exactement 11 tabs (même total que le projet réel signalant les bugs). Orbit : capture avant/après
+  montrant les 11 cercles clairement séparés, aucun chevauchement, aucun libellé qui se touche. Barre
+  horizontale : `tabsEl.scrollWidth`/`clientWidth` inspectés directement — confirmé qu'à la largeur de
+  test (1536px), les 11 tabs **libellés** débordent réellement (1122px nécessaires contre 897px
+  disponibles) donc le passage en icône-seule est correct et non un faux positif ; en mode compact les
+  11 icônes tiennent exactement (`scrollWidth === clientWidth`) et Personalize est bien cliquable, plus
+  invisible. Suite complète : 187 tests (185 passent, le seul échec est le flake déjà documenté,
+  environnemental — vert en isolation). `demo/` rafraîchie via `update` (0.22.0 → 0.22.1, 4 fichiers).
+- Fichiers : `templates/dashboard/public/{app.js,styles.css}`,
+  `templates/dashboard/public/designs/{orbit.js,orbit.css}`, `demo/.spectoflow/**` (rafraîchi).

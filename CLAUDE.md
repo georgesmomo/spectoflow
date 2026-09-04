@@ -5,6 +5,27 @@ framework with a real-time local control plane. This file orients you to **build
 (it is not a spectoflow-managed project). Read `docs/` before making changes:
 `docs/ARCHITECTURE.md`, `docs/DECISIONS.md` (the full rationale, D1–D23), `docs/ROADMAP.md` (what's next).
 
+## What exists (v0.22.1 — see DECISIONS D53)
+
+Two bugs from real-usage feedback right after upgrading to 0.22.0 — both directly caused by the new
+Files tab pushing the total tab count from 10 to 11. **Orbit's radial menu items were overlapping**:
+the per-item angle was already computed from the real item count, but the ring's radius was a
+constant tuned by eye for ~9 items — past that the chord distance between adjacent items becomes
+smaller than the item's own diameter. `orbit.js` now computes the radius needed to keep a minimum
+gap (accounting for the label text, which can be wider than the icon circle) whenever the menu
+opens, never below the original tuned radius; `--ob-r` is set inline on `.ob-dial` and both
+`orbit.css` call sites (the open keyframe, the reduced-motion rule) read `var(--ob-r, …)` instead of
+a hardcoded px value. **Personalize was invisible on the horizontal-tab designs** (Control Room,
+Obsidian Ops, Neon Command, Mission Control): a single fixed `@media (max-width:1180px)` breakpoint
+decided icon-only mode, tuned once for a stale tab count and blind to how many tabs actually exist —
+adding a tab can overflow the row at widths that used to fit, and since `overflow-x:auto` hides its
+own scrollbar there was zero visual hint that more tabs existed. Replaced with a real measurement:
+`fitTabs()` in `app.js` compares `#tabs`'s `scrollWidth`/`clientWidth` and only adds `.tabs-compact`
+when the row genuinely overflows — correct at any tab count and any viewport width — called from
+`applyActiveTab()` (every render tick, including when custom dashboards change the tab count) and on
+a debounced `resize`. Deliberately skipped for Console (its own rail, see D52) and Orbit (`#tabs` is
+never shown natively there). `demo/` refreshed via `update` (0.22.0 → 0.22.1).
+
 ## What exists (v0.22.0 — see DECISIONS D52)
 
 Seven chantiers from real-usage feedback, shipped one at a time with live verification between

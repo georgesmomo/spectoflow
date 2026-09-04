@@ -1540,7 +1540,22 @@ openTaskId = taskFromPath(); // deep-link straight to a task drawer
 function applyActiveTab(){
   $$('#tabs .tab').forEach(t=> t.classList.toggle('is-active', t.dataset.tab===activeTab));
   $$('.panel').forEach(p=> p.classList.toggle('is-active', p.dataset.panel===activeTab));
+  fitTabs();
 }
+// Horizontal top-nav designs (Console's vertical rail and Orbit's hidden/radial nav manage their own
+// layout independently) can run out of room as tabs are added over time — a single px breakpoint
+// tuned for whatever tab count existed back then goes stale the moment a tab is added or removed
+// (exactly what happened when the Files tab pushed the row from 10 to 11 items: some tabs, including
+// Personalize, silently overflowed with no visible way to reach them). Measure the row's REAL
+// overflow instead of guessing from viewport width alone, so it's correct at any tab count.
+function fitTabs(){
+  const tabsEl=$('#tabs'); if(!tabsEl) return;
+  const design=document.documentElement.getAttribute('data-design');
+  if(design==='console'||design==='orbit'){ tabsEl.classList.remove('tabs-compact'); return; }
+  tabsEl.classList.remove('tabs-compact'); // measure at full (labelled) size first
+  if(tabsEl.scrollWidth>tabsEl.clientWidth+1) tabsEl.classList.add('tabs-compact');
+}
+window.addEventListener('resize', (()=>{ let t=null; return ()=>{ clearTimeout(t); t=setTimeout(fitTabs,120); }; })());
 $$('#tabs .tab').forEach(tab=> tab.addEventListener('click',()=> navigateTab(tab.dataset.tab)));
 // mobile hamburger — toggles the tab dropdown (body.nav-open); closes on tab pick / outside / Esc
 const navToggle=$('#navToggle');

@@ -199,12 +199,14 @@ html[data-design="orbit"] .ob-item .ob-bd {
   position:absolute; top:2px; right:2px; min-width:15px; height:15px; padding:0 4px; border-radius:8px;
   background:var(--s-blocked); color:#fff; font:700 9px/15px var(--mono); text-align:center;
 }
-@keyframes ob-orbit { to{ opacity:1; transform:rotate(var(--a)) translate(98px) rotate(calc(-1*var(--a))) scale(1); } }
+/* --ob-r is set inline on .ob-dial (computed per open, from the actual tab count) and inherits down
+   to every .ob-item — the 98px/72px fallbacks only cover a stylesheet loaded before orbit.js runs. */
+@keyframes ob-orbit { to{ opacity:1; transform:rotate(var(--a)) translate(var(--ob-r,98px)) rotate(calc(-1*var(--a))) scale(1); } }
 @media (max-width:900px) {
   html[data-design="orbit"] .ob-item { width:46px; height:46px; margin:-23px 0 0 -23px; }
   html[data-design="orbit"] .ob-item .ob-lb { display:none; }
   html[data-design="orbit"] .ob-item .ob-ico { width:16px; height:16px; }
-  @keyframes ob-orbit { to{ opacity:1; transform:rotate(var(--a)) translate(72px) rotate(calc(-1*var(--a))) scale(1); } }
+  @keyframes ob-orbit { to{ opacity:1; transform:rotate(var(--a)) translate(var(--ob-r,72px)) rotate(calc(-1*var(--a))) scale(1); } }
 }
 
 @media (prefers-reduced-motion: reduce) {
@@ -220,7 +222,7 @@ html[data-design="orbit"] .ob-item .ob-bd {
   html[data-design="orbit"] body.booting .card {
     animation:none !important;
   }
-  html[data-design="orbit"] .ob-item { opacity:1; transform:rotate(var(--a)) translate(98px) rotate(calc(-1*var(--a))); }
+  html[data-design="orbit"] .ob-item { opacity:1; transform:rotate(var(--a)) translate(var(--ob-r,98px)) rotate(calc(-1*var(--a))); }
 }
 
 /* chat FAB — amber brand accent (the teal is the dial's); readable on both sets */

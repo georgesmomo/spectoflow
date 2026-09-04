@@ -71,11 +71,31 @@
     }
   }
 
+  // Items sit on a ring of radius R; at n evenly-spaced items the straight-line gap between two
+  // adjacent item centers is a chord of length 2R·sin(π/n). Below ~9 items the tuned default radius
+  // already clears the item's own diameter with room to spare; past that, more tabs (built-in ones
+  // like this session's new Files tab, or future custom dashboards) would pack the same fixed ring
+  // tighter and tighter until items visibly overlap. Grow the radius instead — solved for the chord
+  // to equal the item diameter plus a minimum gap — so the ring always has room for however many
+  // tabs exist, never a fixed count tuned for whatever the tab bar happened to hold at the time.
+  function ringRadius(n, itemDiameter, minGap) {
+    if (n <= 1) return itemDiameter; // a lone item has no neighbor to clear
+    var needed = (itemDiameter + minGap) / (2 * Math.sin(Math.PI / n));
+    return Math.max(itemDiameter, needed);
+  }
+
   /* ---- radial overlay ---- */
   function buildOverlay() {
     if (ovEl) return;
     var list = tabs(), n = list.length || 1;
     var idx = activeIndex(list);
+    var isCompact = window.matchMedia('(max-width:900px)').matches;
+    var itemDiameter = isCompact ? 46 : 58;
+    var baseRadius = isCompact ? 72 : 98; // the tuned default for <=9 items — never shrink below it
+    // the gap accounts for the label text under each icon, which can run wider than the icon
+    // circle itself ("Agents & Skills" is the long pole) — a gap sized only to the circle left
+    // adjacent labels touching even though the circles themselves were visibly clear.
+    var radius = Math.max(baseRadius, ringRadius(n, itemDiameter, 22));
     var items = list.map(function (tab, i) {
       var angle = -90 + i * (360 / n);
       var ico = tab.querySelector('.tab-ico');
@@ -91,7 +111,7 @@
     ovEl = document.createElement('div');
     ovEl.className = 'ob-ov';
     ovEl.innerHTML =
-      '<div class="ob-dial" role="dialog" aria-label="spectoflow navigation">' +
+      '<div class="ob-dial" role="dialog" aria-label="spectoflow navigation" style="--ob-r:' + radius + 'px">' +
         '<svg class="ob-ring" viewBox="0 0 284 284" aria-hidden="true">' +
           '<circle class="ob-track" cx="142" cy="142" r="128" stroke-dasharray="176 25" stroke-dashoffset="-12"></circle>' +
           '<circle class="ob-prog" cx="142" cy="142" r="128" stroke-dasharray="0 804.2"></circle>' +
