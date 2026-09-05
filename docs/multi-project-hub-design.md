@@ -191,15 +191,19 @@ Sequenced, each independently planned/implemented/tested/shipped (same rhythm as
 2. **Server split, single-project parity** — extract `handlers.js` out of today's `server.js`; new
    `lib/hub-server.js` that runs exactly the one project it's pointed at (no `/p/<id>` prefix yet).
    Goal: prove the split preserves 100% of today's behavior before adding concurrency.
-3. **Multi-project server core** — `lib/init.js` extracted (pure, reusable — today's `init()` in
-   `bin/spectoflow.js` is CLI-argv/console.log-coupled, unusable from server code as-is); `lib/
-   hub-server.js` upgraded from "one fixed project" to a registry-resolved `Map<id, …>`, `/p/<id>/...`
-   URL parsing, `/api/events?p=<id>` per-project SSE client sets, old-bookmark redirect. Proven by its
-   own new tests (same spawn-a-real-hub-server style as sub-project 2's), no UI yet.
-4. **Hub landing page + Add Project + client routing** — `GET /` (project cards), the `/api/hub/browse`
-   + `/api/hub/projects` endpoints and their "+ Add project" modal (§3bis above), and `app.js`'s
-   project-aware fetch (`?p=<id>` on every API call) + navigation (path prefix, back-to-hub link).
-   Depends on sub-project 3 (needs the multi-project server core already working).
+3. **Multi-project server core** — `lib/hub-server.js` upgraded from "one fixed project" to a
+   registry-resolved `Map<id, …>`, `/p/<id>/...` URL parsing, `/api/events?p=<id>` per-project SSE
+   client sets, old-bookmark redirect, a plain placeholder for `GET /` (a bare project list — the
+   real landing page is the next sub-project). Proven by its own new tests (same spawn-a-real-hub-
+   server style as sub-project 2's). Singularly about proving concurrent per-project isolation works;
+   no UI, no Add Project yet.
+4. **Hub landing page + Add Project + client routing** — `GET /` becomes the real designed landing
+   page (project cards + stats), the `/api/hub/browse` + `/api/hub/projects` endpoints and their
+   "+ Add project" modal (§3bis above) — including `lib/init.js` extracted from `bin/spectoflow.js`'s
+   CLI-argv/console.log-coupled `init()` (today unusable from server code) so the auto-init step can
+   call it directly — and `app.js`'s project-aware fetch (`?p=<id>` on every API call) + navigation
+   (path prefix, back-to-hub link). Depends on sub-project 3 (needs the multi-project server core
+   already working).
 5. **CLI integration finalized** — `spectoflow dashboard` auto-registers into and joins the one
    global hub (global `~/.spectoflow/hub.lock`) instead of spawning its own server; `status/stop/
    restart` operate on the hub.
