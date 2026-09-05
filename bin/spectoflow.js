@@ -171,6 +171,20 @@ async function update() {
   }
 }
 
+// `spectoflow dashboard validate <file>` — the generate-dashboard skill's verification step (it used
+// to require() a lib file vendored in the project; the validator lives in this package now).
+function validateDashboardFile(file) {
+  if (!file) { console.log('Usage: spectoflow dashboard validate <file.json>'); process.exitCode = 1; return; }
+  let spec;
+  try { spec = JSON.parse(fs.readFileSync(path.resolve(file), 'utf8')); }
+  catch (e) { console.log(`${c.y('invalid')} — cannot read/parse ${file}: ${e.message}`); process.exitCode = 1; return; }
+  const r = require('../lib/custom-dashboard').validateSpec(spec);
+  if (r.valid) { console.log(`${c.g('valid')} — ${spec.id} (${(spec.blocks || []).length} block(s))`); return; }
+  console.log(`${c.y('invalid')} — ${file}`);
+  (r.errors || []).forEach((e) => console.log(`  ${c.y('!')} ${e}`));
+  process.exitCode = 1;
+}
+
 // THE launch command — routes the subcommands, then starts. Starting spawns the server DETACHED and
 // hands the prompt straight back (no foreground blocking), then prints the commands to drive it.
 async function dashboard() {
@@ -179,6 +193,7 @@ async function dashboard() {
   if (sub === 'status') return dashboardStatus();
   if (sub === 'restart') return restartDashboard();
   if (sub === 'create') return runCustomize('dashboard');
+  if (sub === 'validate') return validateDashboardFile(argv[2]);
   return startDashboard();
 }
 
@@ -445,13 +460,14 @@ const HELP = {
   ${c.g('--force')} (${c.g('-f')}) overwrites a diverged file in place instead of dropping a ${c.dim('*.new')}
   — use it when you know you have no local edits worth keeping (e.g. a file stuck diverged from an
   earlier update). It never touches config.json, workflow.md, specs/ or plans/.`,
-  dashboard: `${c.bold('spectoflow dashboard')} ${c.dim('[--port=NNNN] [status|stop|restart|create]')}\n
+  dashboard: `${c.bold('spectoflow dashboard')} ${c.dim('[--port=NNNN] [status|stop|restart|create|validate]')}\n
   Start the local control plane in the ${c.bold('background')} (default ${c.dim('4319')} or
   ${c.dim('$SPECTOFLOW_PORT')}) and hand the prompt back. Subcommands:
     ${c.g('status')}    is it running? (url + pid)
     ${c.g('stop')}      stop it            ${c.dim('(alias: spectoflow stop)')}
     ${c.g('restart')}   stop then start
-    ${c.g('create')}    generate a custom dashboard, e.g. ${c.dim('spectoflow dashboard create "..." --auto')}`,
+    ${c.g('create')}    generate a custom dashboard, e.g. ${c.dim('spectoflow dashboard create "..." --auto')}
+    ${c.g('validate <file>')}  check a custom-view JSON against the block schema`,
   projects: `${c.bold('spectoflow projects')} ${c.dim('[remove <id>]')}\n
   List every registered project in the global registry at ${c.dim('~/.spectoflow/projects.json')} (stored by
   ${c.g('spectoflow dashboard')}) — id, name, path. ${c.g('remove <id>')} drops one (e.g. a project that moved

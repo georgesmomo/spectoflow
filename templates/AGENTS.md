@@ -91,7 +91,7 @@ worth building" for the Auto mode). Hand it to the `framework-curator` agent (ca
 
 - **`generate-dashboard`** — a declarative block-spec page (never raw HTML/CSS/JS — see
   `.spectoflow/skills/generate-dashboard` for why), written to
-  `.spectoflow/dashboard/custom/<id>.json`.
+  `.spectoflow/dashboards/<id>.json`.
 - **`generate-skill`** — a new `.spectoflow/skills/<slug>/SKILL.md`, grounded in real, cited domain
   standards, following the gold-standard shape.
 - **`generate-agent`** — a new `.spectoflow/agents/<slug>.md` persona, same shape discipline.
