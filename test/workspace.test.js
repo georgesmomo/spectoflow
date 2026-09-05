@@ -76,3 +76,31 @@ test('readLock() falls back to a legacy <home>/hub.lock so an old running hub is
   fs.writeFileSync(path.join(home, 'hub.lock'), '{"pid":42,"port":4319}');
   assert.deepStrictEqual(ws.readLock(), { pid: 42, port: 4319 });
 }));
+
+test('remote.json: write (0600), read, clear', () => withHome((ws, _r, _gc, home) => {
+  const base = path.join(home, 'dashboard');
+  assert.strictEqual(ws.readRemote(base), null);
+  const w = ws.writeRemote({ url: 'https://dash.example.com', token: 'spf_abc', machineName: 'laptop', transport: 'ws' }, base);
+  assert.deepStrictEqual(ws.readRemote(base), w);
+  if (process.platform !== 'win32') assert.strictEqual(fs.statSync(ws.remotePath(base)).mode & 0o777, 0o600);
+  assert.strictEqual(ws.clearRemote(base), true);
+  assert.strictEqual(ws.readRemote(base), null);
+  assert.strictEqual(ws.clearRemote(base), false);
+}));
+
+test('published flag lives in projects/<id>/meta.json and listPublished() filters the registry', () => withHome((ws, _r, _gc, home) => {
+  const base = path.join(home, 'dashboard');
+  const a = fs.mkdtempSync(path.join(os.tmpdir(), 'stf-ws-a-'));
+  const b = fs.mkdtempSync(path.join(os.tmpdir(), 'stf-ws-b-'));
+  const ea = ws.registerProject(a, base); ws.registerProject(b, base);
+  assert.strictEqual(ws.isPublished(ea.id, base), false);
+  assert.deepStrictEqual(ws.listPublished(base), []);
+  const meta = ws.setPublished(ea.id, true, base);
+  assert.strictEqual(meta.published, true);
+  assert.strictEqual(ws.readMeta(ea.id, base).published, true);
+  assert.strictEqual(ws.isPublished(ea.id, base), true);
+  assert.deepStrictEqual(ws.listPublished(base).map((p) => p.id), [ea.id]);
+  ws.setPublished(ea.id, false, base);
+  assert.deepStrictEqual(ws.listPublished(base), []);
+  assert.strictEqual(ws.setPublished('zzzzzz', true, base), null);
+}));
