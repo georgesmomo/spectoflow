@@ -28,19 +28,34 @@
     return Math.floor(h / 24) + 'd ago';
   }
 
+  const subtitle = document.getElementById('hubSubtitle');
+
   async function loadProjects() {
     const r = await fetch('/api/hub/projects');
     const data = await r.json();
     const rows = data.projects || [];
     empty.hidden = rows.length > 0;
+    if (subtitle) {
+      subtitle.textContent = rows.length
+        ? `${rows.length} project${rows.length === 1 ? '' : 's'} · click a card to open its board`
+        : 'One dashboard, every project — pick one to open its board.';
+    }
     grid.innerHTML = rows.map((p) => {
       const pct = p.stats && p.stats.total ? Math.round(100 * p.stats.done / p.stats.total) : null;
+      const stage = pct === null ? 'new' : pct >= 100 ? 'done' : pct > 0 ? 'active' : 'new';
+      const stageLabel = { new: 'New', active: 'In progress', done: 'Done' }[stage];
       return `<div class="hub-card" data-id="${p.id}">
         <a class="hub-card-open" href="/p/${p.id}/board">
-          <div class="hub-card-name">${esc(p.name)}</div>
+          <div class="hub-card-top">
+            <div class="hub-card-name">${esc(p.name)}</div>
+            <span class="hub-card-stage is-${stage}">${stageLabel}</span>
+          </div>
           <div class="hub-card-path">${esc(p.path)}</div>
-          ${pct !== null ? `<div class="hub-card-progress"><div class="hub-card-progress-fill" style="width:${pct}%"></div></div><div class="hub-card-pct">${pct}% · ${p.stats.done}/${p.stats.total} tasks</div>` : ''}
-          <div class="hub-card-meta">Opened ${esc(timeAgo(p.lastOpened))}</div>
+          <div class="hub-card-progress"><div class="hub-card-progress-fill" style="width:${pct ?? 0}%"></div></div>
+          <div class="hub-card-foot">
+            <span class="hub-card-pct">${pct !== null ? `${pct}% · ${p.stats.done}/${p.stats.total} tasks` : 'No tasks yet'}</span>
+            <span class="hub-card-meta">Opened ${esc(timeAgo(p.lastOpened))}</span>
+          </div>
         </a>
         <button class="hub-card-remove" data-remove="${p.id}" title="Remove from this list" aria-label="Remove ${esc(p.name)}">&times;</button>
       </div>`;

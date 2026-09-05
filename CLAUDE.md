@@ -5,6 +5,24 @@ framework with a real-time local control plane. This file orients you to **build
 (it is not a spectoflow-managed project). Read `docs/` before making changes:
 `docs/ARCHITECTURE.md`, `docs/DECISIONS.md` (the full rationale, D1–D23), `docs/ROADMAP.md` (what's next).
 
+## What exists (v0.23.3 — see DECISIONS D61)
+
+Direct user feedback after dogfooding the hub (D59/D60): the project-list page "isn't styled at all,
+not really structured", and the back-to-hub link on a project's dashboard (a lone 26px "⌂" icon) was
+"not very clear" — plus a request for a clear, unambiguous "hub mode" indicator. Shipped as one
+combined element per the user's own choice between two options: `.hub-pill` replaces
+`.hub-back-link` — a `--signal`-colored badge reading "⬡ Hub", hidden unless `PROJECT_ID` is set (so
+it never appears for the legacy single-project server), that IS both the mode indicator and the
+clickable way back (paired `[hidden]{display:none}` override, avoiding the CSS-vs-native-hidden
+bug this session already hit once). The hub landing page (`hub.html`/`hub.js`) gets its own
+typographic identity (Sora + IBM Plex Sans + JetBrains Mono — self-hosted fonts already shipped for
+the design skins, previously unused here since the page set no `data-design` and fell back to plain
+system-ui) plus restructured cards (name + stage pill + progress + a structured stat/last-opened
+footer row) and a dynamic project-count subtitle. QA: real Chrome-headless screenshots (dark, served
+live by the hub on the user's real `todo-list-v2` project; light, via a patched local copy pointing
+at the same assets) confirm both pages and the badge render correctly; full suite 232/233 (1
+pre-existing Windows skip), 0 failures — a client-only HTML/CSS/JS change, no existing test affected.
+
 ## What exists (v0.23.2 — see DECISIONS D60)
 
 Found continuing to dogfood the hub on a real project: clicking "Activer l'étape" in the Workflow

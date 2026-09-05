@@ -1300,3 +1300,36 @@
     une étape normale) — confirmés en échouant sans le fix (`git stash` puis relance), passant avec.
     Suite complète : 231 tests, 230 passent (1 skip Windows), 0 échec.
 - Fichiers : `templates/dashboard/handlers.js`, `test/dashboard-backend.test.js`.
+
+### D61 — 0.23.3 : refonte de la page hub + indicateur/bouton « mode hub » sans ambiguïté
+- **ACTÉ.** Retour direct de l'utilisateur après le dogfooding de D59/D60 : la page listant les
+  projets « n'est pas du tout stylée et pas vraiment structurée », et sur le dashboard d'un projet le
+  bouton pour revenir à cette liste (une icône « ⌂ » de 26px, seule, sans texte) n'était « pas très
+  clair » — il fallait aussi un indicateur visible signalant sans ambiguïté qu'on est servi via le hub
+  (par opposition à l'ancien mode mono-projet).
+  - **Décision de structure** (arbitrée avec l'utilisateur via question à choix) : un seul élément
+    combiné plutôt que deux — un badge coloré « ⬡ Hub » qui est À LA FOIS l'indicateur de mode ET le
+    lien cliquable de retour, pour éviter la redondance visuelle d'un badge inerte à côté d'un bouton
+    séparé.
+  - **`.hub-pill`** (`index.html`/`styles.css`/`app.js`) remplace l'ancien `.hub-back-link` : pastille
+    `--signal` avec icône hexagone + texte « Hub », `hidden` par défaut et révélée uniquement quand
+    `PROJECT_ID` (dérivé de l'URL `/p/<id>/...`) est non nul — donc jamais affichée pour l'ancien
+    serveur mono-projet (`templates/dashboard/server.js`), qui ne connaît pas ce concept. Attention
+    portée à l'écueil déjà rencontré cette session : toute règle CSS posant un `display` sur un
+    élément utilisant l'attribut natif `hidden` doit être appariée d'un `.hub-pill[hidden]{display:
+    none}` explicite — fait ici dès l'écriture, pas après coup.
+  - **Page hub** (`hub.html`/`hub.js`/`styles.css`) : identité typographique propre — Sora (titres) +
+    IBM Plex Sans (corps) + JetBrains Mono (chemins/stats), polices déjà auto-hébergées pour les skins
+    de design existants, jamais exploitées jusqu'ici par cette page qui utilisait la police système par
+    défaut (`--sans:system-ui`) faute de tout `data-design`. Titre + sous-titre dynamique (compteur de
+    projets), bouton « Add project » avec icône, cartes projet restructurées (nom + pastille de stade
+    « New/In progress/Done » calculée depuis `%`, chemin en légende mono, barre de progression,
+    ligne de pied structurée %/tâches + dernière ouverture), bouton de suppression toujours visible à
+    faible opacité (jamais `opacity:0` pur hover — accessible au clavier/tactile), état vide avec icône.
+  - **QA** : testé en conditions réelles sur `todo-list-v2` via le code local non publié
+    (`node bin/spectoflow.js dashboard`, après arrêt du hub publié tournant sur le port 4319) — captures
+    d'écran Chrome headless (thème sombre réel servi par le hub, et thème clair via une page patchée
+    pointant sur les mêmes assets) confirmant le rendu des deux pages et du badge « Hub » dans la barre
+    du dashboard projet. Suite complète : 233 tests, 232 passent (1 skip Windows), 0 échec — changement
+    purement HTML/CSS/JS client, aucun test existant affecté.
+- Fichiers : `templates/dashboard/public/hub.html`, `hub.js`, `index.html`, `app.js`, `styles.css`.

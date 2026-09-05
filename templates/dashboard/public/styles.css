@@ -969,35 +969,45 @@ body.booting .wf-step2 { opacity:0; animation:rise .4s cubic-bezier(.2,.8,.2,1) 
 /* Phase progress: cap the list so a big project (many phases) doesn't dominate the overview */
 .bars-block.scroll-cap { max-height:340px; overflow-y:auto; padding-right:6px; }
 
-/* ---- Hub landing page (multi-project) — reuses the same tokens as the per-project dashboard,
-   deliberately simpler: no per-design skins, no tabs, just a calm project picker. ---- */
-.hub-body { min-height:100%; display:flex; flex-direction:column; }
-.hub-header { display:flex; align-items:center; justify-content:space-between; padding:16px 24px; border-bottom:1px solid var(--line); }
-.hub-brand { display:flex; align-items:center; gap:9px; font-weight:700; }
-.hub-brand .brand-logo-img { width:22px; height:22px; }
-.hub-brand-name { font-size:15px; }
+/* ---- Hub landing page (multi-project) — reuses the same tokens as the per-project dashboard, but
+   picks its own display/body/mono pairing (self-hosted fonts already shipped for the design skins)
+   so it reads as a considered destination in its own right, not an afterthought default page. ---- */
+.hub-body { min-height:100%; display:flex; flex-direction:column; --sans:'IBM Plex Sans', system-ui, sans-serif; --display:'Sora', system-ui, sans-serif; --mono:'JetBrains Mono', ui-monospace, monospace; font-family:var(--sans); }
+.hub-header { display:flex; align-items:center; justify-content:space-between; padding:18px 28px; border-bottom:1px solid var(--line); }
+.hub-brand { display:flex; align-items:center; gap:10px; font-weight:700; }
+.hub-brand .brand-logo-img { width:24px; height:24px; }
+.hub-brand-name { font-family:var(--display); font-size:16px; letter-spacing:-.01em; }
+.hub-brand-tag { font-family:var(--mono); font-size:9.5px; font-weight:700; text-transform:uppercase; letter-spacing:.06em; color:var(--signal); border:1px solid color-mix(in srgb,var(--signal) 40%,var(--line)); border-radius:999px; padding:2px 7px; }
 .hub-theme-toggle { width:32px; height:32px; border-radius:8px; border:1px solid var(--line); background:var(--surface); color:var(--ink); cursor:pointer; font-size:14px; }
-.hub-main { flex:1; max-width:1080px; width:100%; margin:0 auto; padding:32px 24px 60px; }
-.hub-titlebar { display:flex; align-items:center; justify-content:space-between; gap:16px; margin-bottom:24px; flex-wrap:wrap; }
-.hub-titlebar h1 { font-size:24px; font-weight:700; margin:0; }
-.hub-add-btn { font-family:var(--sans); font-size:13.5px; font-weight:600; padding:9px 16px; border-radius:9px; border:1px solid transparent; background:var(--signal); color:var(--on-accent); cursor:pointer; transition:filter .15s; }
-.hub-add-btn:hover { filter:brightness(1.08); }
-.hub-add-btn-lg { padding:12px 22px; font-size:14.5px; margin-top:14px; }
-.hub-empty { text-align:center; padding:60px 20px; border:1px dashed var(--line); border-radius:var(--radius); }
-.hub-empty-title { font-size:18px; font-weight:700; margin:0 0 8px; }
+.hub-main { flex:1; max-width:1120px; width:100%; margin:0 auto; padding:40px 28px 64px; }
+.hub-titlebar { display:flex; align-items:flex-end; justify-content:space-between; gap:20px; margin-bottom:30px; flex-wrap:wrap; }
+.hub-titlebar h1 { font-family:var(--display); font-size:28px; font-weight:700; letter-spacing:-.015em; margin:0; }
+.hub-subtitle { color:var(--muted); font-size:13.5px; margin:6px 0 0; }
+.hub-add-btn { display:inline-flex; align-items:center; gap:7px; font-family:var(--sans); font-size:13.5px; font-weight:600; padding:10px 18px; border-radius:var(--radius); border:1px solid transparent; background:var(--signal); color:var(--on-accent); cursor:pointer; transition:filter .15s,transform .15s; }
+.hub-add-btn:hover { filter:brightness(1.08); transform:translateY(-1px); }
+.hub-add-btn-lg { padding:12px 22px; font-size:14.5px; margin-top:16px; }
+.hub-empty { text-align:center; padding:70px 20px; border:1px dashed var(--line); border-radius:var(--radius); color:var(--faint); }
+.hub-empty-icon { margin-bottom:10px; }
+.hub-empty-title { font-family:var(--display); font-size:19px; font-weight:700; color:var(--ink); margin:0 0 8px; }
 .hub-empty-sub { color:var(--muted); font-size:13.5px; max-width:420px; margin:0 auto; }
-.hub-grid { display:grid; grid-template-columns:repeat(auto-fill,minmax(260px,1fr)); gap:14px; }
-.hub-card { position:relative; background:var(--surface); border:1px solid var(--line); border-radius:var(--radius); transition:border-color .15s,transform .15s; }
-.hub-card:hover { border-color:var(--signal); transform:translateY(-1px); }
-.hub-card-open { display:block; padding:16px; text-decoration:none; color:inherit; }
-.hub-card-name { font-size:15px; font-weight:700; color:var(--ink); overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
-.hub-card-path { font-family:var(--mono); font-size:10.5px; color:var(--faint); margin-top:4px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
-.hub-card-progress { height:5px; border-radius:999px; background:var(--surface-2); margin-top:12px; overflow:hidden; }
-.hub-card-progress-fill { height:100%; background:var(--s-done); border-radius:999px; }
-.hub-card-pct { font-family:var(--mono); font-size:10.5px; color:var(--muted); margin-top:6px; }
-.hub-card-meta { font-size:11px; color:var(--faint); margin-top:10px; }
-.hub-card-remove { position:absolute; top:8px; right:8px; width:22px; height:22px; border-radius:999px; border:1px solid var(--line); background:var(--surface-2); color:var(--muted); cursor:pointer; font-size:13px; line-height:1; }
-.hub-card-remove:hover { color:var(--s-blocked); border-color:var(--s-blocked); }
+.hub-grid { display:grid; grid-template-columns:repeat(auto-fill,minmax(270px,1fr)); gap:16px; }
+.hub-card { position:relative; background:var(--surface); border:1px solid var(--line); border-radius:var(--radius); transition:border-color .15s,transform .15s,box-shadow .15s; }
+.hub-card:hover { border-color:var(--signal); transform:translateY(-2px); box-shadow:var(--shadow); }
+.hub-card-open { display:block; padding:18px; text-decoration:none; color:inherit; }
+.hub-card-top { display:flex; align-items:center; justify-content:space-between; gap:10px; }
+.hub-card-name { font-family:var(--display); font-size:15.5px; font-weight:700; color:var(--ink); overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+.hub-card-stage { flex-shrink:0; font-family:var(--mono); font-size:9.5px; font-weight:700; text-transform:uppercase; letter-spacing:.05em; padding:2px 7px; border-radius:999px; border:1px solid var(--line); color:var(--muted); }
+.hub-card-stage.is-active { color:var(--signal); border-color:color-mix(in srgb,var(--signal) 40%,var(--line)); }
+.hub-card-stage.is-done { color:var(--s-done); border-color:color-mix(in srgb,var(--s-done) 40%,var(--line)); }
+.hub-card-path { font-family:var(--mono); font-size:10.5px; color:var(--faint); margin-top:5px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+.hub-card-progress { height:5px; border-radius:999px; background:var(--surface-2); margin-top:14px; overflow:hidden; }
+.hub-card-progress-fill { height:100%; background:linear-gradient(90deg,var(--cool),var(--signal)); border-radius:999px; transition:width .4s ease; }
+.hub-card-foot { display:flex; align-items:baseline; justify-content:space-between; gap:10px; margin-top:8px; }
+.hub-card-pct { font-family:var(--mono); font-size:10.5px; color:var(--muted); }
+.hub-card-meta { font-size:11px; color:var(--faint); flex-shrink:0; }
+.hub-card-remove { position:absolute; top:8px; right:8px; width:22px; height:22px; border-radius:999px; border:1px solid var(--line); background:var(--surface-2); color:var(--muted); cursor:pointer; font-size:13px; line-height:1; opacity:.6; transition:opacity .15s,color .15s,border-color .15s; }
+.hub-card:hover .hub-card-remove, .hub-card-remove:focus-visible { opacity:1; }
+.hub-card-remove:hover { color:var(--s-blocked); border-color:var(--s-blocked); opacity:1; }
 
 .hub-modal { position:fixed; inset:0; background:rgba(0,0,0,.5); display:flex; align-items:center; justify-content:center; z-index:20; padding:20px; }
 .hub-modal[hidden] { display:none; }
@@ -1023,7 +1033,10 @@ body.booting .wf-step2 { opacity:0; animation:rise .4s cubic-bezier(.2,.8,.2,1) 
 .hub-modal-error { color:var(--s-blocked); font-size:12.5px; margin:4px 0 0; }
 .hub-modal-status { color:var(--muted); font-size:12.5px; margin:4px 0 0; }
 
-/* "back to hub" — plain link next to the brand logo on the per-project dashboard; a full navigation
-   (not SPA), since leaving to the hub means leaving this project's dashboard entirely. */
-.hub-back-link { display:flex; align-items:center; justify-content:center; width:26px; height:26px; border-radius:7px; color:var(--muted); text-decoration:none; font-size:15px; flex-shrink:0; transition:background .15s,color .15s; }
-.hub-back-link:hover { background:var(--surface-2); color:var(--ink); }
+/* Hub-mode indicator + back-to-hub link, combined into one element: its mere presence tells the
+   viewer this tab is served via the multi-project hub (never shown for the legacy single-project
+   server), and it doubles as an unambiguous, obviously-clickable way back to the project list. */
+.hub-pill { display:flex; align-items:center; gap:5px; font-family:var(--mono); font-size:11px; font-weight:700; text-transform:uppercase; letter-spacing:.05em; color:var(--on-accent); background:var(--signal); border-radius:999px; padding:5px 11px 5px 9px; text-decoration:none; flex-shrink:0; transition:filter .15s,transform .15s,box-shadow .15s; }
+.hub-pill:hover { filter:brightness(1.1); transform:translateY(-1px); box-shadow:0 2px 10px color-mix(in srgb,var(--signal) 45%,transparent); }
+.hub-pill[hidden] { display:none; }
+@media (max-width:640px){ .hub-pill span { display:none; } .hub-pill { padding:6px; } }

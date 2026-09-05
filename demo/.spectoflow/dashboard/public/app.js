@@ -1791,6 +1791,8 @@ const topLangSel=$('#topLang'); if(topLangSel) topLangSel.addEventListener('chan
 const setDesignSel=$('#setDesign'); if(setDesignSel) setDesignSel.addEventListener('change',()=>saveDesign(setDesignSel.value));
 const topAgentSel=$('#topAgent'); if(topAgentSel) topAgentSel.addEventListener('change',(e)=>saveAgent(e.target.value));
 const setAgentSel=$('#setAgent'); if(setAgentSel) setAgentSel.addEventListener('change',(e)=>saveAgent(e.target.value));
+// hub-mode pill — only ever shown when this tab is actually served via the multi-project hub
+(function(){ const p=$('#hubPill'); if(p && PROJECT_ID) p.hidden=false; })();
 // theme
 (function(){ const s=localStorage.getItem('spf-theme'); if(s)document.documentElement.setAttribute('data-theme',s);
   $('#themeToggle').addEventListener('click',()=>{ const c=document.documentElement.getAttribute('data-theme'); const n=c==='dark'?'light':'dark'; document.documentElement.setAttribute('data-theme',n); localStorage.setItem('spf-theme',n); }); })();
