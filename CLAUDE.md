@@ -5,6 +5,15 @@ framework with a real-time local control plane. This file orients you to **build
 (it is not a spectoflow-managed project). Read `docs/` before making changes:
 `docs/ARCHITECTURE.md`, `docs/DECISIONS.md` (the full rationale, D1–D23), `docs/ROADMAP.md` (what's next).
 
+## What exists (v0.23.1 — see DECISIONS D59)
+
+Found dogfooding the hub on a real, existing user project (still on v0.22.3): opening a registered
+project whose `.spectoflow/dashboard/handlers.js` doesn't exist yet (any project that predates D58,
+until it runs `spectoflow update`) showed a bare "Unknown project." — indistinguishable from "never
+registered at all". `lib/hub-server.js` now has `projectErrorMessage(id)`, called only after
+`getProject()` fails, which tells these apart and points the actionable case ("needs an update") at
+`spectoflow update` by name instead of a silent generic 404.
+
 ## What exists (v0.23.0 — see DECISIONS D58)
 
 **The multi-project hub.** `spectoflow dashboard` used to bind one server process to one project

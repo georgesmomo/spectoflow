@@ -329,3 +329,22 @@ test('reloading project A never disturbs project B, concurrently loaded in the s
     assert.strictEqual(bAfter.body.projectName, path.basename(b.path), 'B unaffected by A\'s reload');
   } finally { srv.kill(); }
 });
+
+test('a registered project missing handlers.js (predates the split, or never updated) 404s with a clear "run spectoflow update" message, not a bare "unknown project"', async () => {
+  const home = freshHome();
+  const a = project(home, 'needs-update');
+  // Simulate an existing project that has never run `spectoflow update` since handlers.js was
+  // introduced — delete its vendored copy so getProject()'s require() genuinely fails.
+  fs.unlinkSync(path.join(a.path, '.spectoflow', 'dashboard', 'handlers.js'));
+  const port = 7400 + Math.floor(Math.random() * 100);
+  const srv = await startHub(home, port);
+  try {
+    const page = await get(port, `/p/${a.id}/board`);
+    assert.strictEqual(page.status, 404);
+    assert.match(page.body, /spectoflow update/i);
+    const api = await get(port, `/api/project?p=${a.id}`);
+    assert.strictEqual(api.status, 404);
+    const apiBody = JSON.parse(api.body);
+    assert.match(apiBody.error, /spectoflow update/i);
+  } finally { srv.kill(); }
+});

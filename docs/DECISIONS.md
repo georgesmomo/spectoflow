@@ -1246,3 +1246,29 @@
   `templates/dashboard/handlers.js` (nouveau), `templates/dashboard/public/{hub.html,hub.js}`
   (nouveaux), `templates/dashboard/public/{app.js,index.html,styles.css}`,
   `docs/multi-project-hub-design.md`.
+
+### D59 — 0.23.1 : message d'erreur clair quand un projet enregistré n'a pas encore fait `update`
+- **ACTÉ.** Trouvé en testant le hub 0.23.0 en conditions réelles, à la demande directe de
+  l'utilisateur (« teste le hub toi-même sur mes vrais projets ») : un vrai projet spectoflow existant
+  (encore en v0.22.3, jamais mis à jour depuis) affichait juste « Unknown project. » en l'ouvrant via
+  le hub — message peu clair pour ce qui est en réalité le cas le plus probable pour tout utilisateur
+  existant : le projet n'a pas encore `.spectoflow/dashboard/handlers.js` (introduit en D58) tant qu'il
+  n'a pas tourné `spectoflow update`.
+  - **Cause** : `getProject(id)` retournait `null` de façon identique pour deux situations très
+    différentes — « id jamais enregistré » et « enregistré, mais son `require(handlersPath)` échoue »
+    (dossier déplacé/supprimé, ou — le cas réel rencontré — projet antérieur au split `handlers.js`).
+    Les deux points d'appel (route `/p/<id>/...` et route `/api/*`) affichaient alors le même 404
+    générique, sans distinguer ces cas pour l'utilisateur.
+  - **Fix** : nouvelle fonction `projectErrorMessage(id)`, appelée uniquement après un `getProject`
+    raté, qui ré-interroge le registre pour distinguer les trois cas réels (jamais enregistré ;
+    dossier disparu ; `handlers.js` absent) et retourne un message actionnable pour le troisième —
+    « needs an update — run `spectoflow update` inside it » — au lieu d'un « Unknown project. » muet.
+  - **QA** : reproduit pour de vrai sur un vrai projet utilisateur (`todo-list-v2`, resté en v0.22.3) —
+    le hub démarré sur un port dédié (jamais celui du dashboard existant de l'utilisateur, laissé
+    intact tout du long) affichait bien le bug ; corrigé, `spectoflow update` lancé sur ce même projet
+    réel a immédiatement débloqué l'affichage (Board avec les vraies données : 91 %, 31/34 tâches,
+    journal réel), confirmant à la fois le bug d'origine et le fix. Nouveau test dédié + suite
+    complète : 228 tests, 228 passent (1 skip Windows), 0 échec — première exécution propre de bout
+    en bout depuis plusieurs tentatives cette session, sans la contention machine rencontrée
+    auparavant.
+- Fichiers : `lib/hub-server.js`, `test/hub-server.test.js`.
