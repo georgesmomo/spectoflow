@@ -6,26 +6,30 @@ const os = require('node:os');
 const path = require('node:path');
 const http = require('node:http');
 const { execFileSync, spawn } = require('node:child_process');
+const registry = require('../lib/registry');
 
 const KIT = path.resolve(__dirname, '..');
 const BIN = path.join(KIT, 'bin', 'spectoflow.js');
 const HUB = path.join(KIT, 'lib', 'hub-server.js');
 
-function project() {
-  const d = fs.mkdtempSync(path.join(os.tmpdir(), 'stf-hub-'));
+function freshHome() {
+  return fs.mkdtempSync(path.join(os.tmpdir(), 'stf-hub-home-'));
+}
+function project(home, namePrefix) {
+  const d = fs.mkdtempSync(path.join(os.tmpdir(), `stf-hub-${namePrefix}-`));
   execFileSync('node', [BIN, 'init', d], { stdio: 'pipe' });
-  return d;
+  return registry.addProject(d, home);
 }
 function get(port, p) {
   return new Promise((resolve) => {
     http.get({ host: '127.0.0.1', port, path: p }, (res) => {
       let b = ''; res.on('data', (c) => b += c);
-      res.on('end', () => resolve({ status: res.statusCode, body: b }));
+      res.on('end', () => resolve({ status: res.statusCode, headers: res.headers, body: b }));
     });
   });
 }
 function getJSON(port, p) {
-  return get(port, p).then((r) => ({ status: r.status, body: JSON.parse(r.body || '{}') }));
+  return get(port, p).then((r) => ({ status: r.status, body: r.body ? JSON.parse(r.body) : {} }));
 }
 function reqJSON(port, method, p, bodyObj) {
   return new Promise((resolve) => {
@@ -36,91 +40,131 @@ function reqJSON(port, method, p, bodyObj) {
     if (data) r.write(data); r.end();
   });
 }
-function startHub(root, port) {
+function startHub(home, port) {
   return new Promise((resolve) => {
-    const srv = spawn('node', [HUB], { env: { ...process.env, SPECTOFLOW_ROOT: root, SPECTOFLOW_PORT: String(port) } });
+    const srv = spawn('node', [HUB], { env: { ...process.env, SPECTOFLOW_HOME: home, SPECTOFLOW_PORT: String(port) } });
     srv.stdout.on('data', (d) => { if (/hub →/.test(d.toString())) resolve(srv); });
   });
 }
 
-test('GET /api/project returns this project\'s data via the dynamically-loaded handlers.js', async () => {
-  const d = project();
-  const port = 4700 + Math.floor(Math.random() * 100);
-  const srv = await startHub(d, port);
+test('two registered projects stay isolated: /api/project?p=<id> returns each project\'s own data', async () => {
+  const home = freshHome();
+  const a = project(home, 'a');
+  const b = project(home, 'b');
+  const port = 5300 + Math.floor(Math.random() * 100);
+  const srv = await startHub(home, port);
   try {
-    const res = await getJSON(port, '/api/project');
-    assert.strictEqual(res.status, 200);
-    assert.strictEqual(res.body.projectName, path.basename(d));
+    const ra = await getJSON(port, `/api/project?p=${a.id}`);
+    const rb = await getJSON(port, `/api/project?p=${b.id}`);
+    assert.strictEqual(ra.status, 200);
+    assert.strictEqual(rb.status, 200);
+    assert.strictEqual(ra.body.projectName, path.basename(a.path));
+    assert.strictEqual(rb.body.projectName, path.basename(b.path));
+    assert.notStrictEqual(ra.body.projectName, rb.body.projectName);
   } finally { srv.kill(); }
 });
 
-test('static index.html is served from the global templates/dashboard/public, not the project\'s vendored copy', async () => {
-  const d = project();
-  // Prove it's reading the GLOBAL public dir: corrupt the project's own vendored index.html and
-  // confirm the hub still serves a real page (it must never have looked at the project's copy).
-  fs.writeFileSync(path.join(d, '.spectoflow', 'dashboard', 'public', 'index.html'), 'THIS SHOULD NEVER BE SERVED');
-  const port = 4800 + Math.floor(Math.random() * 100);
-  const srv = await startHub(d, port);
+test('POST /api/task?p=<id> on project A never affects project B (concurrent isolation)', async () => {
+  const home = freshHome();
+  const a = project(home, 'a2');
+  const b = project(home, 'b2');
+  const port = 5400 + Math.floor(Math.random() * 100);
+  const srv = await startHub(home, port);
   try {
-    const res = await get(port, '/');
-    assert.strictEqual(res.status, 200);
-    assert.ok(!res.body.includes('THIS SHOULD NEVER BE SERVED'), 'must serve the global public/, not the project\'s vendored one');
-    assert.ok(res.body.includes('<html') || res.body.includes('<!DOCTYPE'), 'looks like a real HTML page');
+    const created = await reqJSON(port, 'POST', `/api/task?p=${a.id}`, { title: 'only in A' });
+    assert.strictEqual(created.status, 200);
+    const projA = await getJSON(port, `/api/project?p=${a.id}`);
+    const projB = await getJSON(port, `/api/project?p=${b.id}`);
+    const foundInA = (projA.body.plans || []).some((pl) => pl.phases.some((ph) => ph.tasks.some((t) => t.id === created.body.task.id)));
+    const foundInB = (projB.body.plans || []).some((pl) => pl.phases.some((ph) => ph.tasks.some((t) => t.id === created.body.task.id)));
+    assert.ok(foundInA, 'task shows up in project A');
+    assert.ok(!foundInB, 'task must NOT leak into project B');
   } finally { srv.kill(); }
 });
 
-test('SPA fallback: an extensionless unknown route still serves index.html', async () => {
-  const d = project();
-  const port = 4900 + Math.floor(Math.random() * 100);
-  const srv = await startHub(d, port);
+test('GET /p/<id>/board serves the SPA shell for a registered project', async () => {
+  const home = freshHome();
+  const a = project(home, 'c');
+  const port = 5500 + Math.floor(Math.random() * 100);
+  const srv = await startHub(home, port);
   try {
-    const res = await get(port, '/backlog');
+    const res = await get(port, `/p/${a.id}/board`);
     assert.strictEqual(res.status, 200);
     assert.ok(res.body.includes('<html') || res.body.includes('<!DOCTYPE'));
   } finally { srv.kill(); }
 });
 
-test('POST /api/task creates a task through the dynamically-loaded handlers, delegated correctly', async () => {
-  const d = project();
-  const port = 5000 + Math.floor(Math.random() * 100);
-  const srv = await startHub(d, port);
+test('an unknown project id 404s on both the page route and the API route, no crash', async () => {
+  const home = freshHome();
+  project(home, 'd'); // at least one real project registered, to prove the hub stays up regardless
+  const port = 5600 + Math.floor(Math.random() * 100);
+  const srv = await startHub(home, port);
   try {
-    const res = await reqJSON(port, 'POST', '/api/task', { title: 'hub split parity check' });
-    assert.strictEqual(res.status, 200);
-    assert.match(res.body.task.id, /^T-\d+$/);
-    const proj = await getJSON(port, '/api/project');
-    const found = (proj.body.plans || []).some((pl) => pl.phases.some((ph) => ph.tasks.some((t) => t.id === res.body.task.id)));
-    assert.ok(found, 'the created task shows up when re-reading the project through the hub');
+    const page = await get(port, '/p/ffffff/board');
+    assert.strictEqual(page.status, 404);
+    const api = await getJSON(port, '/api/project?p=ffffff');
+    assert.strictEqual(api.status, 404);
   } finally { srv.kill(); }
 });
 
-test('an unknown /api/ route 404s, matching server.js parity (handleApi returned false, no crash)', async () => {
-  const d = project();
-  const port = 5100 + Math.floor(Math.random() * 100);
-  const srv = await startHub(d, port);
+test('an /api/ call with no ?p= at all 404s instead of crashing', async () => {
+  const home = freshHome();
+  const port = 5700 + Math.floor(Math.random() * 100);
+  const srv = await startHub(home, port);
   try {
-    const res = await get(port, '/api/this-route-does-not-exist');
-    // Not registered in handlers.js -> handleApi returns false -> falls through to static serving,
-    // which explicitly excludes /api/* paths from the SPA fallback (same guard as server.js: an
-    // unmatched /api/ path 404s, it never silently serves the app shell). No crash either way.
+    const res = await getJSON(port, '/api/project');
     assert.strictEqual(res.status, 404);
   } finally { srv.kill(); }
 });
 
-test('writes .spectoflow/.dashboard.lock with the right pid/port while running, same shape as server.js', async () => {
-  const d = project();
-  const port = 5200 + Math.floor(Math.random() * 100);
-  const srv = await startHub(d, port);
-  const lockPath = path.join(d, '.spectoflow', '.dashboard.lock');
+test('GET / is a placeholder listing every registered project', async () => {
+  const home = freshHome();
+  const a = project(home, 'e');
+  const port = 5800 + Math.floor(Math.random() * 100);
+  const srv = await startHub(home, port);
   try {
-    await get(port, '/api/project'); // ensure the server has fully started before checking the lock
-    const lock = JSON.parse(fs.readFileSync(lockPath, 'utf8'));
-    assert.strictEqual(lock.port, port);
-    assert.strictEqual(lock.pid, srv.pid);
-    // Deliberately not asserting the lock is removed after srv.kill(): on Windows, forcefully
-    // killing a child process does not reliably run its process.on('exit'/'SIGTERM') handlers — the
-    // exact same limitation applies to templates/dashboard/server.js's own identical clearLock() (no
-    // existing test in this suite asserts it either, for the same reason). Verified empirically
-    // against the unmodified server.js on this machine before writing this comment.
+    const res = await get(port, '/');
+    assert.strictEqual(res.status, 200);
+    assert.ok(res.body.includes(`/p/${a.id}/board`), 'links to the registered project');
+  } finally { srv.kill(); }
+});
+
+test('a legacy no-prefix route redirects to the most-recently-opened project', async () => {
+  const home = freshHome();
+  const a = project(home, 'f1');
+  const b = project(home, 'f2'); // registered after a -> more recently opened
+  const port = 5900 + Math.floor(Math.random() * 100);
+  const srv = await startHub(home, port);
+  try {
+    const res1 = await get(port, '/board');
+    assert.strictEqual(res1.status, 302);
+    assert.strictEqual(res1.headers.location, `/p/${b.id}/board`);
+
+    // Opening A's page touches it -> A becomes the most recent -> redirect target flips to A.
+    await get(port, `/p/${a.id}/board`);
+    const res2 = await get(port, '/board');
+    assert.strictEqual(res2.headers.location, `/p/${a.id}/board`);
+  } finally { srv.kill(); }
+});
+
+test('a legacy no-prefix route redirects to the hub root when no project is registered', async () => {
+  const home = freshHome();
+  const port = 6000 + Math.floor(Math.random() * 100);
+  const srv = await startHub(home, port);
+  try {
+    const res = await get(port, '/board');
+    assert.strictEqual(res.status, 302);
+    assert.strictEqual(res.headers.location, '/');
+  } finally { srv.kill(); }
+});
+
+test('a static asset with no /p/<id> prefix still serves (every page\'s own asset links are root-absolute)', async () => {
+  const home = freshHome();
+  project(home, 'g');
+  const port = 6100 + Math.floor(Math.random() * 100);
+  const srv = await startHub(home, port);
+  try {
+    const res = await get(port, '/styles.css');
+    assert.strictEqual(res.status, 200);
   } finally { srv.kill(); }
 });
