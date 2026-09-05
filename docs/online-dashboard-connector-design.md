@@ -123,7 +123,7 @@ Every frame is a JSON object with a `type`. Frames are identical on both transpo
 | type | payload | when |
 |---|---|---|
 | `auth` | `{ token, version }` | first frame after the socket opens; the server closes the socket if no valid `auth` arrives within 5 s |
-| `hello` | `{ machineName, projects: [{ localId, name, kind, stats }] }` | after `auth` is acknowledged, and again whenever the published set changes |
+| `hello` | `{ machineName, projects: [{ localId, name, kind, stats }] }` — `stats` is `projectStats(root)`'s `{ total, done }`, as on the local hub page | after `auth` is acknowledged, and again whenever the published set changes |
 | `event` | `{ p: localId, event }` | every object the local `emit` would send over SSE (`change`, `message`, `run-line`, `run-start`, `run-end`), verbatim |
 | `snapshot` | `{ p: localId, project }` | the full `project.read` payload: at `hello` for every published project, then 500 ms after each `change` |
 | `reply` | `{ reqId, result }` or `{ reqId, error: { status, message } }` | answer to an `op` |
@@ -160,7 +160,9 @@ every 10 min. `spectoflow dashboard login --transport=http` (also stored in `rem
 HTTP — for tests and for hosts known not to pass WebSockets.
 
 **Ordering.** One socket per machine gives ordered delivery; on HTTP, sequential batches do. Frames
-for different projects share the connection; the server fans `event` frames out per project.
+for different projects share the connection; the server fans `event` frames out per project. An
+`event`/`snapshot` for a `localId` the machine has not announced as published is dropped and
+logged at debug level — never stored, never fanned out.
 
 ### 3. Authentication and security in C1
 
@@ -173,7 +175,8 @@ so there is no separate machine id to invent locally.
 **Login on the machine.** `spectoflow dashboard login --url <https://…> --token <spf_…>
 [--name <machine name>] [--transport=ws|http]`: the CLI calls `POST /connector/whoami` with the
 token; on 200 it writes `~/.spectoflow/dashboard/remote.json` (`{ url, token, machineName,
-transport }`, file mode 0600 on POSIX) and sets the global `dashboard.url`. It then tells the running
+transport }`, file mode 0600 on POSIX; `machineName` defaults to `os.hostname()`, `transport` to
+`ws`) and sets the global `dashboard.url`. It then tells the running
 hub to (re)connect (`POST /api/hub/remote/reconnect` on the local hub) or notes that the next
 `spectoflow dashboard` will. `logout` deletes `remote.json` and resets `dashboard.url` to the
 local default. `dashboard status` reads `GET /api/hub/remote` from the local hub →
