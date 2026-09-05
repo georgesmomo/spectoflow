@@ -10,17 +10,8 @@
 const { spawn } = require('child_process');
 const path = require('path');
 const store = require('../lib/store');
-// Require the merged adapters/detect — works both from templates/dashboard/ (dev) and
-// .spectoflow/dashboard/ (vendored). Try the installed package first, fall back to dev path.
-let adapters, detect;
-try {
-  const spectoflowPkgDir = path.dirname(require.resolve('spectoflow/package.json'));
-  adapters = require(path.join(spectoflowPkgDir, 'lib', 'adapters'));
-  detect = require(path.join(spectoflowPkgDir, 'lib', 'detect'));
-} catch {
-  adapters = require(path.join(__dirname, '../../lib/adapters'));
-  detect = require(path.join(__dirname, '../../lib/detect'));
-}
+const adapters = require(path.join(__dirname, '..', '..', 'lib', 'adapters'));
+const detect = require(path.join(__dirname, '..', '..', 'lib', 'detect'));
 
 // The command to run `which`: config.json's own runners map first (an explicit user choice always
 // wins), falling back to the registry's default for a known, headless-capable, genuinely-installed

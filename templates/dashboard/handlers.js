@@ -20,17 +20,8 @@ const store = require('../lib/store');
 const { startRun } = require('./runner');
 const { runSummarize } = require('./summarize');
 const orchestrator = require('./orchestrator');
-// Require the merged adapters/detect — works both from templates/dashboard/ (dev) and
-// .spectoflow/dashboard/ (vendored). Try the installed package first, fall back to dev path.
-let adapters, detect;
-try {
-  const spectoflowPkgDir = path.dirname(require.resolve('spectoflow/package.json'));
-  adapters = require(path.join(spectoflowPkgDir, 'lib', 'adapters'));
-  detect = require(path.join(spectoflowPkgDir, 'lib', 'detect'));
-} catch {
-  adapters = require(path.join(__dirname, '../../lib/adapters'));
-  detect = require(path.join(__dirname, '../../lib/detect'));
-}
+const adapters = require(path.join(__dirname, '..', '..', 'lib', 'adapters'));
+const detect = require(path.join(__dirname, '..', '..', 'lib', 'detect'));
 const files = require('./files');
 
 function sendJSON(res, code, obj) { res.writeHead(code, { 'Content-Type': 'application/json; charset=utf-8' }); res.end(JSON.stringify(obj)); }
