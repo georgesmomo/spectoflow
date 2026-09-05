@@ -57,7 +57,7 @@ test('update reloads this project in the running hub WITHOUT restarting it or di
   const projB = install(); // a second, unrelated project sharing the same hub
   const home = fs.mkdtempSync(path.join(os.tmpdir(), 'stf-cli-hub-home-'));
   const sfA = path.join(projA, '.spectoflow');
-  const lockPath = path.join(home, 'hub.lock');
+  const lockPath = path.join(home, 'dashboard', 'hub.lock');
   const port = 4600 + Math.floor(Math.random() * 200);
   const env = { ...process.env, SPECTOFLOW_HOME: home };
   execFileSync('node', [BIN, 'dashboard', `--port=${port}`], { cwd: projA, env, stdio: 'pipe' });
@@ -66,8 +66,8 @@ test('update reloads this project in the running hub WITHOUT restarting it or di
   // Register + warm-load B into the same hub (so we can prove reloading A never disturbs it).
   execFileSync('node', [BIN, 'dashboard', `--port=${port}`], { cwd: projB, env, stdio: 'pipe' });
   const registry = require('../lib/registry');
-  const entryA = registry.findByPath(projA, home);
-  const entryB = registry.findByPath(projB, home);
+  const entryA = registry.findByPath(projA, path.join(home, 'dashboard'));
+  const entryB = registry.findByPath(projB, path.join(home, 'dashboard'));
   // Warm BOTH into the hub's cache first — simulates the realistic case this feature exists for
   // (someone already has these projects open in a browser tab when `update` runs elsewhere).
   await fetch(`http://localhost:${port}/api/project?p=${entryA.id}`);

@@ -3,7 +3,7 @@ const { test } = require('node:test');
 const assert = require('node:assert');
 const fs = require('node:fs');
 const path = require('node:path');
-const { buildCustomizePrompt } = require('../templates/lib/customize-prompts');
+const { buildCustomizePrompt } = require('../lib/customize-prompts');
 
 test('builds the "add" prompt for each kind from a description', () => {
   assert.strictEqual(
@@ -46,7 +46,7 @@ test('rejects an unknown kind', () => {
 
 test('stays in sync with the dashboard UI\'s CZ_KINDS literals (app.js can\'t require this module)', () => {
   const appJs = fs.readFileSync(
-    path.join(__dirname, '..', 'templates', 'dashboard', 'public', 'app.js'),
+    path.join(__dirname, '..', 'lib', 'dashboard', 'public', 'app.js'),
     'utf8'
   );
   for (const kind of ['dashboard', 'skill', 'agent']) {

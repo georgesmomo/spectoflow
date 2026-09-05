@@ -10,7 +10,7 @@ const registry = require('../lib/registry');
 
 const KIT = path.resolve(__dirname, '..');
 const BIN = path.join(KIT, 'bin', 'spectoflow.js');
-const HUB = path.join(KIT, 'lib', 'hub-server.js');
+const HUB = path.join(KIT, 'lib', 'dashboard', 'hub-server.js');
 
 function freshHome() {
   return fs.mkdtempSync(path.join(os.tmpdir(), 'stf-hub-home-'));
@@ -18,7 +18,7 @@ function freshHome() {
 function project(home, namePrefix) {
   const d = fs.mkdtempSync(path.join(os.tmpdir(), `stf-hub-${namePrefix}-`));
   execFileSync('node', [BIN, 'init', d], { stdio: 'pipe' });
-  return registry.addProject(d, home);
+  return registry.addProject(d, path.join(home, 'dashboard'));
 }
 function get(port, p) {
   return new Promise((resolve) => {
@@ -280,7 +280,7 @@ test('hub-server writes the GLOBAL lock file (~/.spectoflow/hub.lock, not a per-
   try {
     await get(port, '/'); // ensure the server has fully started before checking the lock
     const registry = require('../lib/registry');
-    const lock = JSON.parse(fs.readFileSync(registry.hubLockPath(home), 'utf8'));
+    const lock = JSON.parse(fs.readFileSync(registry.hubLockPath(path.join(home, 'dashboard')), 'utf8'));
     assert.strictEqual(lock.port, port);
     assert.strictEqual(lock.pid, srv.pid);
   } finally { srv.kill(); }
@@ -330,21 +330,18 @@ test('reloading project A never disturbs project B, concurrently loaded in the s
   } finally { srv.kill(); }
 });
 
-test('a registered project missing handlers.js (predates the split, or never updated) 404s with a clear "run spectoflow update" message, not a bare "unknown project"', async () => {
+test('a project that never ran update (no .spectoflow/dashboard at all) opens normally', async () => {
   const home = freshHome();
   const a = project(home, 'needs-update');
-  // Simulate an existing project that has never run `spectoflow update` since handlers.js was
-  // introduced — delete its vendored copy so getProject()'s require() genuinely fails.
-  fs.unlinkSync(path.join(a.path, '.spectoflow', 'dashboard', 'handlers.js'));
+  // A no-op on a fresh init now (the route logic is the package's own, D64) — kept for legacy
+  // fixtures that still carry a vendored .spectoflow/dashboard/ from before this split.
+  fs.rmSync(path.join(a.path, '.spectoflow', 'dashboard'), { recursive: true, force: true });
   const port = 7400 + Math.floor(Math.random() * 100);
   const srv = await startHub(home, port);
   try {
-    const page = await get(port, `/p/${a.id}/board`);
-    assert.strictEqual(page.status, 404);
-    assert.match(page.body, /spectoflow update/i);
     const api = await get(port, `/api/project?p=${a.id}`);
-    assert.strictEqual(api.status, 404);
-    const apiBody = JSON.parse(api.body);
-    assert.match(apiBody.error, /spectoflow update/i);
+    assert.strictEqual(api.status, 200);
+    const page = await get(port, `/p/${a.id}/board`);
+    assert.strictEqual(page.status, 200);
   } finally { srv.kill(); }
 });

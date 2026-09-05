@@ -6,11 +6,12 @@ const os = require('node:os');
 const path = require('node:path');
 const http = require('node:http');
 const { execFileSync, spawn } = require('node:child_process');
-const store = require('../templates/lib/store');
+const store = require('../lib/store');
+const registry = require('../lib/registry');
 
 const KIT = path.resolve(__dirname, '..');
 const BIN = path.join(KIT, 'bin', 'spectoflow.js');
-const SERVER = path.join(KIT, 'templates', 'dashboard', 'server.js');
+const HUB = path.join(KIT, 'lib', 'dashboard', 'hub-server.js');
 
 test('recordSnapshot dedupes today and caps history', () => {
   let rt = { history: [] };
@@ -81,16 +82,22 @@ function project() {
 }
 function get(port, p) {
   return new Promise((resolve) => {
-    http.get({ host: '127.0.0.1', port, path: p }, (res) => {
+    http.get({ host: '127.0.0.1', port, path: withP(p) }, (res) => {
       let b = ''; res.on('data', (c) => b += c);
       res.on('end', () => resolve({ status: res.statusCode, body: JSON.parse(b || '{}') }));
     });
   });
 }
+// The hub serves many projects; every /api/* call carries ?p=<id>. `withP()` appends the id of the
+// project the current test started, so the request helpers below stay one-liners.
+let currentId = null;
+const withP = (p) => p + (p.includes('?') ? '&' : '?') + 'p=' + currentId;
 function startServer(root, port) {
+  const home = fs.mkdtempSync(path.join(os.tmpdir(), 'stf-home-'));
+  currentId = registry.addProject(root, path.join(home, 'dashboard')).id;
   return new Promise((resolve) => {
-    const srv = spawn('node', [SERVER], { env: { ...process.env, SPECTOFLOW_ROOT: root, SPECTOFLOW_PORT: String(port) } });
-    srv.stdout.on('data', (d) => { if (/dashboard →/.test(d.toString())) resolve(srv); });
+    const srv = spawn('node', [HUB], { env: { ...process.env, SPECTOFLOW_HOME: home, SPECTOFLOW_PORT: String(port) } });
+    srv.stdout.on('data', (d) => { if (/hub →/.test(d.toString())) resolve(srv); });
   });
 }
 
@@ -134,7 +141,7 @@ test('GET /api/agentfile 400s on a symlink escaping the agents/skills scope', as
 function reqJSON(port, method, p, bodyObj) {
   return new Promise((resolve) => {
     const data = bodyObj ? JSON.stringify(bodyObj) : null;
-    const r = http.request({ host: '127.0.0.1', port, path: p, method,
+    const r = http.request({ host: '127.0.0.1', port, path: withP(p), method,
       headers: data ? { 'Content-Type': 'application/json', 'Content-Length': Buffer.byteLength(data) } : {} },
       (res) => { let b = ''; res.on('data', (c) => b += c); res.on('end', () => resolve({ status: res.statusCode, body: JSON.parse(b || '{}') })); });
     if (data) r.write(data); r.end();
@@ -269,8 +276,9 @@ test('SPA fallback: an extensionless route serves index.html', async () => {
   const port = 4740 + Math.floor(Math.random() * 100);
   const srv = await startServer(d, port);
   try {
+    // Page routes (unlike /api/*) are addressed by /p/<id>/... prefix, not ?p=.
     const html = await new Promise((resolve) => {
-      http.get({ host: '127.0.0.1', port, path: '/backlog' }, (res) => {
+      http.get({ host: '127.0.0.1', port, path: '/p/' + currentId + '/backlog' }, (res) => {
         let b = ''; res.on('data', (c) => b += c); res.on('end', () => resolve({ status: res.statusCode, body: b }));
       });
     });

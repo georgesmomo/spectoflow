@@ -5,8 +5,8 @@ const fs = require('node:fs');
 const os = require('node:os');
 const path = require('node:path');
 const { execFileSync } = require('node:child_process');
-const store = require('../templates/lib/store');
-const { startRun } = require('../templates/dashboard/runner');
+const store = require('../lib/store');
+const { startRun } = require('../lib/dashboard/runner');
 
 const KIT = path.resolve(__dirname, '..');
 const BIN = path.join(KIT, 'bin', 'spectoflow.js');
@@ -70,13 +70,13 @@ test('a finished status message is appended when the run ends', async () => {
 });
 
 test('resolveRunnerCommand prefers an explicit config.json → runners entry over the registry default', () => {
-  const { resolveRunnerCommand } = require('../templates/dashboard/runner');
+  const { resolveRunnerCommand } = require('../lib/dashboard/runner');
   const cfg = { runners: { claude: 'node custom-claude.js' } };
   assert.strictEqual(resolveRunnerCommand('/irrelevant', cfg, 'claude'), 'node custom-claude.js');
 });
 
 test('resolveRunnerCommand falls back to the registry default for a known, headless, installed agent with no configured runner', () => {
-  const { resolveRunnerCommand } = require('../templates/dashboard/runner');
+  const { resolveRunnerCommand } = require('../lib/dashboard/runner');
   const proj = fs.mkdtempSync(path.join(os.tmpdir(), 'stf-resolve-'));
   fs.mkdirSync(path.join(proj, '.opencode')); // dir signal → "installed" without touching real PATH
   const cfg = { runners: {} };
@@ -84,7 +84,7 @@ test('resolveRunnerCommand falls back to the registry default for a known, headl
 });
 
 test('resolveRunnerCommand returns null for a known agent that is not actually installed', () => {
-  const { resolveRunnerCommand } = require('../templates/dashboard/runner');
+  const { resolveRunnerCommand } = require('../lib/dashboard/runner');
   const proj = fs.mkdtempSync(path.join(os.tmpdir(), 'stf-resolve-'));
   const cfg = { runners: {} };
   // Isolated PATH: the machine running this suite may genuinely have opencode installed for real,
@@ -94,7 +94,7 @@ test('resolveRunnerCommand returns null for a known agent that is not actually i
 });
 
 test('resolveRunnerCommand returns null for a non-headless agent (kimi) even if installed', () => {
-  const { resolveRunnerCommand } = require('../templates/dashboard/runner');
+  const { resolveRunnerCommand } = require('../lib/dashboard/runner');
   const proj = fs.mkdtempSync(path.join(os.tmpdir(), 'stf-resolve-'));
   const cfg = { runners: {} };
   const bindir = fs.mkdtempSync(path.join(os.tmpdir(), 'stf-kimi-'));

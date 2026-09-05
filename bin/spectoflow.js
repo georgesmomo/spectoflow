@@ -4,7 +4,7 @@ const fs = require('fs');
 const path = require('path');
 const http = require('http');
 const { spawn } = require('child_process');
-const store = require('../templates/lib/store');
+const store = require('../lib/store');
 const adapters = require('../lib/adapters');
 const detect = require('../lib/detect');
 const ownership = require('../lib/ownership');
@@ -12,8 +12,8 @@ const manifest = require('../lib/manifest');
 const registry = require('../lib/registry');
 const initLib = require('../lib/init');
 const mcp = require('../lib/mcp');
-const { startRun } = require('../templates/dashboard/runner');
-const { buildCustomizePrompt } = require('../templates/lib/customize-prompts');
+const { startRun } = require('../lib/dashboard/runner');
+const { buildCustomizePrompt } = require('../lib/customize-prompts');
 
 const KIT = path.resolve(__dirname, '..');
 const TPL = path.join(KIT, 'templates');
@@ -77,7 +77,7 @@ function readWorkflowSteps(dir) {
 }
 
 // ---- dashboard port + running-state probe ------------------------------------
-// Precedence: --port=NNNN > SPECTOFLOW_PORT env > 4319 (matches templates/dashboard/server.js).
+// Precedence: --port=NNNN > SPECTOFLOW_PORT env > 4319 (matches lib/dashboard/hub-server.js).
 function resolvePort(args) {
   const arg = (args.find((a) => a.startsWith('--port=')) || '').split('=')[1];
   return Number(arg || process.env.SPECTOFLOW_PORT || 4319);
@@ -271,7 +271,7 @@ async function startDashboard() {
     return printDashboardCommands();
   }
   const port = resolvePort(argv);
-  const hubPath = path.join(KIT, 'lib', 'hub-server.js');
+  const hubPath = path.join(KIT, 'lib', 'dashboard', 'hub-server.js');
   const env = Object.assign({}, process.env, { SPECTOFLOW_PORT: String(port) });
   const child = spawn('node', [hubPath], { detached: true, stdio: 'ignore', env });
   child.unref();                                   // let this CLI exit while the hub keeps running

@@ -1,7 +1,7 @@
 'use strict';
 const { test } = require('node:test');
 const assert = require('node:assert');
-const C = require('../templates/dashboard/public/charts');
+const C = require('../lib/dashboard/public/charts');
 
 test('donut builds one arc path per non-zero segment with a centre label', () => {
   const svg = C.donut([{ value: 1, color: '#a', label: 'A' }, { value: 1, color: '#b', label: 'B' }], { center: '2', sub: 'TASKS' });

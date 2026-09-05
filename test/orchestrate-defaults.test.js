@@ -5,7 +5,7 @@ const fs = require('node:fs');
 const os = require('node:os');
 const path = require('node:path');
 const { execFileSync } = require('node:child_process');
-const orch = require('../templates/dashboard/orchestrator');
+const orch = require('../lib/dashboard/orchestrator');
 
 const KIT = path.resolve(__dirname, '..');
 const BIN = path.join(KIT, 'bin', 'spectoflow.js');

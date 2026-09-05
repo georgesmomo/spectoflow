@@ -6,11 +6,12 @@ const os = require('node:os');
 const path = require('node:path');
 const http = require('node:http');
 const { execFileSync, spawn } = require('node:child_process');
-const store = require('../templates/lib/store');
+const store = require('../lib/store');
+const registry = require('../lib/registry');
 
 const KIT = path.resolve(__dirname, '..');
 const BIN = path.join(KIT, 'bin', 'spectoflow.js');
-const SERVER = path.join(KIT, 'templates', 'dashboard', 'server.js');
+const HUB = path.join(KIT, 'lib', 'dashboard', 'hub-server.js');
 const CHAT_FIXTURE = path.join(KIT, 'test', 'fixtures', 'chat-agent.js').split(path.sep).join('/');
 const SUMMARY_FIXTURE = path.join(KIT, 'test', 'fixtures', 'summary-agent.js').split(path.sep).join('/');
 
@@ -40,16 +41,22 @@ function req(port, method, p, obj) {
   return new Promise((resolve) => {
     const data = obj ? JSON.stringify(obj) : null;
     const headers = data ? { 'Content-Type': 'application/json', 'Content-Length': Buffer.byteLength(data) } : {};
-    const r = http.request({ host: '127.0.0.1', port, path: p, method, headers },
+    const r = http.request({ host: '127.0.0.1', port, path: withP(p), method, headers },
       (res) => { let b = ''; res.on('data', (c) => b += c); res.on('end', () => resolve({ status: res.statusCode, body: JSON.parse(b || '{}') })); });
     if (data) r.write(data);
     r.end();
   });
 }
-function startServer(root, port, extraEnv) {
+// The hub serves many projects; every /api/* call carries ?p=<id>. `withP()` appends the id of the
+// project the current test started, so the request helpers below stay one-liners.
+let currentId = null;
+const withP = (p) => p + (p.includes('?') ? '&' : '?') + 'p=' + currentId;
+function startServer(root, port, extraEnv = {}) {
+  const home = fs.mkdtempSync(path.join(os.tmpdir(), 'stf-home-'));
+  currentId = registry.addProject(root, path.join(home, 'dashboard')).id;
   return new Promise((resolve) => {
-    const srv = spawn('node', [SERVER], { env: { ...process.env, ...extraEnv, SPECTOFLOW_ROOT: root, SPECTOFLOW_PORT: String(port) } });
-    srv.stdout.on('data', (d) => { if (/dashboard →/.test(d.toString())) resolve(srv); });
+    const srv = spawn('node', [HUB], { env: { ...process.env, ...extraEnv, SPECTOFLOW_HOME: home, SPECTOFLOW_PORT: String(port) } });
+    srv.stdout.on('data', (d) => { if (/hub →/.test(d.toString())) resolve(srv); });
   });
 }
 async function waitFor(pred, timeoutMs = 5000) {

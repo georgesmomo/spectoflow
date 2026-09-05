@@ -1,14 +1,14 @@
 'use strict';
 // End-to-end tests for `spectoflow skill/agent/dashboard create` — the CLI mirror of the dashboard's
 // Settings → Customize UI. Spawns the real CLI (like runner.test.js) against a stub agent runner and
-// asserts on the exact prompt it logs, mirroring templates/dashboard/public/app.js's CZ_KINDS.
+// asserts on the exact prompt it logs, mirroring lib/dashboard/public/app.js's CZ_KINDS.
 const { test } = require('node:test');
 const assert = require('node:assert');
 const fs = require('node:fs');
 const os = require('node:os');
 const path = require('node:path');
 const { execFileSync, spawnSync } = require('node:child_process');
-const store = require('../templates/lib/store');
+const store = require('../lib/store');
 
 const KIT = path.resolve(__dirname, '..');
 const BIN = path.join(KIT, 'bin', 'spectoflow.js');

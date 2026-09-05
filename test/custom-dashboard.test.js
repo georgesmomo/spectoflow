@@ -1,7 +1,7 @@
 'use strict';
 const { test } = require('node:test');
 const assert = require('node:assert');
-const { validateSpec, BLOCK_TYPES, BIND_ROOTS, ICON_KEYS } = require('../templates/lib/custom-dashboard');
+const { validateSpec, BLOCK_TYPES, BIND_ROOTS, ICON_KEYS } = require('../lib/custom-dashboard');
 
 test('accepts a well-formed spec with a markdown block', () => {
   const r = validateSpec({ id: 'architecture', title: 'Architecture', blocks: [{ type: 'markdown', content: 'hello' }] });

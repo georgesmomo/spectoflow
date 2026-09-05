@@ -30,16 +30,19 @@ test('init writes .spectoflow/package.json pinning "type":"commonjs"', () => {
   assert.strictEqual(pkg.type, 'commonjs');
 });
 
-test('handlers.js requires cleanly inside a host project whose own package.json says "type":"module"', () => {
+test('the hub opens a project whose own package.json says "type":"module"', async () => {
   const proj = initModuleTypeProject();
-  const handlersPath = path.join(proj, '.spectoflow', 'dashboard', 'handlers.js');
-  // A child process, not a same-process require(): Node's module-type resolution is cached per
-  // absolute path for the lifetime of the process, so a prior require() of this same test suite's
-  // own CommonJS files must never taint the result for this specific project directory.
-  const out = execFileSync('node', ['-e', `
-    const { createHandlers } = require(${JSON.stringify(handlersPath)});
-    const h = createHandlers(${JSON.stringify(proj)});
-    console.log(typeof h.handleApi);
-  `], { encoding: 'utf8' });
-  assert.strictEqual(out.trim(), 'function');
+  const home = fs.mkdtempSync(path.join(os.tmpdir(), 'stf-esm-home-'));
+  const entry = require('../lib/registry').addProject(proj, path.join(home, 'dashboard'));
+  const port = 7600 + Math.floor(Math.random() * 100);
+  const { spawn } = require('node:child_process');
+  const HUB = path.resolve(__dirname, '..', 'lib', 'dashboard', 'hub-server.js');
+  const srv = await new Promise((resolve) => {
+    const s = spawn('node', [HUB], { env: { ...process.env, SPECTOFLOW_HOME: home, SPECTOFLOW_PORT: String(port) } });
+    s.stdout.on('data', (d) => { if (/hub →/.test(d.toString())) resolve(s); });
+  });
+  try {
+    const res = await fetch(`http://localhost:${port}/api/project?p=${entry.id}`);
+    assert.strictEqual(res.status, 200);
+  } finally { srv.kill(); }
 });

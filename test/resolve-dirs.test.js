@@ -7,7 +7,7 @@ const fs = require('node:fs');
 const os = require('node:os');
 const path = require('node:path');
 const { execFileSync } = require('node:child_process');
-const store = require('../templates/lib/store');
+const store = require('../lib/store');
 
 const BIN = path.resolve(__dirname, '..', 'bin', 'spectoflow.js');
 

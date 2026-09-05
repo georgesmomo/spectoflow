@@ -1,7 +1,7 @@
 'use strict';
 const { test } = require('node:test');
 const assert = require('node:assert');
-const { stats, STATUSES } = require('../templates/dashboard/public/stats');
+const { stats, STATUSES } = require('../lib/dashboard/public/stats');
 
 const project = {
   plans: [{

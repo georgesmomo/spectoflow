@@ -4,7 +4,7 @@ const assert = require('node:assert');
 const fs = require('node:fs');
 const os = require('node:os');
 const path = require('node:path');
-const store = require('../templates/lib/store');
+const store = require('../lib/store');
 
 function project() {
   const d = fs.mkdtempSync(path.join(os.tmpdir(), 'stf-msg-'));

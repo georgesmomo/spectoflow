@@ -30,7 +30,7 @@ test('projects list shows a registered project\'s id, name and path', () => {
   const home = freshHome();
   const proj = fs.mkdtempSync(path.join(os.tmpdir(), 'stf-cli-registry-proj-'));
   const registry = require('../lib/registry');
-  const entry = registry.addProject(proj, home);
+  const entry = registry.addProject(proj, path.join(home, 'dashboard'));
   const out = run(home, ['projects', 'list']);
   assert.ok(out.includes(entry.id));
   assert.ok(out.includes(entry.name));
@@ -41,7 +41,7 @@ test('projects (no subcommand) behaves the same as projects list', () => {
   const home = freshHome();
   const proj = fs.mkdtempSync(path.join(os.tmpdir(), 'stf-cli-registry-proj2-'));
   const registry = require('../lib/registry');
-  const entry = registry.addProject(proj, home);
+  const entry = registry.addProject(proj, path.join(home, 'dashboard'));
   const out = run(home, ['projects']);
   assert.ok(out.includes(entry.id));
 });
@@ -50,10 +50,10 @@ test('projects remove <id> removes a known entry', () => {
   const home = freshHome();
   const proj = fs.mkdtempSync(path.join(os.tmpdir(), 'stf-cli-registry-proj3-'));
   const registry = require('../lib/registry');
-  const entry = registry.addProject(proj, home);
+  const entry = registry.addProject(proj, path.join(home, 'dashboard'));
   const out = run(home, ['projects', 'remove', entry.id]);
   assert.match(out, /removed/i);
-  assert.strictEqual(registry.readRegistry(home).projects.length, 0);
+  assert.strictEqual(registry.readRegistry(path.join(home, 'dashboard')).projects.length, 0);
 });
 
 test('projects remove <unknown-id> reports it was not found, without throwing', () => {
