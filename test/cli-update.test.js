@@ -43,52 +43,53 @@ test('update -f is the short form of --force', () => {
   assert.ok(!fs.existsSync(path.join(sf, 'AGENTS.md.new')));
 });
 
-// Spawns two real dashboard server processes end to end (like orchestrate-server.test.js's own
-// tests) — reliably green in isolation; under the FULL suite, this late in ~175 other tests that
-// also spawn real node.exe children, this machine's HTTP probes and process spawns can occasionally
-// exceed even generous timeouts under Windows resource contention. Same documented characteristic as
-// orchestrate-server.test.js, not a logic bug — the feature itself is also verified by hand against a
-// real project. Re-run in isolation (`node --test test/cli-update.test.js`) if this ever fails here.
-test('update restarts an already-running dashboard so the update actually takes effect', async () => {
-  // A long-running dashboard process keeps its framework modules (require()'d at startup) cached in
-  // memory — new bytes on disk from `update` change nothing until the process restarts. This is the
-  // exact bug a real user hit three times in a row (agent registry looked stale, "No agent found"
-  // even though the CLI was genuinely installed) purely because nobody thought to restart.
-  const proj = install();
-  const sf = path.join(proj, '.spectoflow');
-  const lockPath = path.join(sf, '.dashboard.lock');
-  // A random port, like the other spawn-a-real-server tests in this suite — a fixed port risks
-  // colliding with an orphan left behind by an earlier failed run (a detached process outlives the
-  // test that started it; a later run's `dashboard stop` can't find it either, since stop reads the
-  // lock from ITS OWN fresh project dir, not the orphan's).
+// Spawns real hub-server processes end to end (like other spawn-a-real-server tests in this suite)
+// — reliably green in isolation; under heavy concurrent load (this machine has been observed running
+// several unrelated sessions' own test suites at once) HTTP probes and process spawns can occasionally
+// exceed even generous timeouts. Re-run in isolation (`node --test test/cli-update.test.js`) if this
+// ever fails under full-suite load.
+test('update reloads this project in the running hub WITHOUT restarting it or disturbing other projects', async () => {
+  // A long-running hub process keeps every project's framework modules (require()'d on first open)
+  // cached in memory — new bytes on disk from `update` change nothing until that project is reloaded.
+  // Under the hub model this must be a SURGICAL per-project reload, not a full restart: restarting
+  // would kick every other project anyone has open in the same hub right now.
+  const projA = install();
+  const projB = install(); // a second, unrelated project sharing the same hub
+  const home = fs.mkdtempSync(path.join(os.tmpdir(), 'stf-cli-hub-home-'));
+  const sfA = path.join(projA, '.spectoflow');
+  const lockPath = path.join(home, 'hub.lock');
   const port = 4600 + Math.floor(Math.random() * 200);
-  execFileSync('node', [BIN, 'dashboard', `--port=${port}`], { cwd: proj, stdio: 'pipe' });
-  // The CLI just fires a detached spawn and returns immediately — the server writes its own lock
-  // file a moment later, once it's actually listening (observed up to ~4-5s under test-runner load).
+  const env = { ...process.env, SPECTOFLOW_HOME: home };
+  execFileSync('node', [BIN, 'dashboard', `--port=${port}`], { cwd: projA, env, stdio: 'pipe' });
   for (let i = 0; i < 150 && !fs.existsSync(lockPath); i++) await new Promise((r) => setTimeout(r, 200));
   const lockBefore = JSON.parse(fs.readFileSync(lockPath, 'utf8'));
+  // Register + warm-load B into the same hub (so we can prove reloading A never disturbs it).
+  execFileSync('node', [BIN, 'dashboard', `--port=${port}`], { cwd: projB, env, stdio: 'pipe' });
+  const registry = require('../lib/registry');
+  const entryA = registry.findByPath(projA, home);
+  const entryB = registry.findByPath(projB, home);
+  // Warm BOTH into the hub's cache first — simulates the realistic case this feature exists for
+  // (someone already has these projects open in a browser tab when `update` runs elsewhere).
+  await fetch(`http://localhost:${port}/api/project?p=${entryA.id}`);
+  await fetch(`http://localhost:${port}/api/project?p=${entryB.id}`);
   try {
-    fs.writeFileSync(path.join(sf, 'AGENTS.md'), 'DRIFTED'); // force `changed` to be non-zero
-    // `update` is never told the port — it must discover it from the lock file on its own.
-    const out = run(proj, ['update', '--force']);
-    assert.match(out, new RegExp(`restarting it on port ${port}`, 'i'));
-    // Same detached-spawn timing as the initial start: `update` (and the `run()` that invoked it)
-    // can return before the newly-restarted server has finished binding and written its own lock.
-    let lockAfter = null;
-    for (let i = 0; i < 150; i++) {
-      try {
-        const parsed = JSON.parse(fs.readFileSync(lockPath, 'utf8'));
-        if (parsed.pid !== lockBefore.pid) { lockAfter = parsed; break; }
-      } catch {}
-      await new Promise((r) => setTimeout(r, 200));
-    }
-    assert.ok(lockAfter, 'a new lock file appeared after the restart');
-    assert.notStrictEqual(lockAfter.pid, lockBefore.pid, 'a genuinely new process is running');
-    assert.strictEqual(lockAfter.port, port, 'restarted on the SAME port, not the 4319 default');
-    const res = await fetch(`http://localhost:${port}/api/project`);
-    assert.strictEqual(res.status, 200, 'the restarted dashboard actually responds');
+    fs.writeFileSync(path.join(sfA, 'AGENTS.md'), 'DRIFTED'); // force `changed` to be non-zero
+    const out = execFileSync('node', [BIN, 'update', '--force'], { cwd: projA, env, encoding: 'utf8' });
+    assert.match(out, /reloaded this project/i);
+    // The hub process itself must NOT have restarted -- same pid, same lock, the whole point of a
+    // surgical reload over a full restart.
+    const lockAfter = JSON.parse(fs.readFileSync(lockPath, 'utf8'));
+    assert.strictEqual(lockAfter.pid, lockBefore.pid, 'the hub process itself was never restarted');
+    // A must still be servable after its own reload.
+    const resA = await fetch(`http://localhost:${port}/api/project?p=${entryA.id}`);
+    assert.strictEqual(resA.status, 200, 'the just-reloaded project A still responds');
+    // B, never touched by A's update, must be completely unaffected.
+    const resB = await fetch(`http://localhost:${port}/api/project?p=${entryB.id}`);
+    assert.strictEqual(resB.status, 200);
+    const bodyB = await resB.json();
+    assert.strictEqual(bodyB.projectName, path.basename(projB), 'project B fully unaffected by A\'s update/reload');
   } finally {
-    execFileSync('node', [BIN, 'dashboard', 'stop', `--port=${port}`], { cwd: proj, stdio: 'pipe' });
+    execFileSync('node', [BIN, 'dashboard', 'stop', `--port=${port}`], { cwd: projA, env, stdio: 'pipe' });
   }
 });
 

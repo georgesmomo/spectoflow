@@ -146,21 +146,27 @@ async function update() {
   if (r.newSidecar.length && !dryRun) console.log(`  ${c.y('→')} ${c.dim(`${r.newSidecar.length} *.new file(s) to review and merge — or re-run: spectoflow update --force`)}`);
   console.log('');
 
-  // A running dashboard has the OLD framework code loaded into memory (Node caches `require()`d
-  // modules at process start) — new bytes on disk change nothing until it restarts. Do that
-  // automatically so an update always actually takes effect, instead of leaving a confusing
-  // half-updated dashboard (new static files, stale server logic) until someone thinks to restart.
+  // A running hub has the OLD framework code loaded into memory (Node caches `require()`d modules
+  // per project on first open) — new bytes on disk change nothing until that project's cached code
+  // is invalidated. Do that via a surgical per-project reload so an update always actually takes
+  // effect, without restarting the whole hub (which would disturb every other project open in it).
   if (!dryRun && changed) {
-    const lock = path.join(root, '.spectoflow', '.dashboard.lock');
+    const lockPath = registry.hubLockPath();
     let info = null;
-    try { info = JSON.parse(fs.readFileSync(lock, 'utf8')); } catch {}
+    try { info = JSON.parse(fs.readFileSync(lockPath, 'utf8')); } catch {}
     if (info && info.port && (await probeDashboard(info.port, 2000))) {
-      console.log(`  ${c.dim('Dashboard is running — restarting it on port ' + info.port + ' to apply the update…')}`);
-      // Restart on the SAME port it was already on, not resolvePort(argv)'s default — `update`
-      // itself was never given a --port, so a naive restartDashboard() would silently move a
-      // non-default-port dashboard back to 4319.
-      argv.push(`--port=${info.port}`);
-      await restartDashboard();
+      const entry = registry.findByPath(root);
+      if (entry) {
+        try {
+          const res = await fetch(`http://localhost:${info.port}/api/hub/reload/${entry.id}`, { method: 'POST' });
+          const body = await res.json().catch(() => ({}));
+          console.log(`  ${c.dim(body.reloaded
+            ? 'Hub is running — reloaded this project\'s server code (other open projects unaffected).'
+            : 'Hub is running, but this project wasn\'t loaded in it yet — nothing to reload.')}`);
+        } catch {
+          console.log(`  ${c.y('!')} Hub is running on port ${info.port} but the reload request failed — restart it yourself if changes don't seem to take effect: ${c.g('spectoflow dashboard restart')}`);
+        }
+      }
     }
   }
 }
@@ -250,26 +256,31 @@ async function runCustomize(kind) {
   process.exitCode = code;
 }
 
-// Start in the background and return control. Probes first so a second start just reports the running
-// one instead of spawning a duplicate (and never crashes on EADDRINUSE).
+// Start in the background and return control. Registers (or touches) the current folder in the
+// global registry first, then either joins an already-running hub or spawns a new one — probing first
+// so a second start just reports the running one instead of spawning a duplicate.
 async function startDashboard() {
-  const port = resolvePort(argv);
-  const url = `http://localhost:${port}`;
-  if (await probeDashboard(port)) {
-    console.log(`${c.g('●')} dashboard already running → ${c.bold(url)}`);
+  const root = process.cwd();
+  const entry = registry.addProject(root);
+  const boardUrl = (p) => `http://localhost:${p}/p/${entry.id}/board`;
+  const lockPath = registry.hubLockPath();
+  let info = null;
+  try { info = JSON.parse(fs.readFileSync(lockPath, 'utf8')); } catch {}
+  if (info && info.port && await probeDashboard(info.port)) {
+    console.log(`${c.g('●')} hub already running → ${c.bold(boardUrl(info.port))}`);
     return printDashboardCommands();
   }
-  const local = path.resolve('.spectoflow', 'dashboard', 'server.js');
-  const bundled = path.join(TPL, 'dashboard', 'server.js');
+  const port = resolvePort(argv);
+  const hubPath = path.join(KIT, 'lib', 'hub-server.js');
   const env = Object.assign({}, process.env, { SPECTOFLOW_PORT: String(port) });
-  const child = spawn('node', [fs.existsSync(local) ? local : bundled], { detached: true, stdio: 'ignore', env });
-  child.unref();                                   // let this CLI exit while the server keeps running
+  const child = spawn('node', [hubPath], { detached: true, stdio: 'ignore', env });
+  child.unref();                                   // let this CLI exit while the hub keeps running
   // Confirm it actually came up (a still-releasing port from a just-stopped instance, or any other
   // startup error, would otherwise print a false "started" while the detached process silently died).
   let up = false;
   for (let i = 0; i < 20 && !up; i++) { await new Promise((r) => setTimeout(r, 250)); up = await probeDashboard(port, 300); }
-  if (up) console.log(`${c.g('✓')} dashboard started → ${c.bold(url)}  ${c.dim('(pid ' + child.pid + ')')}`);
-  else console.log(`${c.y('!')} spawned (pid ${child.pid}) but it isn't responding on ${url} yet — check ${c.g('spectoflow dashboard status')} in a moment, or its own output if something's wrong.`);
+  if (up) console.log(`${c.g('✓')} hub started → ${c.bold(boardUrl(port))}  ${c.dim('(pid ' + child.pid + ')')}`);
+  else console.log(`${c.y('!')} spawned (pid ${child.pid}) but it isn't responding on http://localhost:${port} yet — check ${c.g('spectoflow dashboard status')} in a moment, or its own output if something's wrong.`);
   printDashboardCommands();
 }
 
@@ -282,12 +293,13 @@ function printDashboardCommands() {
 }
 
 async function dashboardStatus() {
-  const port = resolvePort(argv);
+  const lockPath = registry.hubLockPath();
+  let info = null;
+  try { info = JSON.parse(fs.readFileSync(lockPath, 'utf8')); } catch {}
+  const port = (info && info.port) || resolvePort(argv);
   const running = await probeDashboard(port);
-  let pid = null;
-  try { pid = JSON.parse(fs.readFileSync(path.join(process.cwd(), '.spectoflow', '.dashboard.lock'), 'utf8')).pid; } catch {}
-  if (running) console.log(`${c.g('●')} dashboard running → ${c.bold('http://localhost:' + port)}${pid ? c.dim(' (pid ' + pid + ')') : ''}`);
-  else console.log(`${c.dim('○')} dashboard not running`);
+  if (running) console.log(`${c.g('●')} hub running → ${c.bold('http://localhost:' + port)}${info && info.pid ? c.dim(' (pid ' + info.pid + ')') : ''}`);
+  else console.log(`${c.dim('○')} hub not running`);
 }
 
 async function restartDashboard() {
@@ -300,28 +312,27 @@ async function restartDashboard() {
   return startDashboard();
 }
 
-// Stop the running dashboard: read the pidfile it wrote, verify it's actually up, then terminate it
+// Stop the running hub: read the global lock it wrote, verify it's actually up, then terminate it
 // and clear the lock. Safe against a stale lock (a recycled pid) because it only kills when the port
 // still responds.
 async function stopDashboard() {
-  const root = process.cwd();
-  const lock = path.join(root, '.spectoflow', '.dashboard.lock');
+  const lockPath = registry.hubLockPath();
   let info = null;
-  try { info = JSON.parse(fs.readFileSync(lock, 'utf8')); } catch {}
+  try { info = JSON.parse(fs.readFileSync(lockPath, 'utf8')); } catch {}
   const port = (info && info.port) || resolvePort(argv);
   const running = await probeDashboard(port);
   if (!running) {
-    if (info) { try { fs.unlinkSync(lock); } catch {} }   // stale lock
-    return console.log('No spectoflow dashboard is running.');
+    if (info) { try { fs.unlinkSync(lockPath); } catch {} }   // stale lock
+    return console.log('No spectoflow hub is running.');
   }
   if (info && info.pid) {
     try {
-      process.kill(info.pid);                  // SIGTERM → server clears its own lock (POSIX)
-      try { fs.unlinkSync(lock); } catch {}     // and we clear it too (Windows has no real signals)
-      return console.log(`spectoflow dashboard stopped (pid ${info.pid}, was on http://localhost:${port}).`);
+      process.kill(info.pid);                  // SIGTERM → hub clears its own lock (POSIX)
+      try { fs.unlinkSync(lockPath); } catch {}     // and we clear it too (Windows has no real signals)
+      return console.log(`spectoflow hub stopped (pid ${info.pid}, was on http://localhost:${port}).`);
     } catch {}
   }
-  console.log(`A dashboard is responding on http://localhost:${port} but isn't stoppable via the lock file — stop it where you launched it (Ctrl+C).`);
+  console.log(`A hub is responding on http://localhost:${port} but isn't stoppable via the lock file — stop it where you launched it (Ctrl+C).`);
 }
 
 async function status() {
@@ -337,7 +348,10 @@ async function status() {
   console.log(`${(p.config && p.config.projectType) || 'project'} — mode ${p.config.mode} · lang ${p.config.language}`);
   console.log(`${done}/${tasks.length} tasks done · ${p.specs.length} spec(s) · ${p.agents.length} agents · ${p.skills.length} skills`);
   tasks.filter((t) => t.status === 'in_progress').forEach((t) => console.log(`  > in progress: ${t.id} ${t.title}`));
-  const port = resolvePort(argv);
+  const lockPath = registry.hubLockPath();
+  let info = null;
+  try { info = JSON.parse(fs.readFileSync(lockPath, 'utf8')); } catch {}
+  const port = (info && info.port) || resolvePort(argv);
   const running = await probeDashboard(port);
   console.log(`dashboard: ${running ? `running → http://localhost:${port}` : 'not running'}`);
 }
