@@ -3,6 +3,7 @@
 const fs = require('fs');
 const path = require('path');
 const http = require('http');
+const readline = require('readline');
 const { spawn } = require('child_process');
 const store = require('../lib/store');
 const adapters = require('../lib/adapters');
@@ -22,6 +23,9 @@ const TPL = path.join(KIT, 'templates');
 const VERSION = require('../package.json').version;
 const argv = process.argv.slice(2);
 const cmd = argv[0] || 'help';
+// `--name=value` flag reader — joins remaining `=`-split parts back (a URL's own query string may
+// contain one), returns undefined when absent so callers can tell "not passed" from an empty string.
+const flag = (name) => (argv.find((a) => a.startsWith(`--${name}=`)) || '').split('=').slice(1).join('=') || undefined;
 
 // Tiny ANSI colouriser — no dependency; disabled when not a TTY or NO_COLOR is set.
 const useColor = process.stdout.isTTY && !process.env.NO_COLOR;
@@ -188,10 +192,51 @@ function validateDashboardFile(file) {
   process.exitCode = 1;
 }
 
+// `spectoflow dashboard init [--path <dir>] [--port N] [--name "…"] [--design <id>]` — create (or
+// move) the dashboard workspace from the command line, mirroring what `startDashboard()` does lazily
+// on first `spectoflow dashboard`, but explicit and inspectable.
+function dashboardInit() {
+  try {
+    const r = workspace.init({ path: flag('path'), port: flag('port'), name: flag('name'), design: flag('design') });
+    console.log(logo());
+    console.log(`${c.g('✓')} dashboard workspace ${r.created ? 'created' : 'updated'} at ${c.bold(r.dir)}`);
+    if (r.registryCarried) console.log(`  ${c.dim('your project list was carried over from the previous workspace')}`);
+    const s = workspace.settings();
+    console.log(`  ${c.dim('name')} ${s.name}   ${c.dim('port')} ${s.port}   ${c.dim('design')} ${s.design}`);
+    console.log(`\n  start it:  ${c.g('spectoflow dashboard')}\n`);
+  } catch (e) { console.log(`${c.y('!')} ${e.message}`); process.exitCode = 1; }
+}
+
+const REMOTE_NOTE = 'This version manages local dashboards. Remote dashboards (login with a token) come in a later release — continuing with your local dashboard.';
+function isLocalUrl(u) { try { return ['localhost', '127.0.0.1', '::1'].includes(new URL(u).hostname); } catch { return true; } }
+// The one-time question every dashboard-starting command answers before doing anything else: which
+// dashboard should this project talk to? `--url` answers it without prompting. Otherwise, only when
+// dashboard.url has never been set AND both stdin/stdout are a real TTY do we ask (Enter keeps the
+// local default) — any non-interactive invocation (tests spawn with stdio:'pipe', CI, scripts) must
+// never block waiting on stdin that will never arrive, so it silently keeps the local default instead.
+// The answer (typed, defaulted, or flagged) is saved via globalConfig.set so it is asked at most once.
+async function resolveDashboardUrl() {
+  const fromFlag = flag('url');
+  if (fromFlag) { globalConfig.set('dashboard.url', fromFlag); }
+  else if (globalConfig.get('dashboard.url').source === 'default') {
+    let answer = '';
+    if (process.stdin.isTTY && process.stdout.isTTY) {
+      const rl = readline.createInterface({ input: process.stdin, output: process.stdout });
+      answer = await new Promise((r) => rl.question(`Dashboard URL [${globalConfig.get('dashboard.url').value}]: `, (a) => { rl.close(); r(a.trim()); }));
+    }
+    globalConfig.set('dashboard.url', answer || globalConfig.get('dashboard.url').value);
+  }
+  const url = globalConfig.get('dashboard.url').value;
+  if (!isLocalUrl(url)) console.log(`${c.y('!')} ${REMOTE_NOTE}`);
+  return url;
+}
+
 // THE launch command — routes the subcommands, then starts. Starting spawns the server DETACHED and
 // hands the prompt straight back (no foreground blocking), then prints the commands to drive it.
 async function dashboard() {
   const sub = argv[1];
+  if (sub === 'init') return dashboardInit();
+  if (sub === 'login') { console.log(REMOTE_NOTE); return; }
   if (sub === 'stop') return stopDashboard();
   if (sub === 'status') return dashboardStatus();
   if (sub === 'restart') return restartDashboard();
@@ -292,6 +337,7 @@ async function runCustomize(kind) {
 // global registry first, then either joins an already-running hub or spawns a new one — probing first
 // so a second start just reports the running one instead of spawning a duplicate.
 async function startDashboard() {
+  await resolveDashboardUrl();
   const root = process.cwd();
   workspace.migrateLegacyHome();
   if (!workspace.exists()) workspace.init({});
@@ -326,6 +372,7 @@ function printDashboardCommands() {
 }
 
 async function dashboardStatus() {
+  await resolveDashboardUrl();
   const info = workspace.readLock();
   const port = (info && info.port) || resolvePort(argv);
   const running = await probeDashboard(port);
@@ -334,6 +381,7 @@ async function dashboardStatus() {
 }
 
 async function restartDashboard() {
+  await resolveDashboardUrl();
   await stopDashboard();
   // Windows doesn't deliver real signals — process.kill() returns once the request is issued, not
   // once the process (and the port it held) is actually gone. A short gap here, plus startDashboard()
@@ -351,6 +399,7 @@ function unlinkLocks() {
   try { fs.unlinkSync(path.join(globalConfig.homeDir(), 'hub.lock')); } catch {}
 }
 async function stopDashboard() {
+  await resolveDashboardUrl();
   const info = workspace.readLock();
   const port = (info && info.port) || resolvePort(argv);
   const running = await probeDashboard(port);
@@ -437,9 +486,11 @@ ${c.bold('Project')}
 
 ${c.bold('Dashboard')}
   ${c.g('dashboard')} ${c.dim('[--port=NNNN]')}     start the control plane in the background (default 4319)
+  ${c.g('dashboard init')} ${c.dim('[--path=<dir>] [--port=N] [--name=…]')}  create/move the dashboard workspace ${c.dim('(default ~/.spectoflow/dashboard)')}
   ${c.g('dashboard status')}             is it running? (url + pid)
   ${c.g('dashboard stop')}               stop it ${c.dim('(alias: stop)')}
   ${c.g('dashboard restart')}            stop then start
+  ${c.g('dashboard login')}               connect to a remote dashboard ${c.dim('(coming in a later release)')}
   ${c.g('projects')} ${c.dim('[remove <id>]')}     list every project seen so far (~/.spectoflow/projects.json)
 
 ${c.bold('Customize')} ${c.dim('— same as Settings → Customize, from the terminal')}
@@ -477,14 +528,18 @@ const HELP = {
   ${c.g('--force')} (${c.g('-f')}) overwrites a diverged file in place instead of dropping a ${c.dim('*.new')}
   — use it when you know you have no local edits worth keeping (e.g. a file stuck diverged from an
   earlier update). It never touches config.json, workflow.md, specs/ or plans/.`,
-  dashboard: `${c.bold('spectoflow dashboard')} ${c.dim('[--port=NNNN] [status|stop|restart|create|validate]')}\n
+  dashboard: `${c.bold('spectoflow dashboard')} ${c.dim('[--port=NNNN] [--url=<u>] [init|status|stop|restart|create|validate|login]')}\n
   Start the local control plane in the ${c.bold('background')} (default ${c.dim('4319')} or
-  ${c.dim('$SPECTOFLOW_PORT')}) and hand the prompt back. Subcommands:
+  ${c.dim('$SPECTOFLOW_PORT')}) and hand the prompt back. ${c.g('--url=<u>')} sets which dashboard this
+  project talks to (${c.dim('~/.spectoflow/config.json → dashboard.url')}) — asked once, interactively,
+  the first time you ever run a dashboard command; answer it up front with this flag instead. Subcommands:
+    ${c.g('init')}      create/move the dashboard workspace: ${c.dim('[--path=<dir>] [--port=N] [--name=…] [--design=<id>]')}
     ${c.g('status')}    is it running? (url + pid)
     ${c.g('stop')}      stop it            ${c.dim('(alias: spectoflow stop)')}
     ${c.g('restart')}   stop then start
     ${c.g('create')}    generate a custom dashboard, e.g. ${c.dim('spectoflow dashboard create "..." --auto')}
-    ${c.g('validate <file>')}  check a custom-view JSON against the block schema`,
+    ${c.g('validate <file>')}  check a custom-view JSON against the block schema
+    ${c.g('login')}     connect to a remote dashboard ${c.dim('(coming in a later release)')}`,
   projects: `${c.bold('spectoflow projects')} ${c.dim('[remove <id>]')}\n
   List every registered project in the global registry at ${c.dim('~/.spectoflow/projects.json')} (stored by
   ${c.g('spectoflow dashboard')}) — id, name, path. ${c.g('remove <id>')} drops one (e.g. a project that moved
