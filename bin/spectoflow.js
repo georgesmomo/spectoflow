@@ -10,6 +10,7 @@ const detect = require('../lib/detect');
 const ownership = require('../lib/ownership');
 const manifest = require('../lib/manifest');
 const registry = require('../lib/registry');
+const initLib = require('../lib/init');
 const mcp = require('../lib/mcp');
 const { startRun } = require('../templates/dashboard/runner');
 const { buildCustomizePrompt } = require('../templates/lib/customize-prompts');
@@ -94,125 +95,16 @@ function probeDashboard(port, timeoutMs = 500) {
   });
 }
 
-function copyDir(src, dst) {
-  fs.mkdirSync(dst, { recursive: true });
-  for (const e of fs.readdirSync(src, { withFileTypes: true })) {
-    const s = path.join(src, e.name), d = path.join(dst, e.name);
-    if (e.isDirectory()) copyDir(s, d);
-    else if (!fs.existsSync(d)) fs.copyFileSync(s, d);
-  }
-}
-
-// Existing project: give id-less checkbox tasks a stable id, in place.
-const ID_RE = /^[A-Za-z]{1,5}-?\d+[A-Za-z]?$/;
-function normalizePlans(root, config) {
-  const dirName = store.resolvePlansDir(root, config || store.readConfig(root));
-  const dir = path.join(root, dirName);
-  if (!fs.existsSync(dir)) return 0;
-  let added = 0, seq = 1;
-  for (const f of fs.readdirSync(dir).filter((x) => x.endsWith('.md'))) {
-    const fp = path.join(dir, f);
-    const lines = fs.readFileSync(fp, 'utf8').split('\n');
-    let touched = false;
-    for (let i = 0; i < lines.length; i++) {
-      const m = lines[i].match(/^(\s*- \[[ xX]\]\s+)(\S+)(\s.*)?$/);
-      if (m && !ID_RE.test(m[2])) {
-        const id = 'T-' + String(seq++).padStart(3, '0');
-        lines[i] = `${m[1]}${id} ${m[2]}${m[3] || ''}`;
-        touched = true; added++;
-      } else if (m) { seq++; }
-    }
-    if (touched) fs.writeFileSync(fp, lines.join('\n'));
-  }
-  return added;
-}
-
 function init() {
   const target = path.resolve(argv[1] && !argv[1].startsWith('--') ? argv[1] : '.');
   const agentsArg = (argv.find((a) => a.startsWith('--agent=')) || '').split('=')[1];
-  fs.mkdirSync(target, { recursive: true });
-  const notes = [];
-
-  // explicit --agent wins; otherwise detect installed agents; otherwise fall back to claude + codex
-  let agents, detected = [];
-  if (agentsArg) {
-    agents = agentsArg.split(',');
-  } else {
-    detected = detect.detectAgents(target);
-    agents = detected.length ? detected : ['claude', 'codex'];
-    notes.push(detected.length
-      ? `Detected agent(s): ${detected.join(', ')} — active: ${agents[0]}.`
-      : 'No agent CLI detected — defaulted to claude + codex.');
-  }
-
-  // preserve an existing CLAUDE.md
-  const claude = path.join(target, 'CLAUDE.md');
-  if (fs.existsSync(claude) && !fs.existsSync(claude + '.tomerge')) {
-    fs.renameSync(claude, claude + '.tomerge');
-    notes.push('Existing CLAUDE.md preserved as CLAUDE.md.tomerge — your agent merges it on first run.');
-  }
-
-  // canonical framework → .spectoflow/
-  const spectoflowDir = path.join(target, '.spectoflow');
-  copyDir(TPL, spectoflowDir);
-
-  // record the install baseline so `update` can tell untouched framework files from user edits
-  const frameworkFiles = ownership.listFrameworkFiles(TPL);
-  manifest.writeManifest(spectoflowDir, {
-    version: VERSION,
-    files: manifest.hashFileMap(spectoflowDir, frameworkFiles),
-  });
-
-  // set the active agent and seed runner commands from the selected/detected agents
-  const cfgPath = path.join(spectoflowDir, 'config.json');
-  const cfg = JSON.parse(fs.readFileSync(cfgPath, 'utf8'));
-  cfg.agent = agents[0];
-  cfg.runners = { ...cfg.runners, ...adapters.defaultRunners(agents) };
-  fs.writeFileSync(cfgPath, JSON.stringify(cfg, null, 2) + '\n');
-
-  // artifact folders — reuse an existing differently-named folder (e.g. a project that already
-  // keeps its plans in `plan/`, singular) instead of always forcing the plans/specs convention;
-  // mkdir is a no-op when the resolved folder already exists.
-  const plansDirName = store.resolvePlansDir(target, cfg);
-  const specsDirName = store.resolveSpecsDir(target, cfg);
-  fs.mkdirSync(path.join(target, specsDirName), { recursive: true });
-  fs.mkdirSync(path.join(target, plansDirName), { recursive: true });
-  if (plansDirName !== 'plans') notes.push(`Using existing '${plansDirName}/' as the plans folder (set plansDir in config.json to override).`);
-  if (specsDirName !== 'specs') notes.push(`Using existing '${specsDirName}/' as the specs folder (set specsDir in config.json to override).`);
-
-  // existing project: id-normalize any plans already there
-  const added = normalizePlans(target, cfg);
-  if (added) notes.push(`Normalized ${added} existing task(s) with stable ids.`);
-
-  // per-agent shims
-  const written = adapters.generate(target, agents);
-
-  // wire Playwright MCP into the project's MCP config so the E2E agent can drive a real browser and
-  // generate/run Playwright tests. Idempotent + non-destructive: never touches an existing entry.
-  // npx fetches the server on first use, so this config IS the whole install — spectoflow stays
-  // zero-dep (this writes into the user's project, never into spectoflow).
-  const mcpTargets = [path.join(target, '.mcp.json')];
-  if (agents.includes('cursor')) mcpTargets.push(path.join(target, '.cursor', 'mcp.json'));
-  for (const fp of mcpTargets) {
-    const rel = path.relative(target, fp).split(path.sep).join('/');
-    const r = mcp.mergeMcpServer(fp, 'playwright', mcp.PLAYWRIGHT_MCP);
-    if (r === 'created' || r === 'added') notes.push(`Wired Playwright MCP into ${rel} (npx @playwright/mcp — for the E2E agent; commit it to share).`);
-    else if (r === 'skipped') notes.push(`Left ${rel} as-is (couldn't parse it) — add a 'playwright' MCP server yourself for browser-driven E2E.`);
-  }
-
-  // gitignore the volatile runtime
-  const gi = path.join(target, '.gitignore');
-  const giText = fs.existsSync(gi) ? fs.readFileSync(gi, 'utf8') : '';
-  for (const line of ['.spectoflow/runtime.json', '.spectoflow/.dashboard.lock']) {
-    if (!giText.includes(line)) fs.appendFileSync(gi, ((fs.existsSync(gi) && fs.readFileSync(gi, 'utf8').length) ? '\n' : '') + line + '\n');
-  }
-
+  const r = initLib.runInit({ target, templatesDir: TPL, version: VERSION, agentsArg });
   console.log(logo());
-  console.log(`${c.g('✓')} installed in ${c.bold(target)}`);
+  console.log(`${c.g('✓')} installed in ${c.bold(r.target)}`);
   console.log(`  ${c.dim('.spectoflow/')}   framework — brain, workflow, agents, skills, policy, dashboard, config`);
   console.log(`  ${c.dim('specs/ plans/')}  markdown artifacts (your source of truth)`);
-  written.forEach((w) => console.log(`  ${c.cy('+')} ${w}`));
-  notes.forEach((n) => console.log(`  ${c.y('!')} ${c.dim(n)}`));
+  r.written.forEach((w) => console.log(`  ${c.cy('+')} ${w}`));
+  r.notes.forEach((n) => console.log(`  ${c.y('!')} ${c.dim(n)}`));
   const port = resolvePort(argv);
   console.log(`\n${c.bold('Next')}`);
   console.log(`  ${c.dim('1)')} Open your agent here — or just say what you want to build.`);
