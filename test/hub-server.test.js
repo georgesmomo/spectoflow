@@ -125,7 +125,10 @@ test('GET / is a placeholder listing every registered project', async () => {
   try {
     const res = await get(port, '/');
     assert.strictEqual(res.status, 200);
-    assert.ok(res.body.includes(`/p/${a.id}/board`), 'links to the registered project');
+    // The hub page loads projects dynamically via /api/hub/projects, not as static HTML.
+    // Verify the page structure includes the elements that hub.js uses.
+    assert.ok(res.body.includes('id="hubGrid"'), 'has the grid container for projects');
+    assert.ok(res.body.includes('id="hubAddBtn"'), 'has the add button');
   } finally { srv.kill(); }
 });
 
@@ -166,5 +169,106 @@ test('a static asset with no /p/<id> prefix still serves (every page\'s own asse
   try {
     const res = await get(port, '/styles.css');
     assert.strictEqual(res.status, 200);
+  } finally { srv.kill(); }
+});
+
+test('GET /api/hub/projects lists every registered project with basic stats', async () => {
+  const home = freshHome();
+  const a = project(home, 'x');
+  const port = 6200 + Math.floor(Math.random() * 100);
+  const srv = await startHub(home, port);
+  try {
+    const res = await getJSON(port, '/api/hub/projects');
+    assert.strictEqual(res.status, 200);
+    const found = res.body.projects.find((p) => p.id === a.id);
+    assert.ok(found, 'project appears in the list');
+    assert.strictEqual(found.name, a.name);
+    assert.ok(found.stats && typeof found.stats.total === 'number');
+  } finally { srv.kill(); }
+});
+
+test('GET /api/hub/browse with no path returns starting points (at least one)', async () => {
+  const home = freshHome();
+  const port = 6300 + Math.floor(Math.random() * 100);
+  const srv = await startHub(home, port);
+  try {
+    const res = await getJSON(port, '/api/hub/browse');
+    assert.strictEqual(res.status, 200);
+    assert.ok(Array.isArray(res.body.entries) && res.body.entries.length > 0);
+  } finally { srv.kill(); }
+});
+
+test('GET /api/hub/browse?path=<real dir> lists its subfolders', async () => {
+  const home = freshHome();
+  const parent = fs.mkdtempSync(path.join(os.tmpdir(), 'stf-hubapi-browse-'));
+  fs.mkdirSync(path.join(parent, 'my-project'));
+  const port = 6400 + Math.floor(Math.random() * 100);
+  const srv = await startHub(home, port);
+  try {
+    const res = await getJSON(port, '/api/hub/browse?path=' + encodeURIComponent(parent));
+    assert.strictEqual(res.status, 200);
+    assert.ok(res.body.entries.some((e) => e.name === 'my-project'));
+  } finally { srv.kill(); }
+});
+
+test('POST /api/hub/projects registers an already-inited folder without re-initing it', async () => {
+  const home = freshHome();
+  const d = fs.mkdtempSync(path.join(os.tmpdir(), 'stf-hubapi-add-'));
+  execFileSync('node', [BIN, 'init', d], { stdio: 'pipe' });
+  const port = 6500 + Math.floor(Math.random() * 100);
+  const srv = await startHub(home, port);
+  try {
+    const res = await reqJSON(port, 'POST', '/api/hub/projects', { path: d });
+    assert.strictEqual(res.status, 200);
+    assert.strictEqual(res.body.initialized, false);
+    const list = await getJSON(port, '/api/hub/projects');
+    assert.ok(list.body.projects.some((p) => p.path === path.resolve(d)));
+  } finally { srv.kill(); }
+});
+
+test('POST /api/hub/projects auto-inits a plain folder that is not a spectoflow project yet', async () => {
+  const home = freshHome();
+  const d = fs.mkdtempSync(path.join(os.tmpdir(), 'stf-hubapi-autoinit-'));
+  const port = 6600 + Math.floor(Math.random() * 100);
+  const srv = await startHub(home, port);
+  try {
+    const res = await reqJSON(port, 'POST', '/api/hub/projects', { path: d });
+    assert.strictEqual(res.status, 200);
+    assert.strictEqual(res.body.initialized, true);
+    assert.ok(fs.existsSync(path.join(d, '.spectoflow', 'config.json')), 'the folder is now a real spectoflow project');
+  } finally { srv.kill(); }
+});
+
+test('POST /api/hub/projects rejects a path that does not exist', async () => {
+  const home = freshHome();
+  const port = 6700 + Math.floor(Math.random() * 100);
+  const srv = await startHub(home, port);
+  try {
+    const res = await reqJSON(port, 'POST', '/api/hub/projects', { path: path.join(os.tmpdir(), 'stf-does-not-exist-xyz') });
+    assert.strictEqual(res.status, 400);
+  } finally { srv.kill(); }
+});
+
+test('DELETE /api/hub/projects/:id removes a registered entry', async () => {
+  const home = freshHome();
+  const a = project(home, 'del');
+  const port = 6800 + Math.floor(Math.random() * 100);
+  const srv = await startHub(home, port);
+  try {
+    const res = await reqJSON(port, 'DELETE', `/api/hub/projects/${a.id}`);
+    assert.strictEqual(res.status, 200);
+    const list = await getJSON(port, '/api/hub/projects');
+    assert.ok(!list.body.projects.some((p) => p.id === a.id));
+  } finally { srv.kill(); }
+});
+
+test('GET / serves the real hub page (hub.html), not the old placeholder', async () => {
+  const home = freshHome();
+  const port = 6900 + Math.floor(Math.random() * 100);
+  const srv = await startHub(home, port);
+  try {
+    const res = await get(port, '/');
+    assert.strictEqual(res.status, 200);
+    assert.ok(res.body.includes('<html') || res.body.includes('<!DOCTYPE'));
   } finally { srv.kill(); }
 });
