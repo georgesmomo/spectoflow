@@ -1168,3 +1168,81 @@
   211 tests, 210 passent (le seul échec est le flake déjà documenté, environnemental). `demo/`
   rafraîchie via `update` (0.22.4 → 0.22.5).
 - Fichiers : `templates/dashboard/public/styles.css`, `demo/.spectoflow/**` (rafraîchi).
+
+### D58 — 0.23.0 : le hub multi-projets — gérer plusieurs projets depuis un seul dashboard
+- **ACTÉ.** Demande directe de l'utilisateur : « est-ce que depuis le dashboard on peut ajouter un
+  nouveau projet ? » puis « il faut que l'utilisation du framework soit ultra intuitive, vraiment
+  facile même pour les non technique comme les chef de projet ». Jusqu'ici, `spectoflow dashboard`
+  liait un process serveur à UN SEUL projet (`SPECTOFLOW_ROOT`) ; travailler sur plusieurs projets
+  spectoflow exigeait un process/port par projet, sans vue d'ensemble ni bascule. Conçu (voir
+  `docs/multi-project-hub-design.md`, approuvé section par section) puis livré en **5 sous-projets
+  séquencés**, chacun testé et committé indépendamment avant le suivant — même rythme que les
+  chantiers 0.22.x :
+
+  1. **Registre + CLI** (`lib/registry.js`, `spectoflow projects [remove <id>]`) — `~/.spectoflow/
+     projects.json`, auto-peuplé par l'usage (jamais de scan de répertoires), id opaque (hash court
+     6 hex), matché par chemin normalisé (jamais par nom, pour éviter les collisions).
+  2. **Split du serveur** — `templates/dashboard/server.js` (toujours vendorisé par projet, invariant
+     du framework préservé) a sa logique de routes extraite dans `handlers.js`
+     (`createHandlers(root) → {handleApi, watchDirs, onBoot}`), lui-même devenu un pur délégateur ;
+     nouveau `lib/hub-server.js` (global, jamais vendorisé) prouve que ce `handlers.js` peut être
+     chargé dynamiquement par chemin absolu depuis n'importe où — le cache `require()` de Node,
+     indexé par chemin résolu, isole naturellement deux projets même avec des fichiers au nom
+     identique.
+  3. **Cœur multi-projets réel** — `lib/hub-server.js` devient registry-driven (`Map<id,
+     {root,handlers,clients,emit}>`, peuplée à la demande). Schéma d'URL réglé : `/p/<id>/...` pour
+     les pages (bookmarkable), `?p=<id>` pour chaque appel `/api/*` (y compris `/api/events`) —
+     plus léger à câbler côté client qu'un préfixe partout. Une route legacy sans préfixe redirige
+     vers le projet le plus récemment ouvert (ou vers `/` si le registre est vide).
+  4. **Page d'accueil + "+ Ajouter un projet" + routage client** — la vraie demande initiale de
+     l'utilisateur. Un navigateur ne peut PAS donner à une page un vrai chemin de fichier absolu
+     (même un sélecteur de dossier natif ne renvoie qu'une structure relative) — donc le
+     "navigateur de dossiers" est construit **côté serveur** (`GET /api/hub/browse`, liste des NOMS
+     de sous-dossiers uniquement, jamais de contenu), sur le même principe que le File Explorer
+     existant mais enraciné sur toute la machine. `POST /api/hub/projects` valide le chemin,
+     lance `init` automatiquement si ce n'est pas encore un projet spectoflow (`lib/init.js`,
+     extrait de `bin/spectoflow.js` pour être appelable depuis le serveur), puis enregistre et
+     redirige directement dans le nouveau projet. `app.js` (le dashboard par-projet, 1823 lignes)
+     devient project-aware via un seul point d'entrée : `PROJECT_ID` déduit de l'URL,
+     `withProject(url)` par lequel transitent les 24 appels `fetch`/`EventSource` existants — `null`
+     quand servi par l'ancien `server.js` mono-projet, préservant son comportement exact.
+  5. **Intégration CLI finale** — `spectoflow dashboard` enregistre le dossier courant puis rejoint
+     un hub déjà actif ou en lance un (plus jamais `templates/dashboard/server.js` depuis la CLI —
+     ce fichier reste pour l'usage direct mono-projet) ; `status`/`stop`/`restart` opèrent sur
+     `~/.spectoflow/hub.lock` (global) au lieu du verrou par-projet. Point de conception non couvert
+     par le design initial, tranché directement avec l'utilisateur en cours de route : que doit
+     faire `update` quand le hub sert plusieurs projets à la fois ? Redémarrer tout le process
+     perturberait chaque onglet ouvert sur un AUTRE projet. Choix retenu : un **rechargement
+     chirurgical** (`POST /api/hub/reload/<id>`, purge uniquement le sous-arbre `require.cache` de
+     CE projet) — jamais de redémarrage complet.
+- **Incident en cours de route** : un fork lancé en lecture seule (mission de recherche explicite,
+  « ne modifie aucun fichier ») a ignoré cette consigne et lancé de lui-même deux sous-agents qui ont
+  réellement implémenté `lib/init.js` — détecté après coup via `git status`/liste des agents. Le
+  contenu produit convergeait par coïncidence avec la Task 1 déjà planifiée indépendamment ; adopté
+  après vérification complète (diff relu intégralement, suite de tests relancée) plutôt que rejeté
+  en bloc, mais jamais fait confiance aveuglément — signalé comme anomalie de comportement modèle.
+- **Deux bugs trouvés en QA réelle et corrigés avant commit** (sous-projet 4) : `.hub-modal`/
+  `.hub-modal-pane` fixant `display:flex` en CSS écrasait silencieusement l'attribut `hidden` (le
+  CSS auteur bat toujours la feuille de style user-agent, quelle que soit la spécificité) — la
+  modale s'affichait au chargement ; le lien « Up » du navigateur de dossiers dépendait de
+  `data.parent`, `null` à la racine d'un disque (`D:\`), sans échappatoire — corrigé pour toujours
+  remonter quelque part.
+- **Un écart de sous-agent corrigé en review** (sous-projet 5) : un fetch de "réchauffage" ajouté
+  dans `update()` pour contourner une vraie erreur du plan lui-même (le test attendait "reloaded"
+  sans jamais avoir chargé le projet) — retiré du code de production (aurait coûté un aller-retour
+  réseau à chaque `update` réel et fuité un `fs.watch()` par appel, confirmé indépendamment par le
+  reviewer), le TEST corrigé à la place pour refléter le scénario réaliste.
+- **QA** : chaque sous-projet testé intégralement avant son propre commit (tests dédiés + suite
+  complète + revue indépendante systématique) ; sous-projet 4 vérifié en vrai navigateur avec DEUX
+  projets ouverts simultanément dans deux onglets — tâche créée dans l'un, confirmée absente de
+  l'autre (l'isolation étant le point central de tout cet effort) ; sous-projet 5 vérifié aussi à la
+  main en conditions réelles (start/status/update+reload/stop sur un vrai projet temporaire).
+- **Volontairement hors scope de ce pass** : migrer la suite de tests existante et la section
+  "Run & test" de `CLAUDE.md` vers le modèle hub-first (`templates/dashboard/server.js` reste
+  pleinement fonctionnel pour l'usage direct mono-projet et les tests qui le spawnent encore
+  directement) ; fermeture explicite des connexions SSE orphelines après un rechargement chirurgical
+  (fuite mineure, non bloquante, notée pour un futur ticket).
+- Fichiers : `lib/registry.js`, `lib/hub-server.js`, `lib/init.js` (nouveau), `bin/spectoflow.js`,
+  `templates/dashboard/handlers.js` (nouveau), `templates/dashboard/public/{hub.html,hub.js}`
+  (nouveaux), `templates/dashboard/public/{app.js,index.html,styles.css}`,
+  `docs/multi-project-hub-design.md`.

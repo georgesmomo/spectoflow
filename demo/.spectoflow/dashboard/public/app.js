@@ -15,6 +15,23 @@ let attnFilter = 'open';                          // attention tab filter — cl
 // apply the persisted design skin as early as possible (before the first paint of app-driven DOM)
 (function(){ try{ const d=localStorage.getItem('spf-design'); if(d) document.documentElement.setAttribute('data-design',d); }catch{} })();
 
+// The project this dashboard tab is showing — derived once from the URL's /p/<id>/... prefix. The
+// hub-server's legacy-route redirect (sub-project 3) guarantees a bookmark without this prefix never
+// reaches this file directly; it 302s to a /p/<id>/... URL first. Null when served by the older
+// single-project templates/dashboard/server.js (no prefix at all) — every helper below no-ops in
+// that case, preserving today's exact single-project behavior.
+const PROJECT_ID = (() => { const m = location.pathname.match(/^\/p\/([0-9a-f]{6})(?:\/|$)/); return m ? m[1] : null; })();
+// Every /api/* fetch/EventSource call funnels its URL through this — the one place a project id gets
+// attached, so no call site can forget it. Handles both "no query string yet" (?p=) and "already has
+// one" (&p=, e.g. '/api/agentfile?path=...').
+function withProject(url) { if (!PROJECT_ID) return url; return url + (url.includes('?') ? '&' : '?') + 'p=' + encodeURIComponent(PROJECT_ID); }
+// Prefixes an app-internal path (e.g. '/board', '/custom/x') with /p/<id> for history.pushState/
+// replaceState — every page navigation this file performs stays within the current project.
+function projectPath(rest) { return PROJECT_ID ? '/p/' + PROJECT_ID + rest : rest; }
+// location.pathname's segments with a leading /p/<id> stripped, if present — the single place that
+// strip happens, so tabFromPath()/taskFromPath() never have to know about the prefix twice.
+function pathSegments() { const s = location.pathname.split('/').filter(Boolean); return (s[0] === 'p' && s[1]) ? s.slice(2) : s; }
+
 const $ = (s,r=document)=>r.querySelector(s);
 const $$ = (s,r=document)=>[...r.querySelectorAll(s)];
 const el=(t,c,x)=>{const e=document.createElement(t); if(c)e.className=c; if(x!=null)e.textContent=x; return e;};
@@ -22,7 +39,7 @@ const allTasks=()=> (P.plans||[]).flatMap(pl=>pl.phases.flatMap(ph=>ph.tasks.map
 const runtimeTests=(id)=> (P.runtime&&P.runtime.tests&&P.runtime.tests[id])||null;
 
 async function load(){
-  const r = await fetch('/api/project'); P = await r.json(); render();
+  const r = await fetch(withProject('/api/project')); P = await r.json(); render();
   if(openTaskId) openDrawer(openTaskId,true);
 }
 // Coalesce bursts of SSE 'change'/'message' events into one reload so the board doesn't
@@ -30,7 +47,7 @@ async function load(){
 let loadTimer=null;
 function scheduleLoad(){ clearTimeout(loadTimer); loadTimer=setTimeout(load,180); }
 function connect(){
-  const es = new EventSource('/api/events');
+  const es = new EventSource(withProject('/api/events'));
   es.onopen = ()=>{ $('#sync').classList.remove('offline'); $('#syncLabel').textContent='live'; };
   es.onmessage = (ev)=>{
     let m; try{ m=JSON.parse(ev.data); }catch{ return; }
@@ -123,32 +140,32 @@ async function doRun(promptEl,agentEl){
   promptEl=promptEl||$('#runPrompt'); agentEl=agentEl||$('#runAgent');
   const prompt=promptEl.value.trim(); if(!prompt) return;
   const agent=agentEl.value;
-  await fetch('/api/run',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({prompt,agent})});
+  await fetch(withProject('/api/run'),{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({prompt,agent})});
   promptEl.value=''; // the prompt renders as a bubble from the message log
 }
 async function doOrchestrate(promptEl){
   if(isChatBusy()) return;
   promptEl=promptEl||$('#runPrompt');
   const prompt=promptEl.value.trim(); if(!prompt) return;
-  await fetch('/api/orchestrate',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({request:prompt})});
+  await fetch(withProject('/api/orchestrate'),{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({request:prompt})});
   promptEl.value='';
 }
-async function approve(decision){ await fetch('/api/orchestrate/approve',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({decision})}); }
+async function approve(decision){ await fetch(withProject('/api/orchestrate/approve'),{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({decision})}); }
 // ---- chat context management: condense the log via the agent, or wipe it (Chat tab only — the
 // floating widget stays "quick access", full controls live where there's room to read them) ----
 async function summarizeChat(agentEl){
   if(isChatBusy()) return;
   const agent=(agentEl||$('#tabRunAgent'))?.value;
   flash();
-  await fetch('/api/chat/summarize',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({agent})});
+  await fetch(withProject('/api/chat/summarize'),{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({agent})});
 }
 async function clearChat(){
   flash();
-  await fetch('/api/chat/clear',{method:'POST'});
+  await fetch(withProject('/api/chat/clear'),{method:'POST'});
 }
-async function patchTask(id,patch){ flash(); await fetch('/api/task/'+encodeURIComponent(id),{method:'PATCH',headers:{'Content-Type':'application/json'},body:JSON.stringify(patch)}); }
-async function addComment(id,text,action){ flash(); await fetch('/api/task/'+encodeURIComponent(id)+'/comment',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({text,action})}); }
-async function toggleStep(name){ flash(); await fetch('/api/workflow/toggle',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({name})}); }
+async function patchTask(id,patch){ flash(); await fetch(withProject('/api/task/'+encodeURIComponent(id)),{method:'PATCH',headers:{'Content-Type':'application/json'},body:JSON.stringify(patch)}); }
+async function addComment(id,text,action){ flash(); await fetch(withProject('/api/task/'+encodeURIComponent(id)+'/comment'),{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({text,action})}); }
+async function toggleStep(name){ flash(); await fetch(withProject('/api/workflow/toggle'),{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({name})}); }
 function flash(){ const s=$('#sync'); s.classList.add('saving'); $('#syncLabel').textContent='writing…'; setTimeout(()=>{ s.classList.remove('saving'); $('#syncLabel').textContent='live'; },800); }
 
 // ---- "agent is running" state — no visible feedback used to exist between clicking Send/
@@ -731,7 +748,7 @@ function editAttn(it,txtNode){
   ta.addEventListener('blur',save);
   ta.addEventListener('keydown',e=>{ if((e.metaKey||e.ctrlKey)&&e.key==='Enter'){ e.preventDefault(); save(); } if(e.key==='Escape'){ done=true; renderAttention(); } });
 }
-async function addAttn(text){ flash(); await fetch('/api/attention',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({text})}); }
+async function addAttn(text){ flash(); await fetch(withProject('/api/attention'),{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({text})}); }
 
 // ---- Backlog "+ Add task" — a manual checkbox task, no agent involved ----
 function openBacklogAddForm(){
@@ -756,7 +773,7 @@ async function submitBacklogAdd(){
   const owner=($('#blAddOwner').value||'').trim();
   const level=$('#blAddLevel').value;
   flash();
-  const r=await fetch('/api/task',{method:'POST',headers:{'Content-Type':'application/json'},
+  const r=await fetch(withProject('/api/task'),{method:'POST',headers:{'Content-Type':'application/json'},
     body:JSON.stringify({title, phase:phase||undefined, owner:owner||undefined, level})});
   if(!r.ok){
     const j=await r.json().catch(()=>({}));
@@ -765,9 +782,9 @@ async function submitBacklogAdd(){
   }
   closeBacklogAddForm();
 }
-async function patchAttn(id,patch){ flash(); await fetch('/api/attention/'+encodeURIComponent(id),{method:'PATCH',headers:{'Content-Type':'application/json'},body:JSON.stringify(patch)}); }
-async function deleteAttn(id){ flash(); await fetch('/api/attention/'+encodeURIComponent(id),{method:'DELETE'}); }
-async function promoteAttn(id){ flash(); await fetch('/api/attention/'+encodeURIComponent(id)+'/promote',{method:'POST'}); }
+async function patchAttn(id,patch){ flash(); await fetch(withProject('/api/attention/'+encodeURIComponent(id)),{method:'PATCH',headers:{'Content-Type':'application/json'},body:JSON.stringify(patch)}); }
+async function deleteAttn(id){ flash(); await fetch(withProject('/api/attention/'+encodeURIComponent(id)),{method:'DELETE'}); }
+async function promoteAttn(id){ flash(); await fetch(withProject('/api/attention/'+encodeURIComponent(id)+'/promote'),{method:'POST'}); }
 
 // ---- Settings tab + topbar quick-switch: change autonomy mode + output language (writes config.json) ----
 // Mode/language can be changed from two places — the Settings tab (#setMode/#setLang) and the
@@ -826,13 +843,13 @@ function showAgentError(msg){
 async function saveAgent(id){
   if(!id) return;
   flash();
-  const r=await fetch('/api/settings',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({agent:id})});
+  const r=await fetch(withProject('/api/settings'),{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({agent:id})});
   if(!r.ok){ const body=await r.json().catch(()=>({})); showAgentError(body.error||t('topbar.agent.none')); setAgentSelects(); return; }
 }
 // ---- design skins (data-design) — switchable, persisted per viewer + as the project default ----
 function currentDesign(){ return document.documentElement.getAttribute('data-design')||'console'; }
 function applyDesign(id){ document.documentElement.setAttribute('data-design',id); try{ localStorage.setItem('spf-design',id); }catch{} }
-async function saveDesign(id){ applyDesign(id); if(P) render(); /* re-read token colours into the SVG charts */ flash(); try{ await fetch('/api/settings',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({design:id})}); }catch{} }
+async function saveDesign(id){ applyDesign(id); if(P) render(); /* re-read token colours into the SVG charts */ flash(); try{ await fetch(withProject('/api/settings'),{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({design:id})}); }catch{} }
 
 function renderSettings(){
   const c=(P&&P.config)||{};
@@ -864,7 +881,7 @@ function renderSettings(){
 async function saveSettings(){
   flash();
   const mode=($('#setMode')||$('#topMode')).value, language=($('#setLang')||$('#topLang')).value;
-  await fetch('/api/settings',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({mode,language})});
+  await fetch(withProject('/api/settings'),{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({mode,language})});
   const s=$('#settingsSaved'); if(s){ s.hidden=false; setTimeout(()=>{ s.hidden=true; },1500); }
 }
 
@@ -1032,7 +1049,7 @@ function renderCustomize(){
 async function czSubmit(kind,description,agent){
   const cfg=CZ_KINDS.find((c)=>c.kind===kind);
   const prompt=description?cfg.promptAdd(description):cfg.promptAuto;
-  await fetch('/api/run',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({prompt,agent})});
+  await fetch(withProject('/api/run'),{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({prompt,agent})});
   const root=$('#czRoot'); if(root) root.dataset.open='';
   navigateTab('chat');
 }
@@ -1046,17 +1063,17 @@ const ROUTES=['board','requests','attention','backlog','workflow','team','files'
 // under that name still land on the Personalize tab instead of a blank panel.
 function normalizeTab(t){ return t==='settings'?'personalize':t; }
 function tabFromPath(){
-  const s=location.pathname.split('/').filter(Boolean);
+  const s=pathSegments();
   if(s[0]==='custom'&&s[1]) return 'custom:'+decodeURIComponent(s[1]);
   const t=normalizeTab(s[0]);
   return ROUTES.includes(t)?t:null;
 }
-function taskFromPath(){ const s=location.pathname.split('/').filter(Boolean); return (ROUTES.includes(s[0])&&s[1])?decodeURIComponent(s[1]):null; }
+function taskFromPath(){ const s=pathSegments(); return (ROUTES.includes(s[0])&&s[1])?decodeURIComponent(s[1]):null; }
 function navigateTab(tabId,push){
   activeTab=tabId; try{ localStorage.setItem('spf-tab',tabId); }catch{}
   if(push!==false){
     const isCustom=tabId.indexOf('custom:')===0;
-    history.pushState(null,'', isCustom ? '/custom/'+encodeURIComponent(tabId.slice(7)) : '/'+tabId);
+    history.pushState(null,'', projectPath(isCustom ? '/custom/'+encodeURIComponent(tabId.slice(7)) : '/'+tabId));
   }
   applyActiveTab();
   closeNav(); // a tab pick closes the mobile menu
@@ -1163,7 +1180,7 @@ async function openFileDrawer(kind,obj){
   sec.append(body); b.append(sec);
   $('#drawer').setAttribute('aria-hidden','false');
   try{
-    const r=await fetch('/api/agentfile?path='+encodeURIComponent(rel));
+    const r=await fetch(withProject('/api/agentfile?path='+encodeURIComponent(rel)));
     const data=await r.json().catch(()=>({}));
     if(!r.ok){ body.innerHTML=''; body.append(el('div','empty', data.error||t('drawer.loadError'))); return; }
     body.innerHTML=mdLite(data.content||'');
@@ -1325,7 +1342,7 @@ let filesSelectedDir=''; // '' = project root — the folder + File/+ Folder cre
 const filesOpenDirs=new Set(); // persists which tree folders are expanded across a refresh
 async function loadFilesTree(){
   try{
-    const r=await fetch('/api/files/tree'); const d=await r.json().catch(()=>({}));
+    const r=await fetch(withProject('/api/files/tree')); const d=await r.json().catch(()=>({}));
     filesTreeData = (r.ok && Array.isArray(d.tree)) ? d.tree : [];
   }catch{ filesTreeData=filesTreeData||[]; }
   renderFilesTree();
@@ -1488,7 +1505,7 @@ async function openFilesFile(relPath){
   const box=$('#filesContent'); box.innerHTML='';
   box.append(el('div','files-empty',t('drawer.loading')));
   let data;
-  try{ const r=await fetch('/api/files/read?'+new URLSearchParams({path:relPath})); data=await r.json().catch(()=>({})); if(!r.ok) throw new Error(data.error||'error'); }
+  try{ const r=await fetch(withProject('/api/files/read?'+new URLSearchParams({path:relPath}))); data=await r.json().catch(()=>({})); if(!r.ok) throw new Error(data.error||'error'); }
   catch(err){ box.innerHTML=''; box.append(el('div','files-empty',err.message||t('files.loadError'))); return; }
   box.innerHTML='';
   const bar=el('div','files-toolbar-row');
@@ -1515,7 +1532,7 @@ function filesDiscardBtn(relPath){
 }
 async function filesSave(relPath,content,actions){
   try{
-    const r=await fetch('/api/files/write',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({path:relPath,content})});
+    const r=await fetch(withProject('/api/files/write'),{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({path:relPath,content})});
     const d=await r.json().catch(()=>({}));
     if(!r.ok) throw new Error(d.error||'error');
     filesOpenDirty=false; filesSavedTip(actions);
@@ -1610,7 +1627,7 @@ async function submitFilesCreate(){
   const kind=filesCreateKind;
   const endpoint = kind==='dir' ? '/api/files/mkdir' : '/api/files/write';
   const payload = kind==='dir' ? {path:rel} : {path:rel,content:''};
-  const r=await fetch(endpoint,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(payload)});
+  const r=await fetch(withProject(endpoint),{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(payload)});
   const d=await r.json().catch(()=>({}));
   if(!r.ok){ if(err){ err.textContent=d.error||t('files.saveError'); err.hidden=false; } return; }
   closeFilesCreateForm();
@@ -1623,7 +1640,7 @@ function openDrawer(id,keep){
   // function calls it repeatedly below; shadowing it with a task variable would break every call.
   const task=allTasks().find(x=>x.id===id); if(!task) return;
   openTaskId=id;
-  if(!keep && taskFromPath()!==id) history.pushState(null,'','/'+activeTab+'/'+encodeURIComponent(id));
+  if(!keep && taskFromPath()!==id) history.pushState(null,'',projectPath('/'+activeTab+'/'+encodeURIComponent(id)));
   const b=$('#drawerBody'); const prev=keep?$('.drawer-panel').scrollTop:0; b.innerHTML='';
   b.append(el('div','d-id',task.id+' · '+(task.level||'standard')+' · '+task.file));
   b.append(el('div','d-title',task.title));
@@ -1657,7 +1674,7 @@ function openDrawer(id,keep){
   $('#drawer').setAttribute('aria-hidden','false');
   if(keep) $('.drawer-panel').scrollTop=prev;
 }
-function closeDrawer(){ if(taskFromPath()) history.pushState(null,'','/'+activeTab); openTaskId=null; $('#drawer').setAttribute('aria-hidden','true'); }
+function closeDrawer(){ if(taskFromPath()) history.pushState(null,'',projectPath('/'+activeTab)); openTaskId=null; $('#drawer').setAttribute('aria-hidden','true'); }
 const cssv=(v)=> getComputedStyle(document.documentElement).getPropertyValue(v).trim()||'#888';
 
 // tabs — activeTab is the single source of truth (persisted), so a click sets it and applies it,
@@ -1707,7 +1724,7 @@ const brandLogo=$('.brand-logo'); if(brandLogo) brandLogo.addEventListener('clic
 applyActiveTab(); // sync to the resolved tab before the first render
 // an old bookmark/share to the pre-rename "/settings" URL: swap the address bar to the real
 // route once resolved, so the visible URL matches the "Personalize" tab it landed on.
-if(location.pathname.split('/').filter(Boolean)[0]==='settings') history.replaceState(null,'','/personalize');
+if(pathSegments()[0]==='settings') history.replaceState(null,'',projectPath('/personalize'));
 // filters (status chips + search) — client-side only, does not write anything
 $$('#statusChips .fchip').forEach(b=> b.addEventListener('click', ()=>{ filter.status=b.dataset.status; renderBoard(); }));
 $('#search').addEventListener('input', e=>{ filter.q=e.target.value; renderBoard(); });

@@ -5,6 +5,28 @@ framework with a real-time local control plane. This file orients you to **build
 (it is not a spectoflow-managed project). Read `docs/` before making changes:
 `docs/ARCHITECTURE.md`, `docs/DECISIONS.md` (the full rationale, D1–D23), `docs/ROADMAP.md` (what's next).
 
+## What exists (v0.23.0 — see DECISIONS D58)
+
+**The multi-project hub.** `spectoflow dashboard` used to bind one server process to one project
+(`SPECTOFLOW_ROOT`). It now registers the current folder in a global registry
+(`lib/registry.js` → `~/.spectoflow/projects.json`) and joins — or starts — the one global hub
+process (`lib/hub-server.js`, ships under `lib/`, never vendored) that serves every registered
+project concurrently, live-switchable per browser tab, no restart. Delivered as 5 sequenced
+sub-projects (see DECISIONS D58 for the full breakdown): the registry + `spectoflow projects
+[remove <id>]` CLI; `templates/dashboard/server.js`'s route logic extracted into vendored
+`handlers.js` (`createHandlers(root) → {handleApi, watchDirs, onBoot}`); `lib/hub-server.js` made
+genuinely registry-driven (`/p/<id>/...` for pages, `?p=<id>` for every `/api/*` call, including
+`/api/events`); a real hub landing page (`hub.html`/`hub.js`) with a non-technical "+ Add project"
+flow — a server-side folder browser (`GET /api/hub/browse`, since a browser cannot hand a page a
+real absolute filesystem path) plus paste-a-path, either auto-initing via the newly-extracted
+`lib/init.js`; and `spectoflow dashboard`/`status`/`stop`/`restart`/`update` all rewired to the
+global `~/.spectoflow/hub.lock`, with `update` reloading only the project actually being updated
+(`POST /api/hub/reload/<id>`, a surgical per-project `require.cache` purge) so it never disrupts
+anyone else's project open in the same hub. `templates/dashboard/server.js` remains fully
+functional and untouched for direct single-project invocation — migrating the existing test suite
+and this file's own "Run & test" section to the hub-first model is a deliberate follow-up, not
+required for the hub to be complete and usable today.
+
 ## What exists (v0.22.5 — see DECISIONS D57)
 
 A single fix found via a full end-to-end browser QA audit of the dashboard (all tabs, all 6 designs,

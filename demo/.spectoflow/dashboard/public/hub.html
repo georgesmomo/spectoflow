@@ -1,0 +1,69 @@
+<!doctype html>
+<html lang="en" data-theme="dark">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>spectoflow · projects</title>
+  <link rel="icon" type="image/png" href="/logo-dark.png" />
+  <link rel="icon" type="image/png" media="(prefers-color-scheme: dark)" href="/logo-white.png" />
+  <link rel="stylesheet" href="/styles.css" />
+</head>
+<body class="hub-body">
+  <header class="hub-header">
+    <div class="hub-brand">
+      <img class="brand-logo-img is-dark" src="/logo-white.png" alt="" />
+      <img class="brand-logo-img is-light" src="/logo-dark.png" alt="" />
+      <span class="hub-brand-name">spectoflow</span>
+    </div>
+    <button class="hub-theme-toggle" id="hubThemeToggle" aria-label="Toggle theme" title="Toggle theme">◐</button>
+  </header>
+
+  <main class="hub-main">
+    <div class="hub-titlebar">
+      <h1>Your projects</h1>
+      <button class="hub-add-btn" id="hubAddBtn">+ Add project</button>
+    </div>
+
+    <div id="hubEmpty" class="hub-empty" hidden>
+      <p class="hub-empty-title">No projects yet</p>
+      <p class="hub-empty-sub">Add your first project to get started — point spectoflow at any folder on your computer.</p>
+      <button class="hub-add-btn hub-add-btn-lg" id="hubAddBtnEmpty">+ Add your first project</button>
+    </div>
+
+    <div id="hubGrid" class="hub-grid"></div>
+  </main>
+
+  <div id="hubModal" class="hub-modal" hidden>
+    <div class="hub-modal-card">
+      <div class="hub-modal-head">
+        <h2>Add a project</h2>
+        <button class="hub-modal-close" id="hubModalClose" aria-label="Close">&times;</button>
+      </div>
+      <div class="hub-modal-tabs">
+        <button class="hub-modal-tab is-active" data-mode="browse">Browse</button>
+        <button class="hub-modal-tab" data-mode="paste">Paste a path</button>
+      </div>
+
+      <div id="hubBrowsePane" class="hub-modal-pane">
+        <div class="hub-browse-crumb" id="hubBrowseCrumb"></div>
+        <div class="hub-browse-list" id="hubBrowseList"></div>
+        <div class="hub-browse-footer">
+          <span class="hub-browse-current" id="hubBrowseCurrent"></span>
+          <button class="hub-add-btn" id="hubBrowseUse">Use this folder</button>
+        </div>
+      </div>
+
+      <div id="hubPastePane" class="hub-modal-pane" hidden>
+        <label class="hub-paste-label" for="hubPasteInput">Folder path</label>
+        <input class="hub-paste-input" id="hubPasteInput" type="text" placeholder="e.g. C:\Users\you\Projects\my-app" autocomplete="off" spellcheck="false" />
+        <button class="hub-add-btn" id="hubPasteUse">Use this path</button>
+      </div>
+
+      <p class="hub-modal-error" id="hubModalError" hidden></p>
+      <p class="hub-modal-status" id="hubModalStatus" hidden></p>
+    </div>
+  </div>
+
+  <script src="/hub.js"></script>
+</body>
+</html>
