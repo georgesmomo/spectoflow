@@ -5,6 +5,21 @@ framework with a real-time local control plane. This file orients you to **build
 (it is not a spectoflow-managed project). Read `docs/` before making changes:
 `docs/ARCHITECTURE.md`, `docs/DECISIONS.md` (the full rationale, D1–D23), `docs/ROADMAP.md` (what's next).
 
+## What exists (v0.23.5 — see DECISIONS D63)
+
+Direct follow-up: the user clicked the Board's read-only "workflow at a glance" strip (`.wf-mini`)
+expecting to toggle a step there, not knowing the real interactive pipeline lived only on the
+separate Workflow tab. Rather than just redirecting them, made the glance strip itself clickable,
+reusing the existing popover unchanged: `.wf-mini` nodes get the same click/keydown wiring as
+`.wf-step2`, and a new `findWfAnchor(name)` picks whichever pipeline is actually visible (Board vs.
+Workflow tab — both stay mounted in the DOM at all times) so the popover never anchors to a
+hidden panel's zero-size element. `navigateTab()` now closes an open popover on every tab switch.
+QA done via raw Chrome DevTools Protocol (no extra dependency — Node's built-in WebSocket/fetch,
+Chrome's own `--remote-debugging-port`) since the browser extension wasn't available: a real click
+on "Brainstorm" opened the popover, disabling it via the button genuinely rewrote `workflow.md` and
+live-updated the strip, then restored to its original state. Full suite 234/235 (1 pre-existing
+Windows skip), 0 failures.
+
 ## What exists (v0.23.4 — see DECISIONS D62)
 
 Found in real use: adding a real host project (`georgesmomo.com`, an Astro site) to the hub showed

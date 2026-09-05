@@ -363,17 +363,26 @@ function renderOverview(){
   topRow.append(ocard(t('chart.scopeVsDelivered'), area));
   box.append(topRow);
 
-  // Workflow-at-a-glance strip (reuses the wf-arrow flow animation)
+  // Workflow-at-a-glance strip (reuses the wf-arrow flow animation) — clicking a step opens the same
+  // enable/disable popover as the dedicated Workflow tab (openWfPop/renderWfPop), so a step can be
+  // toggled right from the Board without switching tabs.
   const strip=el('div','wf-strip');
   const steps=P.workflow||[];
   steps.forEach((st,i)=>{
-    const node=el('div','wf-mini'+(st.enabled?'':' off'));
+    const node=el('div','wf-mini'+(st.enabled?'':' off')+(st.name===wfPopStep?' is-selected':''));
+    node.dataset.name=st.name;
+    node.tabIndex=0; node.setAttribute('role','button'); node.setAttribute('aria-expanded',String(st.name===wfPopStep));
+    node.title=st.name;
     node.append(el('span','dot')); node.append(el('span','nm',st.name));
+    const sel=(e)=>{ e.stopPropagation(); if(wfPopStep===st.name) closeWfPop(); else openWfPop(st.name); };
+    node.addEventListener('click',sel);
+    node.addEventListener('keydown',e=>{ if(e.key==='Enter'||e.key===' '){ e.preventDefault(); sel(e); } });
     strip.append(node);
     if(i<steps.length-1){ const a=el('div','wf-arrow'+(st.enabled&&steps[i+1].enabled?'':' off')); strip.append(a); }
   });
   if(!steps.length) strip.append(el('div','empty',t('board.noWorkflow')));
   box.append(ocard(t('board.workflowGlance'), strip));
+  if(wfPopStep) renderWfPop(); // re-anchor an open popover after a live re-render of this strip too
 
   // Per-phase progress bars — only phases that actually hold tasks (headings with no checkbox tasks
   // are noise, not phases), and cap the list height with an internal scroll so a big project with
@@ -675,16 +684,27 @@ function wfPopFill(pop, s, idx){
   const actions=el('div','wf-pop-actions'); actions.append(btn); pop.append(actions);
 }
 function openWfPop(name){ wfPopStep=name; renderWfPop(); }
-function closeWfPop(){ wfPopStep=null; const p=$('#wfPop'); if(p) p.hidden=true; $$('#wfDiagram .wf-step2.is-selected').forEach(x=>x.classList.remove('is-selected')); }
+function closeWfPop(){ wfPopStep=null; const p=$('#wfPop'); if(p) p.hidden=true; $$('#wfDiagram .wf-step2.is-selected,.wf-mini.is-selected').forEach(x=>x.classList.remove('is-selected')); }
+// The workflow popover has two possible triggers now: the dedicated Workflow tab's own pipeline
+// (#wfDiagram .wf-step2), and the Board's "at a glance" strip (.wf-mini). Both stay mounted in the
+// DOM at all times (every .panel renders every tick; only CSS hides the inactive ones), so anchoring
+// always prefers whichever one sits on the currently VISIBLE panel — a hidden panel's element has a
+// zero-size getBoundingClientRect() and would position the popover at the top-left corner.
+function findWfAnchor(name){
+  const boardActive=document.querySelector('.panel[data-panel="board"].is-active');
+  if(boardActive){ const m=boardActive.querySelector('.wf-mini[data-name="'+CSS.escape(name)+'"]'); if(m) return m; }
+  const idx=(P.workflow||[]).findIndex(s=>s.name===name);
+  return $('#wfDiagram .wf-step2[data-idx="'+idx+'"]');
+}
 function renderWfPop(){
   const p=$('#wfPop'); if(!p) return;
   const steps=P.workflow||[]; const idx=steps.findIndex(s=>s.name===wfPopStep);
   if(idx<0){ closeWfPop(); return; }
-  const anchor=$('#wfDiagram .wf-step2[data-idx="'+idx+'"]');
+  const anchor=findWfAnchor(wfPopStep);
   if(!anchor){ p.hidden=true; return; }
-  $$('#wfDiagram .wf-step2.is-selected').forEach(x=>x.classList.remove('is-selected')); anchor.classList.add('is-selected');
+  $$('#wfDiagram .wf-step2.is-selected,.wf-mini.is-selected').forEach(x=>x.classList.remove('is-selected')); anchor.classList.add('is-selected');
   wfPopFill(p, steps[idx], idx);
-  positionWfPop(anchor.querySelector('.wf-circle')||anchor, p);
+  positionWfPop(anchor.classList.contains('wf-step2')?(anchor.querySelector('.wf-circle')||anchor):anchor, p);
 }
 function positionWfPop(anchorEl, pop){
   const r=anchorEl.getBoundingClientRect();
@@ -1070,6 +1090,7 @@ function tabFromPath(){
 }
 function taskFromPath(){ const s=pathSegments(); return (ROUTES.includes(s[0])&&s[1])?decodeURIComponent(s[1]):null; }
 function navigateTab(tabId,push){
+  closeWfPop(); // an open popover is anchored to whichever panel is currently active — never carry it across
   activeTab=tabId; try{ localStorage.setItem('spf-tab',tabId); }catch{}
   if(push!==false){
     const isCustom=tabId.indexOf('custom:')===0;
@@ -1711,7 +1732,7 @@ document.addEventListener('click',e=>{ if(!document.body.classList.contains('nav
 document.addEventListener('keydown',e=>{ if(e.key==='Escape') closeNav(); });
 // workflow step popover — close on outside click / Esc / resize. (No scroll-to-close: a capture
 // scroll listener also fires on the popover's own internal scroll, which would slam it shut.)
-document.addEventListener('click',e=>{ if(wfPopStep && !e.target.closest('#wfPop') && !e.target.closest('.wf-step2')) closeWfPop(); });
+document.addEventListener('click',e=>{ if(wfPopStep && !e.target.closest('#wfPop') && !e.target.closest('.wf-step2') && !e.target.closest('.wf-mini')) closeWfPop(); });
 document.addEventListener('keydown',e=>{ if(e.key==='Escape') closeWfPop(); });
 window.addEventListener('resize',()=>{ if(wfPopStep) closeWfPop(); });
 // keep the URL and the path in sync when the user uses the browser back/forward buttons

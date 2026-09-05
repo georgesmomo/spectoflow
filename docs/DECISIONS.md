@@ -1357,3 +1357,31 @@
     désormais correctement (32 tâches, 11 phases, vérifié par capture d'écran). Suite complète :
     235 tests, 234 passent (1 skip Windows), 0 échec.
 - Fichiers : `templates/package.json` (nouveau), `test/esm-host-project.test.js` (nouveau).
+
+### D63 — 0.23.5 : le widget « Workflow en un coup d'œil » du Board devient cliquable
+- **ACTÉ.** Demande directe de l'utilisateur, après une confusion initiale : il cliquait sur le
+  résumé « Workflow en un coup d'œil » de l'onglet **Board** en s'attendant à pouvoir activer/
+  désactiver une étape — ce widget était en réalité purement visuel (`.wf-mini`, aucun gestionnaire
+  de clic), l'interaction réelle n'existant que sur l'onglet dédié **Workflow**. Plutôt que de
+  renvoyer l'utilisateur vers cet autre onglet, choix retenu (« c'est ce que j'ai demandé ») : rendre
+  ce widget lui-même cliquable, en réutilisant tel quel le popover existant.
+  - **Chaque nœud `.wf-mini`** porte maintenant `data-name`, `tabindex`, `role="button"` et les mêmes
+    gestionnaires clic/clavier que `.wf-step2` sur l'onglet Workflow, appelant les mêmes
+    `openWfPop(name)`/`closeWfPop()` déjà en place.
+  - **`findWfAnchor(name)`** (nouveau) résout l'ancre du popover en préférant le pipeline
+    effectivement VISIBLE (`.wf-mini` sur Board si `.panel[data-panel="board"]` est actif, sinon
+    `.wf-step2` sur l'onglet Workflow) — nécessaire car les deux panneaux existent en permanence dans
+    le DOM (chaque `.panel` est re-rendu à chaque tick, seul le CSS masque les inactifs) ; ancrer sur
+    l'élément d'un panneau masqué aurait positionné le popover à `(0,0)` (`getBoundingClientRect()`
+    y renvoie un rectangle nul). `renderWfPop()`/`closeWfPop()` généralisés pour nettoyer `.is-selected`
+    sur les deux familles de nœuds. `navigateTab()` ferme désormais le popover à chaque changement
+    d'onglet (un popover ouvert ne doit jamais rester ancré à un panneau qu'on vient de quitter).
+  - **QA** : le navigateur (extension Chrome) étant indisponible, piloté directement via le protocole
+    CDP de Chrome headless (`--remote-debugging-port`, script Node utilisant uniquement `WebSocket`/
+    `fetch` natifs — aucune dépendance ajoutée) sur `todo-list-v2` en conditions réelles : clic sur
+    « Brainstorm » → popover ouvert avec les vraies données ; clic sur « Désactiver l'étape » → API
+    appelée, `workflow.md` réellement modifié (`- [x]` → `- [ ]`), re-rendu SSE live confirmé
+    (le nœud passe à `.off`, le bouton bascule sur « Activer l'étape ») ; réactivé ensuite pour
+    restaurer l'état d'origine du vrai projet. Suite complète : 235 tests, 234 passent (1 skip
+    Windows), 0 échec.
+- Fichiers : `templates/dashboard/public/app.js`, `styles.css`.

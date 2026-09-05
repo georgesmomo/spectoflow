@@ -1,5 +1,5 @@
 {
-  "version": "0.23.4",
+  "version": "0.23.5",
   "files": {
     "AGENTS.md": "00a96b7fb107d17aeb6d262df24d9edde86a0026292dfae582f0d7eac3e79dc4",
     "README.md": "80beafaae9e6ec9f554de4a1ae937f891346c9501117db9fd73584a3f410c80b",
@@ -20,7 +20,7 @@
     "dashboard/files.js": "6d4e25bdaf32c986ab9256ff4976f6900865d6288ae0a454050e4f59ebceae48",
     "dashboard/handlers.js": "16d7d9080d20c4ad6685ef44f8338ddf926bc6dd102493e17e4b437e40fc7d94",
     "dashboard/orchestrator.js": "1529553b80d0bb45ec7c9ac7ca150ec841d14274f5b900c92ebb083f6a69e7f1",
-    "dashboard/public/app.js": "886fd772bfcf0ec64c64eddece395daed728a5aea9ea88de637fd66c7b49bb6b",
+    "dashboard/public/app.js": "4aca4a950c36bb50470380cb5e2a7f9ff0360d3c0ec27726efb34cab9ab6f5f3",
     "dashboard/public/charts.js": "19015e799aed5a6e040dca0d282bc87827e4b06cc2e8865c518adc1e41d8f59b",
     "dashboard/public/designs.js": "c93b6d21fb33c83680719786b5cbd74ef534a5f879e11e06a4f45971ea21ab0f",
     "dashboard/public/designs/console.css": "ae750881b989f43bbf4b86541e4286a353ff1c77af81502f1acf7ead5d86e3ce",
@@ -47,7 +47,7 @@
     "dashboard/public/logo-dark.png": "d2dd085001805b4e992d45bd2bdec7e4484cde55b421dc69c70c13397c33c82f",
     "dashboard/public/logo-white.png": "cba8b91b97fbaeb2165077c00273f722464b0fdcae487d98b4daf9196e57a37b",
     "dashboard/public/stats.js": "508e8edae926fd3b9874025d9ea34172ec205329a6b4728774c786392ca18344",
-    "dashboard/public/styles.css": "84426885305879056e378cbca94de7ad53bc78f4f18c63bb4853aa727d346f40",
+    "dashboard/public/styles.css": "050e7454aaa3a6c86d9e336ca1277835bc2a42033b60301579fba45609c0acf9",
     "dashboard/runner.js": "baabaae78f20e04c64db5de79a0437dae91864b68c55a35dd5073755fc4fd20d",
     "dashboard/server.js": "c698c9bdb7d6db1434f952721afb6d1badc9cc23abdd01f0ea041052a3853e46",
     "dashboard/summarize.js": "db3a143b8c1c40822a15041541aba6fad585daa91a0df7b1ff452d7125df9c16",
