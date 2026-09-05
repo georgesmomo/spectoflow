@@ -44,3 +44,15 @@ test('dashboard login is reserved: exits 0 with the same message', () => {
   assert.strictEqual(r.status, 0);
   assert.match(r.stdout, /later release|coming/i);
 });
+
+test('dashboard status --url=<malformed> exits with code 1 and prints a clean error message', () => {
+  const h = home();
+  const r = spawnSync('node', [BIN, 'dashboard', 'status', '--url=not-a-url'], { encoding: 'utf8', env: { ...process.env, SPECTOFLOW_HOME: h }, stdio: ['ignore', 'pipe', 'pipe'] });
+  assert.notStrictEqual(r.status, 0, 'should exit with non-zero code');
+  assert.match(r.stdout, /^!\s/, 'output should start with ! prefix (clean error, not a stack trace)');
+  assert.match(r.stdout, /must be a URL|http/i, 'should explain the error');
+  // Verify that the invalid URL was not stored in config (config should still use default or fail quietly)
+  const cfgResult = spawnSync('node', [BIN, 'config', 'get', 'dashboard.url'], { encoding: 'utf8', env: { ...process.env, SPECTOFLOW_HOME: h }, stdio: ['ignore', 'pipe', 'pipe'] });
+  // The config should either have the default or be unset, definitely not the malformed one
+  assert.ok(!cfgResult.stdout.includes('not-a-url'), 'malformed URL should not be stored in config');
+});

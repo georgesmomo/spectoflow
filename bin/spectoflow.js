@@ -215,9 +215,18 @@ function isLocalUrl(u) { try { return ['localhost', '127.0.0.1', '::1'].includes
 // local default) — any non-interactive invocation (tests spawn with stdio:'pipe', CI, scripts) must
 // never block waiting on stdin that will never arrive, so it silently keeps the local default instead.
 // The answer (typed, defaulted, or flagged) is saved via globalConfig.set so it is asked at most once.
+// Returns the resolved URL on success, or null on validation error (error message already printed).
 async function resolveDashboardUrl() {
   const fromFlag = flag('url');
-  if (fromFlag) { globalConfig.set('dashboard.url', fromFlag); }
+  if (fromFlag) {
+    try {
+      globalConfig.set('dashboard.url', fromFlag);
+    } catch (e) {
+      console.log(`${c.y('!')} ${e.message}`);
+      process.exitCode = 1;
+      return null;
+    }
+  }
   else if (globalConfig.get('dashboard.url').source === 'default') {
     let answer = '';
     if (process.stdin.isTTY && process.stdout.isTTY) {
@@ -337,7 +346,7 @@ async function runCustomize(kind) {
 // global registry first, then either joins an already-running hub or spawns a new one — probing first
 // so a second start just reports the running one instead of spawning a duplicate.
 async function startDashboard() {
-  await resolveDashboardUrl();
+  if (!(await resolveDashboardUrl())) return;
   const root = process.cwd();
   workspace.migrateLegacyHome();
   if (!workspace.exists()) workspace.init({});
@@ -372,7 +381,7 @@ function printDashboardCommands() {
 }
 
 async function dashboardStatus() {
-  await resolveDashboardUrl();
+  if (!(await resolveDashboardUrl())) return;
   const info = workspace.readLock();
   const port = (info && info.port) || resolvePort(argv);
   const running = await probeDashboard(port);
@@ -381,7 +390,7 @@ async function dashboardStatus() {
 }
 
 async function restartDashboard() {
-  await resolveDashboardUrl();
+  if (!(await resolveDashboardUrl())) return;
   await stopDashboard();
   // Windows doesn't deliver real signals — process.kill() returns once the request is issued, not
   // once the process (and the port it held) is actually gone. A short gap here, plus startDashboard()
@@ -399,7 +408,7 @@ function unlinkLocks() {
   try { fs.unlinkSync(path.join(globalConfig.homeDir(), 'hub.lock')); } catch {}
 }
 async function stopDashboard() {
-  await resolveDashboardUrl();
+  if (!(await resolveDashboardUrl())) return;
   const info = workspace.readLock();
   const port = (info && info.port) || resolvePort(argv);
   const running = await probeDashboard(port);
