@@ -1022,3 +1022,8 @@ body.booting .wf-step2 { opacity:0; animation:rise .4s cubic-bezier(.2,.8,.2,1) 
 .hub-paste-input { font-family:var(--mono); font-size:13px; padding:9px 11px; border-radius:8px; border:1px solid var(--line); background:var(--surface-2); color:var(--ink); }
 .hub-modal-error { color:var(--s-blocked); font-size:12.5px; margin:4px 0 0; }
 .hub-modal-status { color:var(--muted); font-size:12.5px; margin:4px 0 0; }
+
+/* "back to hub" — plain link next to the brand logo on the per-project dashboard; a full navigation
+   (not SPA), since leaving to the hub means leaving this project's dashboard entirely. */
+.hub-back-link { display:flex; align-items:center; justify-content:center; width:26px; height:26px; border-radius:7px; color:var(--muted); text-decoration:none; font-size:15px; flex-shrink:0; transition:background .15s,color .15s; }
+.hub-back-link:hover { background:var(--surface-2); color:var(--ink); }
