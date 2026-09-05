@@ -81,9 +81,11 @@ constant.
   that project's own `runtime.json`/plan files, last-opened time), sorted by `lastOpened` desc. Click
   → navigates into that project.
 - `GET /p/<id>/board`, `/p/<id>/chat`, `/p/<id>/files`, … → the existing dashboard, unchanged in every
-  way except the URL now carries the project id. All API calls the client makes gain the same
-  `/p/<id>/...` prefix (or an equivalent `?p=<id>` — implementation detail decided during planning,
-  whichever composes more cleanly with the existing route table in `server.js`).
+  way except the URL now carries the project id. **Decided**: pages use the path prefix (`/p/<id>/
+  board`, so a URL is bookmarkable/shareable on its own); every `/api/*` call the client makes instead
+  gains a `?p=<id>` query param (same style already settled for `/api/events?p=<id>` above) — a
+  smaller `app.js` diff than rewriting every fetch URL's path, and the hub-server-side routing is
+  identical either way (it reads the id from wherever it lands, path or query).
 - **Old bookmarks** (`/board`, `/chat`, no project prefix) — not an error: redirect to
   `/p/<lastOpenedId>/board` if the registry is non-empty, else to `/` (the hub). Mirrors the same
   "never leave a bookmark dead" instinct already applied to the `/settings` → `/personalize` rename
@@ -94,6 +96,40 @@ constant.
 - Per-project preferences (design skin, language, active agent — all in that project's own
   `config.json`) are completely unaffected; switching projects in the browser is switching which
   project's `config.json`/state the current tab is reading, nothing more.
+
+## 3bis. Adding a project — non-technical UX (added after user feedback)
+
+The original design only covered the CLI path (`spectoflow dashboard` inside a folder registers it).
+Raised directly by the user: the whole point of a hub is to make working across projects easier, and
+a **project manager who has never opened a terminal** must still be able to add one — the CLI-only
+path fails that bar. A "+ Add project" button on the hub page (`GET /`) covers this, with two ways in,
+both landing on the same server-side validation:
+
+- **Browse** — a folder-picker **built server-side**, not a native OS dialog. A browser cannot hand a
+  web page a real absolute filesystem path (even `<input type="file" webkitdirectory>` only exposes a
+  relative file list — a deliberate browser security limitation, not a bug to work around) — so instead
+  the hub-server itself lists directories (same principle as the existing per-project File Explorer's
+  `/api/files/tree`, just rooted at the whole machine instead of one project): `GET /api/hub/browse?
+  path=<abs>` returns the subdirectories of `path` (folder **names** only — never file contents, never
+  file listings, this endpoint has no reason to reveal either); an empty `path` returns starting points
+  (the user's home directory, plus, on Windows, the available drive letters). The client renders this
+  as a click-through folder tree in a modal — the browser never touches a real path itself, it only
+  ever sends back a string the *server* already resolved and confirmed exists.
+- **Paste a path** — a plain text field for a path copied from Explorer/Finder's own address bar
+  (something most non-technical users already know how to do) — same validation, same endpoint below.
+- Both converge on `POST /api/hub/projects { path }`: confirms the folder exists; if it has no
+  `.spectoflow/` yet, runs `init` on it automatically (server-side call into the same logic
+  `spectoflow init` uses — see `lib/init.js` in the decomposition below, extracted for exactly this
+  reuse) instead of erroring or requiring a separate terminal step; then `registry.addProject(path)`
+  and redirect the browser straight to `/p/<id>/board`. One click-through flow, zero terminal required
+  after the initial `npm install -g spectoflow`.
+- The CLI path (`spectoflow dashboard` auto-registering, see §4) keeps working unchanged in parallel —
+  added for technical users who prefer it, never the only way in.
+- Security note: `/api/hub/browse` is a genuinely wider surface than anything today (it can list
+  directory names anywhere reachable on the machine, not just inside one project root) — acceptable
+  under this whole tool's existing trust model (a local, single-user dev tool already trusting
+  `/api/files/write` to write anywhere under a project root), but folder **names only**, never content,
+  keeps it as narrow as the feature actually needs.
 
 ## 4. CLI changes
 
@@ -155,12 +191,19 @@ Sequenced, each independently planned/implemented/tested/shipped (same rhythm as
 2. **Server split, single-project parity** — extract `handlers.js` out of today's `server.js`; new
    `lib/hub-server.js` that runs exactly the one project it's pointed at (no `/p/<id>` prefix yet).
    Goal: prove the split preserves 100% of today's behavior before adding concurrency.
-3. **True multi-project concurrency** — `/p/<id>/...` routing, per-project SSE/orchestrator-pending
-   maps, the hub landing page, client-side routing (`app.js`: project-aware fetch + navigation).
-4. **CLI integration finalized** — `spectoflow dashboard` auto-registers into and joins the one
+3. **Multi-project server core** — `lib/init.js` extracted (pure, reusable — today's `init()` in
+   `bin/spectoflow.js` is CLI-argv/console.log-coupled, unusable from server code as-is); `lib/
+   hub-server.js` upgraded from "one fixed project" to a registry-resolved `Map<id, …>`, `/p/<id>/...`
+   URL parsing, `/api/events?p=<id>` per-project SSE client sets, old-bookmark redirect. Proven by its
+   own new tests (same spawn-a-real-hub-server style as sub-project 2's), no UI yet.
+4. **Hub landing page + Add Project + client routing** — `GET /` (project cards), the `/api/hub/browse`
+   + `/api/hub/projects` endpoints and their "+ Add project" modal (§3bis above), and `app.js`'s
+   project-aware fetch (`?p=<id>` on every API call) + navigation (path prefix, back-to-hub link).
+   Depends on sub-project 3 (needs the multi-project server core already working).
+5. **CLI integration finalized** — `spectoflow dashboard` auto-registers into and joins the one
    global hub (global `~/.spectoflow/hub.lock`) instead of spawning its own server; `status/stop/
    restart` operate on the hub.
-5. **Test-suite migration + hardening** — adapt the tests that spawn a real dashboard server
+6. **Test-suite migration + hardening** — adapt the tests that spawn a real dashboard server
    (`dashboard-backend.test.js`, `orchestrate-server.test.js`, `cli-update.test.js`) to the new
    process model; update `CLAUDE.md`'s "Run & test" section (no more direct `node .spectoflow/
    dashboard/server.js`).
