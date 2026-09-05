@@ -20,7 +20,17 @@ const store = require('../lib/store');
 const { startRun } = require('./runner');
 const { runSummarize } = require('./summarize');
 const orchestrator = require('./orchestrator');
-const agentsRegistry = require('../lib/agents-registry');
+// Require the merged adapters/detect — works both from templates/dashboard/ (dev) and
+// .spectoflow/dashboard/ (vendored). Try the installed package first, fall back to dev path.
+let adapters, detect;
+try {
+  const spectoflowPkgDir = path.dirname(require.resolve('spectoflow/package.json'));
+  adapters = require(path.join(spectoflowPkgDir, 'lib', 'adapters'));
+  detect = require(path.join(spectoflowPkgDir, 'lib', 'detect'));
+} catch {
+  adapters = require(path.join(__dirname, '../../lib/adapters'));
+  detect = require(path.join(__dirname, '../../lib/detect'));
+}
 const files = require('./files');
 
 function sendJSON(res, code, obj) { res.writeHead(code, { 'Content-Type': 'application/json; charset=utf-8' }); res.end(JSON.stringify(obj)); }
@@ -39,8 +49,8 @@ function createHandlers(root) {
     const p = store.readProject(root);
     const v = frameworkVersion(); if (v) p.version = v;
     p.projectName = path.basename(root);
-    p.knownAgents = agentsRegistry.KNOWN_AGENTS.map((a) => ({ id: a.id, label: a.label, headless: a.headless, docsUrl: a.docsUrl }));
-    p.installedAgents = agentsRegistry.installedAgents(root);
+    p.knownAgents = adapters.knownAgents().map((a) => ({ id: a.id, label: a.label, headless: a.headless, docsUrl: a.docsUrl }));
+    p.installedAgents = detect.installedAgents(root);
     return p;
   }
   function findPlanFileForTask(id) { for (const pl of store.readPlans(root)) for (const ph of pl.phases) if (ph.tasks.find((t) => t.id === id)) return pl.file; return null; }
@@ -55,13 +65,13 @@ function createHandlers(root) {
       const id = patch.agent.trim();
       // Never activate an agent whose CLI isn't actually there — a picked-but-absent agent would just
       // fail silently the next time something tries to run it.
-      if (!agentsRegistry.isAgentInstalled(id, root)) {
-        const known = agentsRegistry.KNOWN_AGENTS.find((a) => a.id === id);
+      if (!detect.isAgentInstalled(id, root)) {
+        const known = adapters.knownAgents().find((a) => a.id === id);
         const label = known ? known.label : id;
         throw new Error(`${label} isn't installed here (its command wasn't found on PATH). Install it, then try again.`);
       }
       cfg.agent = id;
-      const known = agentsRegistry.KNOWN_AGENTS.find((a) => a.id === id);
+      const known = adapters.knownAgents().find((a) => a.id === id);
       if (known && known.runner) { cfg.runners = cfg.runners || {}; if (!cfg.runners[id]) cfg.runners[id] = known.runner; }
     }
     fs.writeFileSync(cp, JSON.stringify(cfg, null, 2) + '\n');

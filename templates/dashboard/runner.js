@@ -8,8 +8,19 @@
  * Kept separate from server.js so the pipeline is unit-testable without an HTTP server.
  */
 const { spawn } = require('child_process');
+const path = require('path');
 const store = require('../lib/store');
-const agentsRegistry = require('../lib/agents-registry');
+// Require the merged adapters/detect — works both from templates/dashboard/ (dev) and
+// .spectoflow/dashboard/ (vendored). Try the installed package first, fall back to dev path.
+let adapters, detect;
+try {
+  const spectoflowPkgDir = path.dirname(require.resolve('spectoflow/package.json'));
+  adapters = require(path.join(spectoflowPkgDir, 'lib', 'adapters'));
+  detect = require(path.join(spectoflowPkgDir, 'lib', 'detect'));
+} catch {
+  adapters = require(path.join(__dirname, '../../lib/adapters'));
+  detect = require(path.join(__dirname, '../../lib/detect'));
+}
 
 // The command to run `which`: config.json's own runners map first (an explicit user choice always
 // wins), falling back to the registry's default for a known, headless-capable, genuinely-installed
@@ -17,8 +28,8 @@ const agentsRegistry = require('../lib/agents-registry');
 // the project's "active agent" and had a runner seeded into config.json for it.
 function resolveRunnerCommand(root, cfg, which, opts) {
   if (cfg.runners && cfg.runners[which]) return cfg.runners[which];
-  const known = agentsRegistry.KNOWN_AGENTS.find((a) => a.id === which);
-  if (known && known.runner && agentsRegistry.isAgentInstalled(which, root, opts)) return known.runner;
+  const known = adapters.knownAgents().find((a) => a.id === which);
+  if (known && known.runner && detect.isAgentInstalled(which, root, opts)) return known.runner;
   return null;
 }
 
