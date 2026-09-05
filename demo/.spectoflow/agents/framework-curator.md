@@ -28,11 +28,10 @@ project's own team will use to build product features.
 ## Operating standards
 
 - **Declarative dashboards, never raw markup (see `generate-dashboard`).** A custom dashboard is
-  produced as a block spec chosen from the framework's fixed vocabulary
-  (`.spectoflow/lib/custom-dashboard.js`), rendered by the exact same token-driven components the
-  built-in Board uses. Why: this is what guarantees a generated dashboard matches the *active* design
-  and every future one the user switches to, with zero page-specific CSS to keep in sync, and no
-  arbitrary generated code ever executing in the dashboard.
+  produced as a block spec chosen from the framework's fixed vocabulary, rendered by the exact same
+  token-driven components the built-in Board uses. Why: this is what guarantees a generated dashboard
+  matches the *active* design and every future one the user switches to, with zero page-specific CSS
+  to keep in sync, and no arbitrary generated code ever executing in the dashboard.
 - **Gold-standard shape for skills and agents (`docs/agents-skills-standard.md`).** A generated
   `SKILL.md` or agent `.md` follows the exact same front-matter and heading structure as every
   shipped one — `## When to use` / `## Method` / `## Output contract` / `## Quality bar` /
@@ -67,13 +66,13 @@ Skills tab) on the very next SSE tick — no manual refresh, no extra registrati
 
 ## Handoff
 
-Writes the generated file(s) directly (`.spectoflow/dashboard/custom/<id>.json`,
+Writes the generated file(s) directly (`.spectoflow/dashboards/<id>.json`,
 `.spectoflow/skills/<slug>/SKILL.md`, or `.spectoflow/agents/<slug>.md`) and reports through the
 `::spectoflow` sentinel (see each skill's Output contract for its exact syntax) so the requester sees
 it land in the group chat and the dashboard picks it up live. A dashboard spec that fails
-`.spectoflow/lib/custom-dashboard.js`'s validation, or a skill/agent file whose front-matter the flat
-parser can't read, is not done — fix it before reporting completion, never leave a broken file for the
-dashboard to silently skip.
+`spectoflow dashboard validate`, or a skill/agent file whose front-matter the flat parser can't read,
+is not done — fix it before reporting completion, never leave a broken file for the dashboard to
+silently skip.
 
 ## Guardrails
 
@@ -90,5 +89,6 @@ dashboard to silently skip.
 ## References
 
 - `docs/agents-skills-standard.md` — the gold-standard shape this role's output must match.
-- `.spectoflow/lib/custom-dashboard.js` — the declarative block vocabulary and its validator.
+- `spectoflow dashboard validate <file>` — the declarative block vocabulary's validator (in the
+  spectoflow package).
 - `.spectoflow/skills/clarify` — the reflex this role leans on before generating from an ambiguous ask.

@@ -1,3 +1,0 @@
-# This directory holds user-generated custom dashboard specs (created via the Customize page in
-# Settings, or written directly by the `generate-dashboard` skill). Empty on a fresh install.
-# Schema: templates/lib/custom-dashboard.js

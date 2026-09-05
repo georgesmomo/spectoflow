@@ -3,7 +3,7 @@ name: generate-dashboard
 description: Turn a description (or an auto-analysis) into a new custom dashboard page, as a declarative block spec that automatically matches every design the dashboard ships.
 capability: customization
 inputs: A description of what the dashboard should show (from the Customize page or chat), or a chosen candidate from propose-customizations; the project's specs/plans/code as source material.
-outputs: A validated block-spec JSON file at .spectoflow/dashboard/custom/<id>.json, live in the dashboard's nav on the next tick.
+outputs: A validated block-spec JSON file at .spectoflow/dashboards/<id>.json, live in the dashboard's nav on the next tick.
 standard: declarative UI generation; Few's dashboard design principles
 ---
 # Generate dashboard
@@ -67,8 +67,8 @@ computed stats the Board already uses (see step 5).
 
 ### 4. Choose blocks — the vocabulary
 
-Pick from exactly these block types (anything else is invisible to the renderer — see
-`.spectoflow/lib/custom-dashboard.js` for the enforced schema):
+Pick from exactly these block types (anything else is invisible to the renderer — the block schema
+documented below is enforced by `spectoflow dashboard validate`):
 
 | `type` | Shape | Use for |
 |---|---|---|
@@ -102,7 +102,7 @@ in one screen — 4-8 blocks is a healthy page, not 20.
 ### 6. Pick an id, a title, an icon
 
 - `id`: lowercase kebab-case, unique among existing custom dashboards (list
-  `.spectoflow/dashboard/custom/*.json` first) — this becomes the URL segment and the file name.
+  `.spectoflow/dashboards/*.json` first) — this becomes the URL segment and the file name.
 - `title`: short, a few words, shown as the nav tab label.
 - `icon`: one of `board`, `requests`, `backlog`, `workflow`, `agents`, `chat`, `info`, `attention`,
   `settings` (the same set the rest of the dashboard uses — pick the closest match; default to `info`
@@ -110,19 +110,21 @@ in one screen — 4-8 blocks is a healthy page, not 20.
 
 ### 7. Write and verify
 
-Write the spec to `.spectoflow/dashboard/custom/<id>.json` (pretty-printed, 2-space indent). Then
+Write the spec to `.spectoflow/dashboards/<id>.json` (pretty-printed, 2-space indent). Then
 **verify it, don't assume it's valid** — run:
 ```
-node -e "console.log(JSON.stringify(require('./.spectoflow/lib/custom-dashboard').validateSpec(JSON.parse(require('fs').readFileSync('./.spectoflow/dashboard/custom/<id>.json','utf8')))))"
+spectoflow dashboard validate .spectoflow/dashboards/<id>.json
 ```
-If `valid` is `false`, fix the reported errors and re-run before reporting done — a spec the
-dashboard's own validator rejects is never a finished deliverable, it would simply be skipped and the
-user would see nothing.
+(use `npx spectoflow …` if spectoflow isn't on PATH)
+
+If the output shows errors, fix them and re-run before reporting done — a spec the dashboard's own
+validator rejects is never a finished deliverable, it would simply be skipped and the user would see
+nothing.
 
 ## Output contract
 
-- One file: `.spectoflow/dashboard/custom/<id>.json`, valid against
-  `.spectoflow/lib/custom-dashboard.js`'s `validateSpec` (verified per step 7, not assumed).
+- One file: `.spectoflow/dashboards/<id>.json`, valid against the block schema
+  (verified per step 7 with `spectoflow dashboard validate`, not assumed).
 - Progress and completion reported to the orchestrator and group chat:
 
 ```
@@ -147,6 +149,6 @@ user would see nothing.
 - Stephen Few, *Information Dashboard Design* (O'Reilly/Analytics Press) — one purpose per dashboard,
   the plainest chart that carries the point, single-screen legibility.
   https://www.perceptualedge.com/library.php
-- `.spectoflow/lib/custom-dashboard.js` — the enforced block schema and bind allow-list (source of
-  truth; this document summarizes it, the code is authoritative).
+- `spectoflow dashboard validate <file>` — the declarative block vocabulary's validator (in the
+  spectoflow package; enforces the block schema and bind allow-list).
 - `dashboard/public/stats.js` — the exact shape of the live stats object bindable via `bind`.

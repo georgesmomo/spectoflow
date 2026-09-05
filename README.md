@@ -101,7 +101,7 @@ spectoflow --help      (-h)                    show help   (append -h to any com
 ```
 
 `init` scaffolds:
-- `.spectoflow/` — the framework (brain, `workflow.md`, `agents/`, `skills/`, `policy.md`, `config.json`, dashboard, engine).
+- `.spectoflow/` — the framework (brain, `workflow.md`, `agents/`, `skills/`, `policy.md`, `config.json`, engine). The dashboard itself ships in the spectoflow package, not in your project.
 - `specs/` and `plans/` — **markdown artifacts**, your versioned source of truth.
 - per-agent shims: `CLAUDE.md` (Claude Code), `AGENTS.md` (Codex/Cursor), `GEMINI.md` (Gemini),
   `.claude/commands/spectoflow.md`.
@@ -119,8 +119,9 @@ existing `plans/*.md` tasks are given stable ids.
 ## Update
 
 `init` is idempotent (it never overwrites), so it can't refresh an installed project. `spectoflow
-update` refreshes **framework-owned** files (engine, dashboard, `AGENTS.md`, `capabilities.md`,
-`policy.md`, default agents & skills) to the CLI's version, while **preserving your work** —
+update` refreshes **framework-owned** files (engine, `AGENTS.md`, `capabilities.md`, `policy.md`,
+default agents & skills) to the CLI's version — retiring the project's own vendored dashboard folder
+along the way for anyone updating from before v0.24 — while **preserving your work** —
 `config.json`, `workflow.md`, `specs/`, `plans/`, and any agent/skill you created or edited are never
 touched. A file you edited is preserved and its new version is written next to it as `<file>.new`
 for you to merge by hand. Add `--dry-run` to preview, or `--force`/`-f` to overwrite a diverged file
@@ -167,13 +168,12 @@ agent never clobber each other.
 
 ```bash
 spectoflow dashboard                     # → http://localhost:4319 (or --port=NNNN)
-# manual (no global install): node .spectoflow/dashboard/server.js
+# manual (no global install): node /path/to/spectoflow/bin/spectoflow.js dashboard
 ```
 
 `spectoflow dashboard` is the simple way — it prints the URL and won't double-start (it detects a
-dashboard already running on the port). `spectoflow status` tells you whether one is up. Running the
-`server.js` directly still works for a manual/embedded setup. Zero dependencies, updates live via SSE
-+ file watching.
+dashboard already running on the port). `spectoflow status` tells you whether one is up. Zero
+dependencies, updates live via SSE + file watching.
 
 The header bar always shows the brand, the **active agent**, autonomy mode, language, a global-progress
 meter, a sync dot, and a **Run** quick-action. Ten tabs:
@@ -195,7 +195,7 @@ meter, a sync dot, and a **Run** quick-action. Ten tabs:
   *Customize* below).
 
 URLs are real routes (`/board`, `/backlog/T-012`, …). Charts are zero-dep, hand-rolled SVG in
-`dashboard/public/charts.js` (donut/area/bars/ring, animated, `prefers-reduced-motion`-aware), and
+`lib/dashboard/public/charts.js` (donut/area/bars/ring, animated, `prefers-reduced-motion`-aware), and
 every aggregate is computed client-side.
 
 ### Designs & theme
@@ -205,8 +205,8 @@ The dashboard ships **switchable designs** (Personalize → *Dashboard design*):
 (violet), **Obsidian Ops** (near-black lime/cyan, mono), **Neon Command** (glassmorphism aurora), and
 **Mission Control** (indigo control panel). Each works in light and dark (the moon toggle). A design
 is a `data-design` skin — a scoped CSS token block plus a one-line entry in
-`dashboard/public/designs.js`, so adding one is trivial. Fonts are **self-hosted**
-(`dashboard/public/fonts/*.woff2`), keeping the dashboard fully offline and dependency-free. Your
+`lib/dashboard/public/designs.js`, so adding one is trivial. Fonts are **self-hosted**
+(`lib/dashboard/public/fonts/*.woff2`), keeping the dashboard fully offline and dependency-free. Your
 choice persists per viewer (localStorage) and as the project default (`config.design`).
 
 ### Chat

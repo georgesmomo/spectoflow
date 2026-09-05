@@ -21,37 +21,72 @@ skills), not a runtime engine. That is what makes it agent-agnostic and low-toke
   role, agent, runId, text, kind}]`).
 - **Granular writes:** the engine locates a task's line by id and rewrites only that line (or inserts a
   comment sub-bullet), leaving the rest byte-for-byte intact. This lets the dashboard and the agent
-  co-edit safely. See `templates/lib/store.js`.
+  co-edit safely. See `lib/store.js` (package; see "Three places" below — since D64/v0.24.0 it is no
+  longer vendored into the project).
 
-## Folder map
+## Three places (D64 — dashboard separation, v0.24.0)
+
+Since v0.24.0 the dashboard's code no longer lives inside a project. There are three distinct
+places, each with one responsibility, so "which version is running" and "where does this file
+live" both have one unambiguous answer.
+
+**The npm package — all the dashboard code, one copy.**
 
 ```
-bin/spectoflow.js         CLI (init / dashboard / status)
-lib/adapters.js           per-agent shim generation (CLI-only)
-templates/                canonical framework → copied to <project>/.spectoflow/
-  AGENTS.md               brain: router (intake→classify→gate→load→run), modes, rules
-  workflow.md             single source of truth for the active pipeline
-  capabilities.md policy.md config.json
-  agents/  skills/         personas (stable) / procedures (evolving)
-  lib/store.js            markdown parse + granular write + runtime + config/workflow readers
-  dashboard/server.js     zero-dep HTTP + SSE(+fs.watch); /api/run delegates to runner.js
-  dashboard/runner.js     agent run pipeline: spawn → parse sentinels → group-chat message log
-  dashboard/orchestrator.js  workflow sequencer: resolve → gate (mode+policy) → run → collect
-  dashboard/public/       UI (Board / Workflow / Agents&Skills / Run)
+lib/
+  dashboard/
+    hub-server.js       HTTP listener, SSE, /p/<id> routing, hub API, lock
+    handlers.js         thin: HTTP route → op, JSON in/out
+    ops.js              pure operations (root, args) → result — HTTP-free, driven by handlers.js
+                         today and by the future online-dashboard connector (sub-project C) later
+    runner.js orchestrator.js summarize.js files.js
+    public/             front-end, designs, fonts
+  store.js customize-prompts.js custom-dashboard.js   the markdown/config engine + generators
+  global-config.js      ~/.spectoflow/config.json: read/write/get/set, defaults, layering
+  workspace.js          the dashboard workspace: init, locate, registry, per-project folder
+  registry.js           the project registry (file lives inside the workspace, see below)
+  init.js update.js ownership.js manifest.js adapters.js detect.js mcp.js brand.js
 ```
 
-Installed into a user project, this becomes:
+**The project (`.spectoflow/`) — the framework only, versioned with the project's own code.**
+
 ```
 <project>/CLAUDE.md  AGENTS.md  .claude/commands/spectoflow.md   (generated shims → .spectoflow/AGENTS.md)
 <project>/specs/  plans/                                         (markdown artifacts)
-<project>/.spectoflow/{AGENTS.md,workflow.md,agents/,skills/,lib/,dashboard/,config.json,runtime.json}
+<project>/.spectoflow/
+  AGENTS.md README.md workflow.md capabilities.md policy.md config.json
+  agents/  skills/
+  dashboards/          user-generated custom views, one <id>.json per file
+  lib/spec-drift.js    run in place by the audit-source skill and the Stop hook
+  hooks/spec-drift.js
+  runtime.json         gitignored, volatile execution state
+```
+
+Nothing under `.spectoflow/` runs the dashboard; the hub reads a project's markdown/config and
+never `require()`s anything from inside it — the same project opens in the hub whether or not it
+has ever run `spectoflow update`.
+
+**The dashboard workspace — the dashboard's own state, outside every project.** Default location
+`~/.spectoflow/dashboard/`; movable via `spectoflow dashboard init --path <dir>` (global config
+`dashboard.path`).
+
+```
+~/.spectoflow/
+  config.json           global config: active dashboard URL, workspace path, defaults
+  dashboard/             the workspace (its location is config dashboard.path)
+    dashboard.json       { name, port, design }
+    projects.json         the project registry
+    hub.lock               { pid, port, url, startedAt }
+    projects/<id>/
+      meta.json           { addedAt, lastOpened, kind }
 ```
 
 ## Dashboard data flow
 
-`server.js` reads the project via `store.readProject(ROOT)` → `{config, plans, specs, workflow, agents,
-skills, runtime}`. It watches `plans/ specs/ .spectoflow/` with `fs.watch` and pushes JSON events over
-SSE (`/api/events`): `{type:'change'}` triggers a client refetch; run events stream agent output.
+`hub-server.js`/`handlers.js` (package `lib/dashboard/`, see "Three places" above) read the project via
+`store.readProject(ROOT)` → `{config, plans, specs, workflow, agents, skills, runtime}`. The hub watches
+`plans/ specs/ .spectoflow/` with `fs.watch` per registered project and pushes JSON events over SSE
+(`/api/events?p=<id>`): `{type:'change'}` triggers a client refetch; run events stream agent output.
 Granular mutations: `PATCH /api/task/:id`, `POST /api/task/:id/comment`, `POST /api/workflow/toggle`.
 
 **Board Overview + sidebar (v0.11, no new endpoints):** the same `GET /api/project` payload already

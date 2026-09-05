@@ -20,10 +20,12 @@ sit at the project root and just point back here.
   (skill `clarify`, wired into the agent's memory in `AGENTS.md`).
 - **Watch it live** in the dashboard (it starts in the background and hands the prompt back):
   ```
-  spectoflow dashboard          # → http://localhost:4319   (or: node .spectoflow/dashboard/server.js)
+  spectoflow dashboard          # → http://localhost:4319
   spectoflow dashboard status   # is it running? (url + pid)
   spectoflow dashboard stop     # stop it        (alias: spectoflow stop)
   spectoflow dashboard restart  # stop then start
+  spectoflow dashboard init --path <dir>   # move the dashboard workspace (default ~/.spectoflow/dashboard)
+  spectoflow config             # global defaults + dashboard URL/path
   spectoflow status             # progress + whether the dashboard is running
   ```
 - **See what you got:** `spectoflow list` (agents, skills & workflow at a glance), or `spectoflow
@@ -63,11 +65,10 @@ Your **artifacts are markdown, and they live at the project root, not in here**:
 | `config.json` | Your settings: `mode`, `language`, active `agent`, `runners`, `design`, plans/specs dir. **Yours to edit** — `update` never overwrites it. |
 | `agents/` | **Stable team personas** (product-manager, developer, qa-engineer, code-reviewer, spec-source-guardian…) — the *who*. |
 | `skills/` | **Evolving procedures** (clarify, brainstorm, write-spec, write-plan, implement, write-e2e-tests, code-review, audit-source…) — the *how*. A workflow step → a capability → its agent → runs a skill. |
-| `dashboard/` | The zero-dependency control plane: `server.js` (SSE + file-watch), `runner.js`, `orchestrator.js`, `public/` (the UI, charts, designs, fonts), and `custom/` (your generated dashboards, one JSON spec per file). |
+| `dashboards/` | Your generated custom dashboards, one JSON spec per file — the *only* dashboard-related thing that lives in a project; the dashboard's own code is part of the spectoflow package, not vendored here. |
 | `lib/` | The markdown storage engine (`store.js`) and helpers (e.g. `spec-drift.js` for the spec-source-guardian). |
 | `hooks/` | Optional Claude Code hooks you can wire in yourself (e.g. `spec-drift.js`, a `Stop` hook that surfaces source-of-truth drift to the Attention tab). |
 | `runtime.json` | **Volatile execution state** (running agents, orchestration, group-chat messages, attention items, history). Gitignored — safe to delete; it's rebuilt. |
-| `.dashboard.lock` | Ephemeral pidfile so `spectoflow stop` can find the running dashboard. Gitignored. |
 | `.manifest.json` | Hashes of the framework files at install time, so `update` can tell an untouched file from one you edited. |
 
 ## Principles (why it's shaped this way)

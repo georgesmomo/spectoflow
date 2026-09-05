@@ -5,6 +5,33 @@ framework with a real-time local control plane. This file orients you to **build
 (it is not a spectoflow-managed project). Read `docs/` before making changes:
 `docs/ARCHITECTURE.md`, `docs/DECISIONS.md` (the full rationale, D1–D23), `docs/ROADMAP.md` (what's next).
 
+## What exists (v0.24.0 — see DECISIONS D64)
+
+**The dashboard leaves the projects.** Sub-project A of the "one dashboard, many projects" program
+(see `docs/dashboard-separation-design.md`): the dashboard's code was still vendored into every
+project (`.spectoflow/dashboard/`, ~20 files (code, fonts, logos), plus `lib/store.js`/`agents-registry.js`/
+`customize-prompts.js`/`custom-dashboard.js`), and the hub `require()`d each project's own copy —
+so a project stuck on an old version couldn't open, a `"type":"module"` host project could break the
+whole dashboard (D62), and the hub's own front-end and a project's server logic were two versions of
+one feature. Now there is exactly **one copy of the dashboard, in the npm package**
+(`lib/dashboard/{hub-server,handlers,ops,runner,orchestrator,summarize,files,public/}`), a pure
+`ops.js` operations layer (`(root, args) → result`, HTTP-free — `handlers.js` is a thin route table
+over it, and it's what a future online-dashboard connector would drive too), and the hub reads a
+project's markdown/config directly — it never loads code from inside a project, so any registered
+project opens whether or not it has ever run `spectoflow update`. A project's `.spectoflow/` keeps
+only the framework: `dashboards/` (generated custom views, renamed from `dashboard/custom/`) replaces
+the vendored dashboard folder outright. New **global config** (`~/.spectoflow/config.json` via
+`lib/global-config.js`, `spectoflow config` to read/set it) and a **dashboard workspace**
+(`~/.spectoflow/dashboard/` by default, `lib/workspace.js`; movable with `spectoflow dashboard init
+--path <dir>`) hold the dashboard's own state — `dashboard.json`, the project registry
+(`projects.json`, moved out of bare `~/.spectoflow/`), `hub.lock`, and a `projects/<id>/meta.json`
+per registered project. Migration is automatic and additive-only: `spectoflow update` moves a
+project's custom views from `dashboard/custom/` to `dashboards/` and retires the vendored dashboard
+folder (never a file the user modified — those are left in place and reported as "kept"), and the
+workspace itself is carried over from a pre-0.24 `~/.spectoflow/` the first
+time the new code runs. `spectoflow skill create`/CI's `generate-dashboard` validator moved from a
+project-relative `require` to `spectoflow dashboard validate <file>`.
+
 ## What exists (v0.23.5 — see DECISIONS D63)
 
 Direct follow-up: the user clicked the Board's read-only "workflow at a glance" strip (`.wf-mini`)
@@ -548,9 +575,11 @@ header (theme-swapped); a redesigned **Workflow** (numbered step cards + connect
 ## Run & test
 
 ```bash
-node bin/spectoflow.js init /tmp/try     # scaffold a project
-node /tmp/try/.spectoflow/dashboard/server.js   # dashboard → http://localhost:4319
-cd demo && node .spectoflow/dashboard/server.js # or preview with the demo
+node bin/spectoflow.js init /tmp/try        # scaffold a project (framework only)
+node bin/spectoflow.js dashboard            # from /tmp/try: registers it and starts/joins the hub → http://localhost:4319
+node bin/spectoflow.js config               # global defaults, dashboard URL/path
+cd demo && node ../bin/spectoflow.js dashboard   # or preview with the demo
+npm test
 ```
 The storage engine is unit-testable directly (parse/serialize/granular write) — see how `store.js`
 round-trips in `docs/ARCHITECTURE.md`. Add real tests as part of the next milestones.

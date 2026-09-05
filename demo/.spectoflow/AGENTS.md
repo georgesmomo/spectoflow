@@ -91,7 +91,7 @@ worth building" for the Auto mode). Hand it to the `framework-curator` agent (ca
 
 - **`generate-dashboard`** — a declarative block-spec page (never raw HTML/CSS/JS — see
   `.spectoflow/skills/generate-dashboard` for why), written to
-  `.spectoflow/dashboard/custom/<id>.json`.
+  `.spectoflow/dashboards/<id>.json`.
 - **`generate-skill`** — a new `.spectoflow/skills/<slug>/SKILL.md`, grounded in real, cited domain
   standards, following the gold-standard shape.
 - **`generate-agent`** — a new `.spectoflow/agents/<slug>.md` persona, same shape discipline.
@@ -119,12 +119,12 @@ destructive migration, security). Mode sets routine friction; policy is non-nego
 
 ## Dashboard
 
-Launch it with `spectoflow dashboard` (default http://localhost:4319, or `SPECTOFLOW_PORT` /
-`--port=NNNN`; falls back to `node .spectoflow/dashboard/server.js` if the CLI isn't on PATH). Zero
-deps, live via SSE.
+Launch it with `spectoflow dashboard` (default http://localhost:4319 — or the workspace's port; `--port=NNNN`
+overrides). The dashboard is part of the spectoflow package, not of this project: nothing under
+`.spectoflow/` runs it. Zero deps, live via SSE.
 
 **At the end of `init`, and on the first request in a session,** check whether the dashboard is
 running — UNLESS the user said they don't want it, or `.spectoflow/config.json` →
 `dashboard.autostart` is `false`. If it's not running, start it **detached** (spawn `spectoflow
-dashboard`, or `node .spectoflow/dashboard/server.js`, unref'd/backgrounded so it doesn't block you),
-then share the URL. Always be able to answer "is the dashboard running?" — check, don't assume.
+dashboard`, unref'd/backgrounded so it doesn't block you), then share the URL. Always be able to
+answer "is the dashboard running?" — check (`spectoflow dashboard status`), don't assume.

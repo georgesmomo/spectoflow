@@ -1385,3 +1385,78 @@
     restaurer l'état d'origine du vrai projet. Suite complète : 235 tests, 234 passent (1 skip
     Windows), 0 échec.
 - Fichiers : `templates/dashboard/public/app.js`, `styles.css`.
+
+### D64 — 0.24.0 : le dashboard sort des projets (sous-projet A du programme « un seul dashboard »)
+- **ACTÉ.** Demande directe de l'utilisateur pour une refonte de fond : le fonctionnement actuel
+  (dashboard vendu dans chaque projet) devenait « un peu lourd et compliqué ». Brainstorming complet
+  (voir `docs/dashboard-separation-design.md`) qui a d'abord fait ressortir que la demande couvrait en
+  réalité **trois chantiers distincts** — A) séparer le dashboard des projets, B) ajout intelligent de
+  n'importe quel dossier avec vues générées à la volée, C) dashboard en ligne multi-comptes — plus un D)
+  refonte des thèmes (zéro dégradé, demande explicite : « ça fait trop IA »). A est le socle des trois
+  autres ; c'est lui qui est livré ici, en 9 tâches exécutées via `subagent-driven-development`
+  (implémenteur + revue à chaque tâche, cf. `docs/superpowers/plans/2026-09-05-dashboard-separation.md`).
+  - **Cause profonde** : depuis D58, le code du dashboard restait vendu dans chaque projet
+    (`.spectoflow/dashboard/` — 17 fichiers + polices — plus `lib/store.js`/`agents-registry.js`/
+    `customize-prompts.js`/`custom-dashboard.js`), et le hub faisait un `require()` de la copie de
+    CHAQUE projet. Conséquences déjà vécues cette session : un projet jamais mis à jour ne s'ouvrait
+    pas (D59), un projet hôte en `"type":"module"` cassait tout (D62), et il n'existait aucune notion
+    de configuration globale ni d'emplacement personnalisable pour le dashboard lui-même.
+  - **Le modèle « trois lieux »** (voir `docs/ARCHITECTURE.md` § Three places) : le **paquet npm**
+    (`lib/`) porte tout le code, une seule copie — `lib/dashboard/{hub-server,handlers,ops,runner,
+    orchestrator,summarize,files,public/}`, `lib/{store,customize-prompts,custom-dashboard}.js`,
+    `lib/global-config.js` et `lib/workspace.js` (nouveaux). Le **projet** (`.spectoflow/`) ne garde
+    que le framework — `dashboards/` (vues personnalisées, renommé depuis `dashboard/custom/`),
+    `lib/spec-drift.js`, `hooks/`, `package.json` (D62). Le **workspace du dashboard**
+    (`~/.spectoflow/dashboard/` par défaut, déplaçable) porte l'état propre au dashboard —
+    `dashboard.json`, `projects.json` (déplacé hors de `~/.spectoflow/` nu), `hub.lock`,
+    `projects/<id>/meta.json`. Le hub ne charge plus jamais de code depuis un projet : n'importe quel
+    projet enregistré s'ouvre, qu'il ait ou non tourné `spectoflow update` — la classe de bugs D59/D62
+    disparaît par construction.
+  - **Interface `ops.js`** : chaque action du dashboard est désormais une fonction pure
+    `(root, args, ctx) → résultat`, sans HTTP — `handlers.js` n'est plus qu'une table de routage HTTP
+    → op. C'est l'interface exacte que le futur connecteur en ligne (sous-projet C) rebranchera sur un
+    WebSocket, sans toucher aux opérations elles-mêmes. Écart assumé par rapport à la spec d'origine :
+    l'opération `task.setStatus` a été renommée `task.update` (sa route applique un patch général —
+    statut, propriétaire, niveau — pas seulement un statut). Déviation notable trouvée et corrigée en
+    revue : chaque op a dû être rendue `async` (la spec les donnait synchrones-avec-throw), parce que
+    `assert.rejects()` — utilisé par les tests de la spec elle-même — exige un appelant qui retourne
+    une vraie promesse ; vérifié empiriquement par le reviewer (un throw synchrone fait échouer
+    `assert.rejects` au lieu d'être validé comme rejet), donc une correction nécessaire, pas une
+    complexité gratuite.
+  - **Configuration globale + workspace** : `~/.spectoflow/config.json` (`lib/global-config.js`),
+    éditable de n'importe où via `spectoflow config` / `config get` / `config set` — port d'entrée pour
+    `dashboard.url`, `dashboard.path`, et des `defaults.*` qui alimentent `spectoflow init` (priorité
+    projet > global > kit). `spectoflow dashboard init [--path] [--port] [--name] [--design]`
+    (idempotent, ne détruit jamais un workspace existant, reprend le registre d'un ancien emplacement
+    si le nouveau est vide) et un **prompt d'URL une seule fois** au premier `spectoflow dashboard`
+    (Entrée = local, mémorisé, jamais redemandé — `--url=` en non-interactif). `spectoflow dashboard
+    login` est réservé (message clair « arrive dans une prochaine version », sans bloquer) : la
+    fondation exacte que C rebranchera plus tard.
+  - **Migration — jamais de perte de donnée utilisateur** : `spectoflow update` migre d'abord les vues
+    personnalisées (`dashboard/custom/*.json` → `dashboards/`, conflit = la copie legacy est conservée
+    et signalée, jamais perdue), supprime le verrou par projet et la ligne `.gitignore` associée, PUIS
+    seulement retire les fichiers devenus obsolètes — règle nouvelle dans `lib/update.js` : un fichier
+    présent dans l'ancien manifest mais plus dans le kit est supprimé **si son hash correspond encore
+    au manifest** (jamais modifié par l'utilisateur), sinon **conservé et signalé**, y compris avec
+    `--force` (il n'existe aucune version du kit vers laquelle le restaurer, donc rien de légitime à
+    forcer). Un projet sans manifest (installation très ancienne) ne supprime rien du tout — juste un
+    indice affiché des dossiers/fichiers qu'il est sûr de retirer à la main. Propriété vérifiée
+    irréprochable en revue en traçant le code à la main (le mot-clé `force` n'apparaît jamais dans
+    cette nouvelle boucle).
+  - **QA** : 8 tâches revues indépendamment (implémenteur + reviewer dédié à chaque fois, la plupart
+    avec un tour de correction), suite complète 268/269 (1 skip Windows préexistant), 0 échec après
+    chaque tâche — plusieurs échecs isolés rencontrés en cours de route (tests qui spawnent de vrais
+    serveurs, sous charge machine partagée avec d'autres sessions actives) systématiquement
+    re-confirmés propres en isolation avant d'être écartés comme du bruit environnemental, jamais une
+    vraie régression. QA finale sur les deux vrais projets de l'utilisateur (`todo-list-v2`,
+    `georgesmomo.com`) : ouverture avant et après migration, vues personnalisées intactes.
+  - **Guide de migration** (voir aussi `docs/dashboard-separation-design.md`) :
+    `npm install -g spectoflow@0.24` → `spectoflow dashboard` n'importe où (workspace par défaut créé,
+    projets existants repris automatiquement) → dans chaque projet, `spectoflow update` (retire le
+    dashboard vendu, déplace les vues) — un projet non encore mis à jour s'ouvre déjà normalement entre
+    temps → `spectoflow config` pour revoir les réglages globaux.
+- Fichiers : `lib/dashboard/{hub-server,handlers,ops,runner,orchestrator,summarize,files,public/}.js`,
+  `lib/{store,customize-prompts,custom-dashboard,global-config,workspace,registry,init,update}.js`,
+  `bin/spectoflow.js`, `bin/postinstall.js`, `lib/adapters.js`, `lib/detect.js`,
+  `templates/{AGENTS.md,README.md,dashboards/.gitkeep}`, `docs/{ARCHITECTURE.md,
+  dashboard-separation-design.md}`, `test/` (une douzaine de fichiers nouveaux ou rebasés sur le hub).
