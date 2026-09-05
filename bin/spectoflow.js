@@ -132,7 +132,7 @@ async function update() {
   const r = require('../lib/update').runUpdate({ projectRoot: root, templatesDir: TPL, version: VERSION, dryRun, force });
 
   const from = r.fromVersion || 'unknown';
-  const changed = r.refreshed.length + r.created.length + r.adopted.length + r.newSidecar.length + r.forced.length;
+  const changed = r.refreshed.length + r.created.length + r.adopted.length + r.newSidecar.length + r.forced.length + r.removed.length + r.migration.movedViews.length;
   const row = (sym, label, list, painter, note) => {
     if (!list.length) return;
     const n = c.dim(String(list.length).padStart(2));
@@ -147,6 +147,11 @@ async function update() {
   row(c.b('~'), 'adopted', r.adopted, c.b);
   row(c.y('!'), 'forced', r.forced, c.y, 'overwrote a diverged file — its previous content is gone');
   row(c.y('!'), '.new', r.newSidecar, c.y, 'you edited these — new version saved as *.new, merge by hand (or re-run with --force)');
+  row(c.dim('−'), 'removed', r.removed, c.dim, 'no longer part of the kit (the dashboard lives in the spectoflow package now)');
+  row(c.y('!'), 'kept', r.kept, c.y, 'you modified these and they are no longer part of the kit — delete them yourself when ready');
+  if (r.migration.movedViews.length) console.log(`  ${c.cy('→')}  ${c.cy('views'.padEnd(9))} ${c.dim(String(r.migration.movedViews.length).padStart(2))}   ${c.dim('custom views moved to .spectoflow/dashboards/')}`);
+  r.migration.conflicts.forEach((f) => console.log(`  ${c.y('!')}  ${c.y('conflict'.padEnd(9))}      ${c.dim(`dashboards/${f} already exists — the old copy stays in dashboard/custom/ for you to merge`)}`));
+  if (r.legacyLeftovers.length) console.log(`  ${c.y('!')}  ${c.dim('this project has no install manifest, so nothing was deleted. Safe to remove by hand: ' + r.legacyLeftovers.map((p) => '.spectoflow/' + p).join(', '))}`);
   if (r.unchanged.length) console.log(`  ${c.dim('·')}  ${c.dim('unchanged'.padEnd(9))} ${c.dim(String(r.unchanged.length).padStart(2))}`);
   console.log(`  ${c.dim('=')}  ${c.dim('preserved'.padEnd(9))}      ${c.dim('config.json · workflow.md · specs/ · plans/ · your custom agents & skills')}`);
   console.log('');
@@ -168,7 +173,7 @@ async function update() {
           const res = await fetch(`http://localhost:${info.port}/api/hub/reload/${entry.id}`, { method: 'POST' });
           const body = await res.json().catch(() => ({}));
           console.log(`  ${c.dim(body.reloaded
-            ? 'Hub is running — reloaded this project\'s server code (other open projects unaffected).'
+            ? 'Hub is running — reloaded this project (other open projects unaffected).'
             : 'Hub is running, but this project wasn\'t loaded in it yet — nothing to reload.')}`);
         } catch {
           console.log(`  ${c.y('!')} Hub is running on port ${info.port} but the reload request failed — restart it yourself if changes don't seem to take effect: ${c.g('spectoflow dashboard restart')}`);
