@@ -10,6 +10,7 @@ const detect = require('../lib/detect');
 const ownership = require('../lib/ownership');
 const manifest = require('../lib/manifest');
 const registry = require('../lib/registry');
+const workspace = require('../lib/workspace');
 const initLib = require('../lib/init');
 const globalConfig = require('../lib/global-config');
 const mcp = require('../lib/mcp');
@@ -78,10 +79,13 @@ function readWorkflowSteps(dir) {
 }
 
 // ---- dashboard port + running-state probe ------------------------------------
-// Precedence: --port=NNNN > SPECTOFLOW_PORT env > 4319 (matches lib/dashboard/hub-server.js).
+// Precedence: --port=NNNN > SPECTOFLOW_PORT env > the workspace's own port (matches
+// lib/dashboard/hub-server.js).
 function resolvePort(args) {
   const arg = (args.find((a) => a.startsWith('--port=')) || '').split('=')[1];
-  return Number(arg || process.env.SPECTOFLOW_PORT || 4319);
+  if (arg) return Number(arg);
+  if (process.env.SPECTOFLOW_PORT) return Number(process.env.SPECTOFLOW_PORT);
+  try { return workspace.settings().port; } catch { return 4319; }
 }
 
 // Native http probe, ~500ms timeout, never throws — resolves true/false.
@@ -152,9 +156,7 @@ async function update() {
   // is invalidated. Do that via a surgical per-project reload so an update always actually takes
   // effect, without restarting the whole hub (which would disturb every other project open in it).
   if (!dryRun && changed) {
-    const lockPath = registry.hubLockPath();
-    let info = null;
-    try { info = JSON.parse(fs.readFileSync(lockPath, 'utf8')); } catch {}
+    const info = workspace.readLock();
     if (info && info.port && (await probeDashboard(info.port, 2000))) {
       const entry = registry.findByPath(root);
       if (entry) {
@@ -291,11 +293,12 @@ async function runCustomize(kind) {
 // so a second start just reports the running one instead of spawning a duplicate.
 async function startDashboard() {
   const root = process.cwd();
-  const entry = registry.addProject(root);
-  const boardUrl = (p) => `http://localhost:${p}/p/${entry.id}/board`;
-  const lockPath = registry.hubLockPath();
-  let info = null;
-  try { info = JSON.parse(fs.readFileSync(lockPath, 'utf8')); } catch {}
+  workspace.migrateLegacyHome();
+  if (!workspace.exists()) workspace.init({});
+  const hasProject = fs.existsSync(path.join(root, '.spectoflow'));
+  const entry = hasProject ? workspace.registerProject(root) : null;
+  const boardUrl = (p) => (entry ? `http://localhost:${p}/p/${entry.id}/board` : `http://localhost:${p}/`);
+  const info = workspace.readLock();
   if (info && info.port && await probeDashboard(info.port)) {
     console.log(`${c.g('●')} hub already running → ${c.bold(boardUrl(info.port))}`);
     return printDashboardCommands();
@@ -323,9 +326,7 @@ function printDashboardCommands() {
 }
 
 async function dashboardStatus() {
-  const lockPath = registry.hubLockPath();
-  let info = null;
-  try { info = JSON.parse(fs.readFileSync(lockPath, 'utf8')); } catch {}
+  const info = workspace.readLock();
   const port = (info && info.port) || resolvePort(argv);
   const running = await probeDashboard(port);
   if (running) console.log(`${c.g('●')} hub running → ${c.bold('http://localhost:' + port)}${info && info.pid ? c.dim(' (pid ' + info.pid + ')') : ''}`);
@@ -345,20 +346,22 @@ async function restartDashboard() {
 // Stop the running hub: read the global lock it wrote, verify it's actually up, then terminate it
 // and clear the lock. Safe against a stale lock (a recycled pid) because it only kills when the port
 // still responds.
+function unlinkLocks() {
+  try { fs.unlinkSync(workspace.lockPath()); } catch {}
+  try { fs.unlinkSync(path.join(globalConfig.homeDir(), 'hub.lock')); } catch {}
+}
 async function stopDashboard() {
-  const lockPath = registry.hubLockPath();
-  let info = null;
-  try { info = JSON.parse(fs.readFileSync(lockPath, 'utf8')); } catch {}
+  const info = workspace.readLock();
   const port = (info && info.port) || resolvePort(argv);
   const running = await probeDashboard(port);
   if (!running) {
-    if (info) { try { fs.unlinkSync(lockPath); } catch {} }   // stale lock
+    if (info) unlinkLocks();   // stale lock
     return console.log('No spectoflow hub is running.');
   }
   if (info && info.pid) {
     try {
       process.kill(info.pid);                  // SIGTERM → hub clears its own lock (POSIX)
-      try { fs.unlinkSync(lockPath); } catch {}     // and we clear it too (Windows has no real signals)
+      unlinkLocks();     // and we clear it too (Windows has no real signals)
       return console.log(`spectoflow hub stopped (pid ${info.pid}, was on http://localhost:${port}).`);
     } catch {}
   }
@@ -378,9 +381,7 @@ async function status() {
   console.log(`${(p.config && p.config.projectType) || 'project'} — mode ${p.config.mode} · lang ${p.config.language}`);
   console.log(`${done}/${tasks.length} tasks done · ${p.specs.length} spec(s) · ${p.agents.length} agents · ${p.skills.length} skills`);
   tasks.filter((t) => t.status === 'in_progress').forEach((t) => console.log(`  > in progress: ${t.id} ${t.title}`));
-  const lockPath = registry.hubLockPath();
-  let info = null;
-  try { info = JSON.parse(fs.readFileSync(lockPath, 'utf8')); } catch {}
+  const info = workspace.readLock();
   const port = (info && info.port) || resolvePort(argv);
   const running = await probeDashboard(port);
   console.log(`dashboard: ${running ? `running → http://localhost:${port}` : 'not running'}`);

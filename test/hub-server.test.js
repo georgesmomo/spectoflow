@@ -345,3 +345,18 @@ test('a project that never ran update (no .spectoflow/dashboard at all) opens no
     assert.strictEqual(page.status, 200);
   } finally { srv.kill(); }
 });
+
+test('a pre-0.24 ~/.spectoflow/projects.json is moved into the workspace on first start, projects intact', async () => {
+  const home = freshHome();
+  const d = fs.mkdtempSync(path.join(os.tmpdir(), 'stf-hub-legacy-'));
+  execFileSync('node', [BIN, 'init', d], { stdio: 'pipe' });
+  const entry = registry.addProject(d, home); // legacy location: directly under home
+  const port = 7400 + Math.floor(Math.random() * 100);
+  const srv = await startHub(home, port);
+  try {
+    const res = await getJSON(port, `/api/project?p=${entry.id}`);
+    assert.strictEqual(res.status, 200);
+    assert.ok(fs.existsSync(path.join(home, 'dashboard', 'projects.json')));
+    assert.ok(!fs.existsSync(path.join(home, 'projects.json')));
+  } finally { srv.kill(); }
+});
