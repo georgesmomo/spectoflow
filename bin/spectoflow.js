@@ -11,6 +11,7 @@ const ownership = require('../lib/ownership');
 const manifest = require('../lib/manifest');
 const registry = require('../lib/registry');
 const initLib = require('../lib/init');
+const globalConfig = require('../lib/global-config');
 const mcp = require('../lib/mcp');
 const { startRun } = require('../lib/dashboard/runner');
 const { buildCustomizePrompt } = require('../lib/customize-prompts');
@@ -219,6 +220,20 @@ function projectsRemove(id) {
   console.log(ok ? `${c.g('✓')} removed ${id}` : `${c.y('!')} no project registered with id ${id}`);
 }
 
+// ---- config: global settings (~/.spectoflow/config.json), editable from anywhere ----
+function configCmd() {
+  const sub = argv[1];
+  try {
+    if (sub === 'get') { if (!argv[2]) throw new Error('Usage: spectoflow config get <key>'); console.log(globalConfig.get(argv[2]).value); return; }
+    if (sub === 'set') { if (!argv[2] || argv[3] === undefined) throw new Error('Usage: spectoflow config set <key> <value>'); const v = globalConfig.set(argv[2], argv[3]); console.log(`${c.g('✓')} ${argv[2]} = ${v}`); return; }
+    console.log(wordmark());
+    const rows = globalConfig.list();
+    const w = Math.max(...rows.map((r) => r.key.length));
+    rows.forEach((r) => console.log(`  ${c.g(r.key.padEnd(w))}  ${String(r.value).padEnd(28)}  ${c.dim('(' + r.source + ')')}`));
+    console.log(c.dim(`\n  file: ${globalConfig.configPath()}   ·   spectoflow config set <key> <value>`));
+  } catch (e) { console.log(`${c.y('!')} ${e.message}`); process.exitCode = 1; }
+}
+
 // ---- Customize: `spectoflow skill/agent/dashboard create` — the CLI mirror of the dashboard's
 // Settings → Customize UI. Both surfaces build the same natural-language prompt (customize-prompts.js)
 // and post it through the same pipeline (runner.js's startRun — the function /api/run itself calls),
@@ -417,6 +432,7 @@ ${c.bold('Project')}
   ${c.g('init')} ${c.dim('[dir] [--agent=a,b]')}    scaffold a project (auto-detects agents; wires Playwright MCP)
   ${c.g('update')} ${c.dim('[--dry-run|--force]')}  refresh framework files to this kit version
   ${c.g('status')}                      progress + whether the dashboard is running
+  ${c.g('config')} ${c.dim('[get <key>|set <key> <value>]')}  global settings for every project (~/.spectoflow/config.json)
 
 ${c.bold('Dashboard')}
   ${c.g('dashboard')} ${c.dim('[--port=NNNN]')}     start the control plane in the background (default 4319)
@@ -491,6 +507,12 @@ const HELP = {
   skills: `${c.bold('spectoflow skills')}\n  List the evolving procedures (name · capability · what it does).`,
   workflow: `${c.bold('spectoflow workflow')}\n  Show the pipeline steps, marking which are enabled (●) or disabled (○).`,
   stop: `${c.bold('spectoflow stop')}\n  Stop the running dashboard (alias for ${c.g('spectoflow dashboard stop')}).`,
+  config: `${c.bold('spectoflow config')} ${c.dim('[get <key> | set <key> <value>]')}\n
+  Global settings that apply to every project on this machine, stored in ${c.dim('~/.spectoflow/config.json')}:
+    ${c.g('dashboard.url')}     the dashboard projects talk to (default http://localhost:4319)
+    ${c.g('dashboard.path')}    where the dashboard workspace lives (default ~/.spectoflow/dashboard)
+    ${c.g('defaults.agent')}    ${c.g('defaults.language')}  ${c.g('defaults.mode')}  ${c.g('defaults.design')}   seeds for ${c.g('spectoflow init')}
+  A project's own .spectoflow/config.json always wins over these defaults.`,
 };
 const showHelp = (name) => console.log('\n' + HELP[name].trim() + '\n');
 
@@ -498,6 +520,7 @@ const showHelp = (name) => console.log('\n' + HELP[name].trim() + '\n');
 const fns = {
   init, update, dashboard, stop: stopDashboard, status, list: listAll, help, version,
   projects: projectsCmd,
+  config: configCmd,
   agents: () => { console.log(wordmark()); printAgents(false); },
   skills: () => { console.log(wordmark()); printSkills(false); },
   workflow: () => { console.log(wordmark()); printWorkflow(false); },

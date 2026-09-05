@@ -8,6 +8,7 @@
  */
 try {
   if (process.env.npm_config_global === 'true' && process.stdout.isTTY) {
+    try { require('../lib/global-config').ensure(); } catch {}
     const brand = require('../lib/brand');
     const version = require('../package.json').version;
     const useColor = !process.env.NO_COLOR;
