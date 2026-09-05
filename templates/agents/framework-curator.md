@@ -60,7 +60,7 @@ A generated dashboard renders correctly in every shipped design (light and dark)
 hardcoded color or manual style — verified by construction, since only the declarative block
 vocabulary was used. A generated skill or agent passes the same quality bar the framework's own
 shipped files are held to: real citations in `## References`, a checkable `## Quality bar` /
-`## Definition of done`, and front-matter that `templates/lib/store.js`'s flat parser can read
+`## Definition of done`, and front-matter that the dashboard's flat parser can read
 unchanged. The new dashboard tab, skill, or agent is visible in the dashboard (Board's nav / Agents &
 Skills tab) on the very next SSE tick — no manual refresh, no extra registration step.
 

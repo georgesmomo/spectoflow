@@ -87,6 +87,9 @@ spectoflow dashboard status                    is it running? (url + pid)
 spectoflow dashboard stop   (or: stop)         stop the running dashboard
 spectoflow dashboard restart                   stop then start
 spectoflow dashboard create "..." | --auto     generate a custom dashboard
+spectoflow dashboard init [--path=<dir>]       create/move the dashboard workspace (default ~/.spectoflow/dashboard)
+spectoflow dashboard validate <file>           check a custom-view JSON against the block schema
+spectoflow config [get|set <key> [<value>]]    global defaults + dashboard URL/path (~/.spectoflow/config.json)
 
 spectoflow skill create "..." | --auto         generate a project skill
 spectoflow agent create "..." | --auto         generate a project agent
@@ -128,6 +131,14 @@ for you to merge by hand. Add `--dry-run` to preview, or `--force`/`-f` to overw
 in place instead of dropping a `.new` — use it once you're sure you have no local edits worth keeping
 in that file (e.g. it's been stuck diverged since an earlier update); it still never touches
 `config.json`, `workflow.md`, `specs/` or `plans/`.
+
+**Coming from before v0.24?** The dashboard used to be vendored into every project; now it ships once
+in the package. `npm install -g spectoflow@0.24`, then `spectoflow dashboard` anywhere — the dashboard
+workspace is created automatically and any project you'd already registered is carried over. Your
+project already opens in the new dashboard at this point, whether or not you've run `update` in it
+yet; running `spectoflow update` inside it retires its now-obsolete `.spectoflow/dashboard/` folder
+(only if you never edited anything in it — an edited file is kept and reported, never deleted) and
+moves any custom dashboard views you generated to `.spectoflow/dashboards/`.
 
 First refresh the kit, then run update from your project — the flow is the same whichever way you
 installed:

@@ -59,6 +59,7 @@ lib/
   dashboards/          user-generated custom views, one <id>.json per file
   lib/spec-drift.js    run in place by the audit-source skill and the Stop hook
   hooks/spec-drift.js
+  package.json         {"type":"commonjs"} — pins the subtree regardless of the host's own type (D62)
   runtime.json         gitignored, volatile execution state
 ```
 

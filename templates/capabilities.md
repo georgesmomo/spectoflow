@@ -17,7 +17,7 @@ the Clarify step in `AGENTS.md`.
 `customization` is also **not a workflow step** — it is triggered explicitly, either from the
 dashboard's Settings → Customize page or by a direct request ("add a dashboard for…", "create a skill
 for…", "create an agent for…"). The `framework-curator` agent owns it, running one of four skills:
-`generate-dashboard` (a declarative block-spec page — see `templates/lib/custom-dashboard.js`),
+`generate-dashboard` (a declarative block-spec page — validated by `spectoflow dashboard validate`),
 `generate-skill`, `generate-agent` (both follow `docs/agents-skills-standard.md`'s gold-standard
 shape, grounded in real, cited domain standards), and `propose-customizations` (the "Auto" mode:
 analyzes the project and proposes candidates instead of taking a description). Still gated by mode

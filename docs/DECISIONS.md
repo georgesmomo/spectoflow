@@ -1443,13 +1443,26 @@
     indice affiché des dossiers/fichiers qu'il est sûr de retirer à la main. Propriété vérifiée
     irréprochable en revue en traçant le code à la main (le mot-clé `force` n'apparaît jamais dans
     cette nouvelle boucle).
-  - **QA** : 8 tâches revues indépendamment (implémenteur + reviewer dédié à chaque fois, la plupart
-    avec un tour de correction), suite complète 268/269 (1 skip Windows préexistant), 0 échec après
-    chaque tâche — plusieurs échecs isolés rencontrés en cours de route (tests qui spawnent de vrais
-    serveurs, sous charge machine partagée avec d'autres sessions actives) systématiquement
+  - **QA** : 9 tâches revues indépendamment (implémenteur + reviewer dédié à chaque fois, 4 d'entre
+    elles avec un tour de correction), suite complète 268/269 (1 skip Windows préexistant), 0 échec
+    après chaque tâche — plusieurs échecs isolés rencontrés en cours de route (tests qui spawnent de
+    vrais serveurs, sous charge machine partagée avec d'autres sessions actives) systématiquement
     re-confirmés propres en isolation avant d'être écartés comme du bruit environnemental, jamais une
     vraie régression. QA finale sur les deux vrais projets de l'utilisateur (`todo-list-v2`,
     `georgesmomo.com`) : ouverture avant et après migration, vues personnalisées intactes.
+  - **Revue finale de branche** (les 9 tâches ensemble, modèle le plus capable) : trois défauts réels
+    qu'aucune revue par tâche ne pouvait voir isolément, corrigés avant publication —
+    1) `spectoflow dashboard init` ne migrait jamais un ancien registre `~/.spectoflow/projects.json`
+    (`workspace.init()` appelle désormais `migrateLegacyHome()` en premier, comme les deux autres
+    points d'entrée) ; 2) l'état d'approbation d'une orchestration (`orchestrator.js`) était une
+    variable de module unique — inoffensif avant D58 (un processus par projet), devenu une fuite
+    inter-projets réelle une fois le hub partagé entre tous (approuver dans un projet pouvait débloquer
+    l'attente d'un autre) ; corrigé en indexant l'état en attente par racine de projet (`Map`), jamais
+    repéré par un diff de tâche car le fichier lui-même n'avait pas changé — seul son contexte
+    d'exécution avait changé ; 3) le shim `CLAUDE.md` généré par `init` citait encore
+    `node .spectoflow/dashboard/server.js`. Les deux rulings du contrôleur pendant l'exécution
+    (Tâche 1 : garder `require(path.join(...))` plutôt que la forme littérale de la brief ; Tâche 9 :
+    scinder l'écriture de cette entrée et la QA réelle) ont été confirmés solides indépendamment.
   - **Guide de migration** (voir aussi `docs/dashboard-separation-design.md`) :
     `npm install -g spectoflow@0.24` → `spectoflow dashboard` n'importe où (workspace par défaut créé,
     projets existants repris automatiquement) → dans chaque projet, `spectoflow update` (retire le
@@ -1458,5 +1471,6 @@
 - Fichiers : `lib/dashboard/{hub-server,handlers,ops,runner,orchestrator,summarize,files,public/}.js`,
   `lib/{store,customize-prompts,custom-dashboard,global-config,workspace,registry,init,update}.js`,
   `bin/spectoflow.js`, `bin/postinstall.js`, `lib/adapters.js`, `lib/detect.js`,
-  `templates/{AGENTS.md,README.md,dashboards/.gitkeep}`, `docs/{ARCHITECTURE.md,
+  `templates/{AGENTS.md,README.md,capabilities.md,dashboards/.gitkeep,agents/framework-curator.md,
+  skills/generate-dashboard/SKILL.md}`, `README.md`, `docs/{ARCHITECTURE.md,
   dashboard-separation-design.md}`, `test/` (une douzaine de fichiers nouveaux ou rebasés sur le hub).

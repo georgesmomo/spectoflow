@@ -110,7 +110,7 @@ function init() {
   const r = initLib.runInit({ target, templatesDir: TPL, version: VERSION, agentsArg });
   console.log(logo());
   console.log(`${c.g('✓')} installed in ${c.bold(r.target)}`);
-  console.log(`  ${c.dim('.spectoflow/')}   framework — brain, workflow, agents, skills, policy, dashboard, config`);
+  console.log(`  ${c.dim('.spectoflow/')}   framework — brain, workflow, agents, skills, policy, config`);
   console.log(`  ${c.dim('specs/ plans/')}  markdown artifacts (your source of truth)`);
   r.written.forEach((w) => console.log(`  ${c.cy('+')} ${w}`));
   r.notes.forEach((n) => console.log(`  ${c.y('!')} ${c.dim(n)}`));
@@ -259,7 +259,7 @@ async function dashboard() {
   return startDashboard();
 }
 
-// ---- projects: the multi-project registry's CLI surface (~/.spectoflow/projects.json) ----
+// ---- projects: the multi-project registry's CLI surface (the workspace's projects.json) ----
 function projectsCmd() {
   const sub = argv[1];
   if (sub === 'remove') return projectsRemove(argv[2]);
@@ -505,7 +505,7 @@ ${c.bold('Dashboard')}
   ${c.g('dashboard stop')}               stop it ${c.dim('(alias: stop)')}
   ${c.g('dashboard restart')}            stop then start
   ${c.g('dashboard login')}               connect to a remote dashboard ${c.dim('(coming in a later release)')}
-  ${c.g('projects')} ${c.dim('[remove <id>]')}     list every project seen so far (~/.spectoflow/projects.json)
+  ${c.g('projects')} ${c.dim('[remove <id>]')}     list every project seen so far
 
 ${c.bold('Customize')} ${c.dim('— same as Settings → Customize, from the terminal')}
   ${c.g('skill create')} ${c.dim('"<description>" | --auto')}      generate a project skill
@@ -535,7 +535,7 @@ const HELP = {
   ${c.dim('An existing CLAUDE.md is preserved as CLAUDE.md.tomerge for you to merge on first run.')}
   ${c.dim('Full list with docs links: the dashboard\'s Documentation tab, or the README.')}`,
   update: `${c.bold('spectoflow update')} ${c.dim('[--dry-run] [--force|-f]')}\n
-  Refresh framework-owned files (engine, dashboard, default agents & skills, AGENTS.md, policy…)
+  Refresh framework-owned files (engine, default agents & skills, AGENTS.md, policy…)
   to this CLI's version, ${c.bold('preserving your work')}: config.json, workflow.md, specs/, plans/
   and any agent/skill you edited are never overwritten (an edited file's new version lands as
   ${c.dim('*.new')} for you to merge). ${c.g('--dry-run')} previews without writing.
@@ -555,7 +555,7 @@ const HELP = {
     ${c.g('validate <file>')}  check a custom-view JSON against the block schema
     ${c.g('login')}     connect to a remote dashboard ${c.dim('(coming in a later release)')}`,
   projects: `${c.bold('spectoflow projects')} ${c.dim('[remove <id>]')}\n
-  List every registered project in the global registry at ${c.dim('~/.spectoflow/projects.json')} (stored by
+  List every registered project in the global registry (the dashboard workspace's projects.json) (stored by
   ${c.g('spectoflow dashboard')}) — id, name, path. ${c.g('remove <id>')} drops one (e.g. a project that moved
   or was deleted) from this list only; it never touches that project's own files.`,
   skill: `${c.bold('spectoflow skill create')} ${c.dim('"<description>" [--agent=name]')}\n${c.bold('spectoflow skill create')} ${c.dim('--auto [--agent=name]')}\n
