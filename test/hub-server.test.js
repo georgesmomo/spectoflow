@@ -272,3 +272,60 @@ test('GET / serves the real hub page (hub.html), not the old placeholder', async
     assert.ok(res.body.includes('<html') || res.body.includes('<!DOCTYPE'));
   } finally { srv.kill(); }
 });
+
+test('hub-server writes the GLOBAL lock file (~/.spectoflow/hub.lock, not a per-project one)', async () => {
+  const home = freshHome();
+  const port = 7000 + Math.floor(Math.random() * 100);
+  const srv = await startHub(home, port);
+  try {
+    await get(port, '/'); // ensure the server has fully started before checking the lock
+    const registry = require('../lib/registry');
+    const lock = JSON.parse(fs.readFileSync(registry.hubLockPath(home), 'utf8'));
+    assert.strictEqual(lock.port, port);
+    assert.strictEqual(lock.pid, srv.pid);
+  } finally { srv.kill(); }
+});
+
+test('POST /api/hub/reload/:id on a project the hub never loaded reports reloaded:false, no error', async () => {
+  const home = freshHome();
+  const a = project(home, 'reload-unloaded');
+  const port = 7100 + Math.floor(Math.random() * 100);
+  const srv = await startHub(home, port);
+  try {
+    const res = await reqJSON(port, 'POST', `/api/hub/reload/${a.id}`);
+    assert.strictEqual(res.status, 200);
+    assert.strictEqual(res.body.reloaded, false);
+  } finally { srv.kill(); }
+});
+
+test('POST /api/hub/reload/:id on a loaded project reports reloaded:true and the project stays servable', async () => {
+  const home = freshHome();
+  const a = project(home, 'reload-loaded');
+  const port = 7200 + Math.floor(Math.random() * 100);
+  const srv = await startHub(home, port);
+  try {
+    await getJSON(port, `/api/project?p=${a.id}`); // load it into the hub's in-memory map first
+    const res = await reqJSON(port, 'POST', `/api/hub/reload/${a.id}`);
+    assert.strictEqual(res.status, 200);
+    assert.strictEqual(res.body.reloaded, true);
+    const after = await getJSON(port, `/api/project?p=${a.id}`);
+    assert.strictEqual(after.status, 200, 'still servable immediately after reload');
+  } finally { srv.kill(); }
+});
+
+test('reloading project A never disturbs project B, concurrently loaded in the same hub', async () => {
+  const home = freshHome();
+  const a = project(home, 'reload-a');
+  const b = project(home, 'reload-b');
+  const port = 7300 + Math.floor(Math.random() * 100);
+  const srv = await startHub(home, port);
+  try {
+    await getJSON(port, `/api/project?p=${a.id}`);
+    await getJSON(port, `/api/project?p=${b.id}`);
+    const reloadRes = await reqJSON(port, 'POST', `/api/hub/reload/${a.id}`);
+    assert.strictEqual(reloadRes.body.reloaded, true);
+    const bAfter = await getJSON(port, `/api/project?p=${b.id}`);
+    assert.strictEqual(bAfter.status, 200);
+    assert.strictEqual(bAfter.body.projectName, path.basename(b.path), 'B unaffected by A\'s reload');
+  } finally { srv.kill(); }
+});
