@@ -62,6 +62,15 @@ test('migrateLegacyHome() moves a pre-0.24 projects.json and hub.lock into the w
   assert.deepStrictEqual(ws.migrateLegacyHome(), { movedRegistry: false, movedLock: false });
 }));
 
+test('init() migrates a stranded legacy registry before deciding the target is empty (dashboard init, no prior `dashboard` start)', () => withHome((ws, registry, _gc, home) => {
+  fs.mkdirSync(home, { recursive: true });
+  fs.writeFileSync(path.join(home, 'projects.json'), JSON.stringify({ projects: [{ id: 'legacy1', path: home, name: 'legacy-project', lastOpened: '2026-01-01T00:00:00.000Z' }] }));
+  ws.init({});
+  assert.strictEqual(registry.listProjects().length, 1, 'the legacy project must be carried into the workspace registry, not orphaned');
+  assert.strictEqual(registry.listProjects()[0].id, 'legacy1');
+  assert.ok(!fs.existsSync(path.join(home, 'projects.json')), 'the legacy file must be moved, not left behind (or copied)');
+}));
+
 test('readLock() falls back to a legacy <home>/hub.lock so an old running hub is still found', () => withHome((ws, _r, _gc, home) => {
   fs.mkdirSync(home, { recursive: true });
   fs.writeFileSync(path.join(home, 'hub.lock'), '{"pid":42,"port":4319}');
