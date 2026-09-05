@@ -968,3 +968,57 @@ body.booting .wf-step2 { opacity:0; animation:rise .4s cubic-bezier(.2,.8,.2,1) 
 
 /* Phase progress: cap the list so a big project (many phases) doesn't dominate the overview */
 .bars-block.scroll-cap { max-height:340px; overflow-y:auto; padding-right:6px; }
+
+/* ---- Hub landing page (multi-project) — reuses the same tokens as the per-project dashboard,
+   deliberately simpler: no per-design skins, no tabs, just a calm project picker. ---- */
+.hub-body { min-height:100%; display:flex; flex-direction:column; }
+.hub-header { display:flex; align-items:center; justify-content:space-between; padding:16px 24px; border-bottom:1px solid var(--line); }
+.hub-brand { display:flex; align-items:center; gap:9px; font-weight:700; }
+.hub-brand .brand-logo-img { width:22px; height:22px; }
+.hub-brand-name { font-size:15px; }
+.hub-theme-toggle { width:32px; height:32px; border-radius:8px; border:1px solid var(--line); background:var(--surface); color:var(--ink); cursor:pointer; font-size:14px; }
+.hub-main { flex:1; max-width:1080px; width:100%; margin:0 auto; padding:32px 24px 60px; }
+.hub-titlebar { display:flex; align-items:center; justify-content:space-between; gap:16px; margin-bottom:24px; flex-wrap:wrap; }
+.hub-titlebar h1 { font-size:24px; font-weight:700; margin:0; }
+.hub-add-btn { font-family:var(--sans); font-size:13.5px; font-weight:600; padding:9px 16px; border-radius:9px; border:1px solid transparent; background:var(--signal); color:var(--on-accent); cursor:pointer; transition:filter .15s; }
+.hub-add-btn:hover { filter:brightness(1.08); }
+.hub-add-btn-lg { padding:12px 22px; font-size:14.5px; margin-top:14px; }
+.hub-empty { text-align:center; padding:60px 20px; border:1px dashed var(--line); border-radius:var(--radius); }
+.hub-empty-title { font-size:18px; font-weight:700; margin:0 0 8px; }
+.hub-empty-sub { color:var(--muted); font-size:13.5px; max-width:420px; margin:0 auto; }
+.hub-grid { display:grid; grid-template-columns:repeat(auto-fill,minmax(260px,1fr)); gap:14px; }
+.hub-card { position:relative; background:var(--surface); border:1px solid var(--line); border-radius:var(--radius); transition:border-color .15s,transform .15s; }
+.hub-card:hover { border-color:var(--signal); transform:translateY(-1px); }
+.hub-card-open { display:block; padding:16px; text-decoration:none; color:inherit; }
+.hub-card-name { font-size:15px; font-weight:700; color:var(--ink); overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+.hub-card-path { font-family:var(--mono); font-size:10.5px; color:var(--faint); margin-top:4px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+.hub-card-progress { height:5px; border-radius:999px; background:var(--surface-2); margin-top:12px; overflow:hidden; }
+.hub-card-progress-fill { height:100%; background:var(--s-done); border-radius:999px; }
+.hub-card-pct { font-family:var(--mono); font-size:10.5px; color:var(--muted); margin-top:6px; }
+.hub-card-meta { font-size:11px; color:var(--faint); margin-top:10px; }
+.hub-card-remove { position:absolute; top:8px; right:8px; width:22px; height:22px; border-radius:999px; border:1px solid var(--line); background:var(--surface-2); color:var(--muted); cursor:pointer; font-size:13px; line-height:1; }
+.hub-card-remove:hover { color:var(--s-blocked); border-color:var(--s-blocked); }
+
+.hub-modal { position:fixed; inset:0; background:rgba(0,0,0,.5); display:flex; align-items:center; justify-content:center; z-index:20; padding:20px; }
+.hub-modal[hidden] { display:none; }
+.hub-modal-card { background:var(--surface); border:1px solid var(--line); border-radius:var(--radius); box-shadow:var(--shadow); width:100%; max-width:460px; max-height:86vh; display:flex; flex-direction:column; padding:20px; }
+.hub-modal-head { display:flex; align-items:center; justify-content:space-between; margin-bottom:14px; }
+.hub-modal-head h2 { font-size:16px; margin:0; }
+.hub-modal-close { width:28px; height:28px; border-radius:8px; border:1px solid var(--line); background:var(--surface-2); color:var(--ink); cursor:pointer; font-size:16px; line-height:1; }
+.hub-modal-tabs { display:flex; gap:6px; margin-bottom:14px; }
+.hub-modal-tab { flex:1; font-family:var(--sans); font-size:12.5px; font-weight:600; padding:7px 10px; border-radius:8px; border:1px solid var(--line); background:var(--surface-2); color:var(--muted); cursor:pointer; }
+.hub-modal-tab.is-active { background:var(--signal); border-color:var(--signal); color:var(--on-accent); }
+.hub-modal-pane { display:flex; flex-direction:column; gap:10px; min-height:0; }
+.hub-modal-pane[hidden] { display:none; }
+.hub-browse-crumb { min-height:20px; }
+.hub-crumb-up { font-family:var(--mono); font-size:11.5px; color:var(--cool); background:none; border:0; cursor:pointer; padding:0; }
+.hub-browse-list { display:flex; flex-direction:column; gap:4px; max-height:220px; overflow-y:auto; border:1px solid var(--line); border-radius:9px; padding:6px; }
+.hub-browse-item { text-align:left; font-family:var(--sans); font-size:13px; padding:7px 9px; border-radius:6px; border:0; background:none; color:var(--ink); cursor:pointer; }
+.hub-browse-item:hover { background:var(--surface-2); }
+.hub-browse-empty { color:var(--faint); font-size:12.5px; padding:6px 2px; margin:0; }
+.hub-browse-footer { display:flex; align-items:center; gap:10px; justify-content:space-between; }
+.hub-browse-current { font-family:var(--mono); font-size:10.5px; color:var(--muted); overflow:hidden; text-overflow:ellipsis; white-space:nowrap; flex:1; }
+.hub-paste-label { font-size:12px; color:var(--muted); }
+.hub-paste-input { font-family:var(--mono); font-size:13px; padding:9px 11px; border-radius:8px; border:1px solid var(--line); background:var(--surface-2); color:var(--ink); }
+.hub-modal-error { color:var(--s-blocked); font-size:12.5px; margin:4px 0 0; }
+.hub-modal-status { color:var(--muted); font-size:12.5px; margin:4px 0 0; }

@@ -1,5 +1,9 @@
 'use strict';
 (function () {
+  const s = localStorage.getItem('spf-theme');
+  if (s) document.documentElement.setAttribute('data-theme', s);
+})();
+(function () {
   const grid = document.getElementById('hubGrid');
   const empty = document.getElementById('hubEmpty');
   const modal = document.getElementById('hubModal');
@@ -91,9 +95,13 @@
     if (data.error) { browseList.innerHTML = '<p class="hub-browse-empty">' + esc(data.error) + '</p>'; return; }
     browsePath = data.current || null;
     browseCurrent.textContent = browsePath || 'Choose a starting point';
-    browseCrumb.innerHTML = data.parent ? `<button class="hub-crumb-up" id="hubCrumbUp">&larr; Up</button>` : '';
+    // A drive root (D:\) or similar has no OS-level parent (data.parent is null) but the picker must
+    // never dead-end there — "Up" from any real folder always goes somewhere: its real parent, or
+    // back to the starting points list if there isn't one. Only hide it once we're AT that list.
+    const showUp = browsePath !== null;
+    browseCrumb.innerHTML = showUp ? `<button class="hub-crumb-up" id="hubCrumbUp">&larr; Up</button>` : '';
     const up = document.getElementById('hubCrumbUp');
-    if (up) up.addEventListener('click', () => { browsePath = data.parent; loadBrowse(); });
+    if (up) up.addEventListener('click', () => { browsePath = data.parent || null; loadBrowse(); });
     browseList.innerHTML = (data.entries || []).map((e) =>
       `<button class="hub-browse-item" data-path="${esc(e.path)}">${esc(e.name)}</button>`
     ).join('') || '<p class="hub-browse-empty">No sub-folders here.</p>';
@@ -113,6 +121,13 @@
   document.getElementById('hubPasteUse').addEventListener('click', () => {
     const v = document.getElementById('hubPasteInput').value.trim();
     if (v) submitPath(v);
+  });
+
+  document.getElementById('hubThemeToggle').addEventListener('click', () => {
+    const cur = document.documentElement.getAttribute('data-theme');
+    const next = cur === 'dark' ? 'light' : 'dark';
+    document.documentElement.setAttribute('data-theme', next);
+    localStorage.setItem('spf-theme', next);
   });
 
   loadProjects();
