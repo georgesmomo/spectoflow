@@ -2,7 +2,7 @@
 
 Every agent file (`.spectoflow/agents/<slug>.md`) and skill file (`.spectoflow/skills/<slug>/SKILL.md`)
 conforms to one of the two shapes below. Cite the domain standard you applied in the file's own
-**References** section. Keep front-matter machine-valid — `templates/lib/store.js:readAgents` parses simple
+**References** section. Keep front-matter machine-valid — `lib/store.js:readAgents` parses simple
 `key: value` and `uses: [a, b]` flat lists only (no nested YAML, no multi-line values).
 
 ## GOLD STANDARD — agent file (`.spectoflow/agents/<slug>.md`)

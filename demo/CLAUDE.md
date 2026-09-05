@@ -8,5 +8,5 @@ instructions (intent router, workflow, standing rules).
 > before anything else.
 
 - Command: `/spectoflow` (`init` / `status` / or just a request).
-- Dashboard: `node .spectoflow/dashboard/server.js` → http://localhost:4319
+- Dashboard: `spectoflow dashboard` → http://localhost:4319
 - Artifacts are markdown in `specs/` and `plans/`; volatile state in `.spectoflow/runtime.json`.
