@@ -278,3 +278,39 @@ test('SPA fallback: an extensionless route serves index.html', async () => {
     assert.ok(/<title>spectoflow/.test(html.body), 'serves the SPA shell for a client route');
   } finally { srv.kill(); }
 });
+
+// Regression: /api/workflow/toggle stripped "(optional)" from the END of the line before checking
+// for a trailing {cap:... skill:...} annotation (added later, D29) -- since every step in the
+// DEFAULT workflow.md template carries one of these annotations, toggling was broken for every
+// single step of every single project, not just an edge case. No test ever exercised this endpoint
+// before this was found by hand-testing the hub against a real project.
+test('POST /api/workflow/toggle enables a step whose line has a trailing {cap:...} annotation', async () => {
+  const d = project();
+  const port = 4780 + Math.floor(Math.random() * 100);
+  const srv = await startServer(d, port);
+  try {
+    const wf = path.join(d, '.spectoflow', 'workflow.md');
+    const before = fs.readFileSync(wf, 'utf8');
+    assert.match(before, /- \[ \] Integration tests \(optional\) \{cap:testing skill:write-e2e-tests\}/,
+      'the default template really does carry a trailing annotation on this optional step');
+    const res = await reqJSON(port, 'POST', '/api/workflow/toggle', { name: 'Integration tests' });
+    assert.strictEqual(res.status, 200);
+    const after = fs.readFileSync(wf, 'utf8');
+    assert.match(after, /- \[x\] Integration tests \(optional\) \{cap:testing skill:write-e2e-tests\}/i,
+      'the step is now enabled -- the annotation must not block the (optional) strip');
+  } finally { srv.kill(); }
+});
+
+test('POST /api/workflow/toggle also works on a non-optional step with a trailing annotation', async () => {
+  const d = project();
+  const port = 4790 + Math.floor(Math.random() * 100);
+  const srv = await startServer(d, port);
+  try {
+    const wf = path.join(d, '.spectoflow', 'workflow.md');
+    assert.match(fs.readFileSync(wf, 'utf8'), /- \[x\] Brainstorm \{cap:intake skill:brainstorm\}/);
+    const res = await reqJSON(port, 'POST', '/api/workflow/toggle', { name: 'Brainstorm' });
+    assert.strictEqual(res.status, 200);
+    assert.match(fs.readFileSync(wf, 'utf8'), /- \[ \] Brainstorm \{cap:intake skill:brainstorm\}/,
+      'toggling a step with an annotation but no "(optional)" marker must also work');
+  } finally { srv.kill(); }
+});

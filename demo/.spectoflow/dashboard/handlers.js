@@ -135,8 +135,18 @@ function createHandlers(root) {
     if (p === '/api/workflow/toggle' && req.method === 'POST') {
       const { name } = await body(req); const wf = path.join(root, '.spectoflow', 'workflow.md');
       const lines = fs.readFileSync(wf, 'utf8').split('\n');
+      // Must strip a trailing {cap:... skill:... policy} annotation (added in D29) BEFORE stripping
+      // "(optional)" — same order as store.js's readWorkflow(), which is what the client's own step
+      // names (and so `name` here) are actually derived from. Every step in the default workflow.md
+      // template carries one of these annotations, so getting this order wrong breaks toggling
+      // every single step, not just an edge case.
+      const stepName = (rest) => {
+        const ann = rest.match(/\{([^}]*)\}\s*$/);
+        if (ann) rest = rest.slice(0, ann.index).trim();
+        return rest.replace(/\s*\(optional\)\s*$/i, '').trim();
+      };
       for (let i = 0; i < lines.length; i++) { const m = lines[i].match(/^(\s*- \[)( |x|X)(\]\s+)(.*)$/);
-        if (m && m[4].replace(/\s*\(optional\)\s*$/i, '').trim() === name) lines[i] = m[1] + (m[2].trim() ? ' ' : 'x') + m[3] + m[4]; }
+        if (m && stepName(m[4]) === name) lines[i] = m[1] + (m[2].trim() ? ' ' : 'x') + m[3] + m[4]; }
       fs.writeFileSync(wf, lines.join('\n')); emit({ type: 'change' }); sendJSON(res, 200, { ok: true }); return true;
     }
 

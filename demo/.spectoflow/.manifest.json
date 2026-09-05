@@ -1,5 +1,5 @@
 {
-  "version": "0.23.1",
+  "version": "0.23.2",
   "files": {
     "AGENTS.md": "00a96b7fb107d17aeb6d262df24d9edde86a0026292dfae582f0d7eac3e79dc4",
     "README.md": "80beafaae9e6ec9f554de4a1ae937f891346c9501117db9fd73584a3f410c80b",
@@ -18,7 +18,7 @@
     "capabilities.md": "c583871f981c7d3dcbbf5eee2e10112681e81cfdfe5f11eab8b7b3a0b03586c1",
     "dashboard/custom/.gitkeep": "6bd49227dc74d43f4e5b0a73057119029b14b0073b201594cba8d11417221ec7",
     "dashboard/files.js": "6d4e25bdaf32c986ab9256ff4976f6900865d6288ae0a454050e4f59ebceae48",
-    "dashboard/handlers.js": "349c318fce92cd9e5220fdfc35af083c4ffc8ac64fe3eb7fbe71c1400789f6d5",
+    "dashboard/handlers.js": "16d7d9080d20c4ad6685ef44f8338ddf926bc6dd102493e17e4b437e40fc7d94",
     "dashboard/orchestrator.js": "1529553b80d0bb45ec7c9ac7ca150ec841d14274f5b900c92ebb083f6a69e7f1",
     "dashboard/public/app.js": "97696348bdbe30f8454fe3fe5f225008fd145341c24854af25c61f74f256c7ab",
     "dashboard/public/charts.js": "19015e799aed5a6e040dca0d282bc87827e4b06cc2e8865c518adc1e41d8f59b",

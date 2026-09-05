@@ -5,6 +5,16 @@ framework with a real-time local control plane. This file orients you to **build
 (it is not a spectoflow-managed project). Read `docs/` before making changes:
 `docs/ARCHITECTURE.md`, `docs/DECISIONS.md` (the full rationale, D1–D23), `docs/ROADMAP.md` (what's next).
 
+## What exists (v0.23.2 — see DECISIONS D60)
+
+Found continuing to dogfood the hub on a real project: clicking "Activer l'étape" in the Workflow
+tab's popover silently did nothing. `/api/workflow/toggle`'s handler stripped a trailing `(optional)`
+marker before checking for a `{cap:... skill:... policy}` annotation (added in D29) — but every step
+in the default `workflow.md` template carries one of these annotations, so this had been broken for
+every single step of every single project since D29 shipped, with zero test coverage on this endpoint
+until now. Fixed by mirroring `store.js`'s `readWorkflow()` exact strip order (annotation first, then
+`(optional)`) in the handler.
+
 ## What exists (v0.23.1 — see DECISIONS D59)
 
 Found dogfooding the hub on a real, existing user project (still on v0.22.3): opening a registered

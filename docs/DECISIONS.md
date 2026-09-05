@@ -1272,3 +1272,31 @@
     en bout depuis plusieurs tentatives cette session, sans la contention machine rencontrée
     auparavant.
 - Fichiers : `lib/hub-server.js`, `test/hub-server.test.js`.
+
+### D60 — 0.23.2 : `/api/workflow/toggle` ne fonctionnait pour AUCUNE étape (annotation `{cap:...}`)
+- **ACTÉ.** Trouvé en testant l'onglet Workflow en conditions réelles sur `todo-list-v2` (toujours à
+  la demande de l'utilisateur, en continuant le dogfooding de D59) : cliquer « Activer l'étape » sur
+  « Integration tests » depuis l'interface ne changeait strictement rien à `workflow.md`, alors que
+  l'API répondait `{"ok":true}` — aucune erreur visible nulle part.
+  - **Cause** : le handler comparait le nom de l'étape en ne retirant que le suffixe `(optional)` en
+    fin de ligne (`m[4].replace(/\(optional\)$/,'')`) — mais `readWorkflow()` (`store.js`) retire
+    D'ABORD l'annotation `{cap:... skill:... policy}` (ajoutée en D29) PUIS `(optional)`, dans cet
+    ordre précis. Le modèle par défaut de **chaque** projet spectoflow porte cette annotation sur
+    **chaque** étape (`- [x] Brainstorm {cap:intake skill:brainstorm}`, etc.) — donc dès qu'une
+    annotation était présente, `(optional)` n'était plus en fin de chaîne, le `.replace()` ne
+    matchait jamais, et la comparaison avec le nom envoyé par le client (déjà correctement nettoyé
+    côté `readWorkflow()`) échouait systématiquement. Résultat concret : **activer/désactiver une
+    étape du workflow depuis le dashboard n'a jamais fonctionné, pour aucun projet, depuis
+    l'introduction des annotations `{cap:...}` (D29)** — un chemin de code sans aucun test
+    automatisé jusqu'ici, jamais repéré par les QA précédentes (toutes menées sur des workflows sans
+    annotation, ou n'ayant jamais testé le clic réel).
+  - **Fix** : le handler reproduit maintenant exactement le même ordre de nettoyage que
+    `readWorkflow()` (retirer `{...}` en premier, puis `(optional)`) avant de comparer les noms.
+  - **QA** : reproduit ET corrigé en conditions réelles sur `todo-list-v2` — `spectoflow update
+    --force` (avec la logique corrigée) a poussé le seul fichier changé (`handlers.js`) dans ce vrai
+    projet, déclenché automatiquement le rechargement chirurgical (D58) sans redémarrer le hub, et le
+    clic réel « Activer l'étape » a immédiatement fonctionné, vérifié à la fois via l'API directe et
+    via l'interface. Deux nouveaux tests de régression (annotation sur une étape optionnelle, et sur
+    une étape normale) — confirmés en échouant sans le fix (`git stash` puis relance), passant avec.
+    Suite complète : 231 tests, 230 passent (1 skip Windows), 0 échec.
+- Fichiers : `templates/dashboard/handlers.js`, `test/dashboard-backend.test.js`.
