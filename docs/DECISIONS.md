@@ -1333,3 +1333,27 @@
     du dashboard projet. Suite complète : 233 tests, 232 passent (1 skip Windows), 0 échec — changement
     purement HTML/CSS/JS client, aucun test existant affecté.
 - Fichiers : `templates/dashboard/public/hub.html`, `hub.js`, `index.html`, `app.js`, `styles.css`.
+
+### D62 — 0.23.4 : un projet hôte en `"type":"module"` cassait tout le dashboard vendu
+- **ACTÉ.** Trouvé en conditions réelles : l'utilisateur a ajouté au hub un vrai projet (`georgesmomo.com`,
+  un site Astro) via « + Add project », et son dashboard affichait « ... dashboard code failed to load
+  — check its .spectoflow/dashboard/handlers.js for errors » (le 3ᵉ cas de `projectErrorMessage`, D59).
+  - **Cause** : le `package.json` racine de ce projet déclare `"type":"module"` (site moderne). Node
+    détermine le type d'un fichier `.js` en remontant vers le `package.json` ancêtre le plus proche —
+    or `.spectoflow/` n'expédiait aucun `package.json` à lui pour réinitialiser ce réglage. Le
+    `require(handlersPath)` du hub remontait donc jusqu'au `package.json` du projet hôte, faisait
+    traiter `handlers.js` (et tout le reste de `.spectoflow/`, écrit en CommonJS classique —
+    `require()`/`module.exports`) comme un module ES, et la résolution `require('../lib/store')`
+    échouait avec un `Cannot find module` trompeur (le vrai problème n'a rien à voir avec le chemin).
+    Aucun des projets déjà testés cette session (todo-list-v2, demo/) n'a de `"type":"module"` — bug
+    invisible jusqu'à ce premier vrai projet de cette forme.
+  - **Fix** : nouveau `templates/package.json` (`{"private":true,"type":"commonjs"}`), copié dans
+    `.spectoflow/package.json` par `init`/`update` comme n'importe quel autre fichier framework
+    (`ownership.js` le classe automatiquement — rien à coder côté ownership) — épingle tout le
+    sous-arbre `.spectoflow/` en CommonJS quel que soit le réglage du projet hôte.
+  - **QA** : deux nouveaux tests (`test/esm-host-project.test.js`) — confirmés en échec avant le fix
+    (reproduisant l'erreur exacte de l'utilisateur), passant après. Appliqué en direct sur le vrai
+    projet cassé via `spectoflow update` (0.23.0 → 0.23.4, `package.json` créé) : le Board se charge
+    désormais correctement (32 tâches, 11 phases, vérifié par capture d'écran). Suite complète :
+    235 tests, 234 passent (1 skip Windows), 0 échec.
+- Fichiers : `templates/package.json` (nouveau), `test/esm-host-project.test.js` (nouveau).

@@ -1,5 +1,5 @@
 {
-  "version": "0.23.3",
+  "version": "0.23.4",
   "files": {
     "AGENTS.md": "00a96b7fb107d17aeb6d262df24d9edde86a0026292dfae582f0d7eac3e79dc4",
     "README.md": "80beafaae9e6ec9f554de4a1ae937f891346c9501117db9fd73584a3f410c80b",
@@ -57,6 +57,7 @@
     "lib/customize-prompts.js": "6b77a8184c2213fcfd5059a53340c387c6c6ef412aaac51b8f6948a2ba86b613",
     "lib/spec-drift.js": "d2f5e5e4f2ce739c57cbce915a9664cab98f03c5b77aa04d9f52b441e5951d92",
     "lib/store.js": "1c63face13c7f046fc83e1ed81b8cbee888e576e42809743250c75f1b6326f69",
+    "package.json": "a51bff776fdd53226e2e67d8f654d17dadfe3decc8bf8bf869cba3aff9813826",
     "policy.md": "863091874780577cba0c51892aa42996d47e7b4e48b900f3ee65bcce16d7f0e5",
     "skills/analyze-requirements/SKILL.md": "1bc66fadae9b3af8f818a5877ec9ccb0d253d6fbc5e91bf247585dd6d7c3b4e7",
     "skills/audit-source/SKILL.md": "95b1fc120a201ed176faafe4c4689502f0edfa7eb8d9cfd6c4f608f80f4a0b71",

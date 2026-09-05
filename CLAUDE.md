@@ -5,6 +5,19 @@ framework with a real-time local control plane. This file orients you to **build
 (it is not a spectoflow-managed project). Read `docs/` before making changes:
 `docs/ARCHITECTURE.md`, `docs/DECISIONS.md` (the full rationale, D1–D23), `docs/ROADMAP.md` (what's next).
 
+## What exists (v0.23.4 — see DECISIONS D62)
+
+Found in real use: adding a real host project (`georgesmomo.com`, an Astro site) to the hub showed
+"dashboard code failed to load". Its own root `package.json` declares `"type":"module"`, and
+`.spectoflow/` shipped no `package.json` of its own to reset that for its subtree — Node resolved
+every vendored CommonJS file (`require()`/`module.exports`) as an ES module by walking up to the
+host's setting, breaking `require()` with a misleading "Cannot find module" error unrelated to the
+real cause. Fixed with a new `templates/package.json` (`{"type":"commonjs"}`), copied into
+`.spectoflow/package.json` by `init`/`update` like any other framework file — pins the whole
+`.spectoflow/` subtree to CommonJS regardless of the host project's own module type. Two new
+regression tests confirmed failing before the fix (reproducing the user's exact error) and passing
+after; applied live to the real broken project, Board confirmed loading correctly by screenshot.
+
 ## What exists (v0.23.3 — see DECISIONS D61)
 
 Direct user feedback after dogfooding the hub (D59/D60): the project-list page "isn't styled at all,
