@@ -24,20 +24,20 @@ function runInit(args, env) {
 const cfg = (proj) => JSON.parse(fs.readFileSync(path.join(proj, '.spectoflow', 'config.json'), 'utf8'));
 
 test('explicit --agent= sets the active agent and writes its shim + runner', () => {
-  const proj = runInit(['--agent=gemini'], { ...process.env, PATH: bindir() });
+  const proj = runInit(['--agent=gemini'], { ...process.env, PATH: bindir(), SPECTOFLOW_HOME: fs.mkdtempSync(path.join(os.tmpdir(), 'stf-init-home-')) });
   assert.strictEqual(cfg(proj).agent, 'gemini');
   assert.ok(fs.existsSync(path.join(proj, 'GEMINI.md')), 'GEMINI.md shim');
   assert.ok(cfg(proj).runners.gemini, 'gemini runner seeded');
 });
 
 test('auto-detection picks the detected agent as active (no --agent given)', () => {
-  const proj = runInit([], { ...process.env, PATH: bindir('gemini') }); // only gemini on PATH
+  const proj = runInit([], { ...process.env, PATH: bindir('gemini'), SPECTOFLOW_HOME: fs.mkdtempSync(path.join(os.tmpdir(), 'stf-init-home-')) }); // only gemini on PATH
   assert.strictEqual(cfg(proj).agent, 'gemini');
   assert.ok(fs.existsSync(path.join(proj, 'GEMINI.md')));
 });
 
 test('nothing detected falls back to claude + codex', () => {
-  const proj = runInit([], { ...process.env, PATH: bindir() }); // empty PATH, no agent dirs
+  const proj = runInit([], { ...process.env, PATH: bindir(), SPECTOFLOW_HOME: fs.mkdtempSync(path.join(os.tmpdir(), 'stf-init-home-')) }); // empty PATH, no agent dirs
   assert.strictEqual(cfg(proj).agent, 'claude');
   assert.ok(fs.existsSync(path.join(proj, 'CLAUDE.md')));
   assert.ok(fs.existsSync(path.join(proj, 'AGENTS.md')));
