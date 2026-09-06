@@ -21,6 +21,8 @@ async function buildApp({ db, insecureDev, publicDir, trustProxy, onFrame, regis
   await registerConnector(app, { db, registry: reg, onFrame: onFrame || relay.onFrame });
   const { registerSharing } = require('./routes/sharing');
   await registerSharing(app, { db, emailer });
+  const { registerAdmin } = require('./routes/admin');
+  await registerAdmin(app, { db });
   app.decorate('connectorRegistry', reg);
   app.get('/', async (_req, reply) => reply.sendFile('hub.html'));
   app.get('/p/:id/*', async (_req, reply) => reply.sendFile('index.html'));

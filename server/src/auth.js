@@ -40,8 +40,14 @@ async function registerAuth(fastify, { db, insecureDev, emailer }) {
     const password = req.body && req.body.password;
     if (typeof email !== 'string' || !EMAIL_RE.test(email)) return reply.code(400).send({ error: 'A valid email is required.' });
     if (typeof password !== 'string' || password.length < 12) return reply.code(400).send({ error: 'Password must be at least 12 characters.' });
+    const mode = await db.getSignupMode();
+    if (mode === 'disabled') return reply.code(403).send({ error: 'Signup is currently disabled on this instance.' });
+    if (mode === 'invite_only' && !(await db.hasPendingInvitationForEmail(email))) {
+      return reply.code(403).send({ error: 'Signup is invite-only on this instance — you need a pending project invitation sent to this email.' });
+    }
     if (await db.findUserByEmail(email)) return reply.code(409).send({ error: 'An account with that email already exists.' });
     const user = await db.createUser(email, password);
+    if ((await db.countUsers()) === 1) await db.assignPlatformRole(user.id, db.SYSTEM_ROLE_IDS.PLATFORM_ADMIN);
     const session = await db.createSession(user.id, clientMeta(req));
     setSessionCookie(reply, session.token);
     const verifyToken = await db.createEmailVerificationToken(user.id);

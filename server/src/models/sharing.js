@@ -71,7 +71,11 @@ function createSharingModel(knex) {
     await addProjectMember(inv.projectId, userId, inv.roleId);
     return inv.projectId;
   }
-  return { findMembership, addProjectMember, removeProjectMember, changeMemberRole, getProjectOwnerUserId, listProjectMembers, createInvitation, findInvitationByToken, acceptInvitation };
+  async function hasPendingInvitationForEmail(email) {
+    const row = await knex('project_invitations').where({ email: String(email).toLowerCase() }).whereNull('accepted_at').where('expires_at', '>', new Date()).first();
+    return !!row;
+  }
+  return { findMembership, addProjectMember, removeProjectMember, changeMemberRole, getProjectOwnerUserId, listProjectMembers, createInvitation, findInvitationByToken, acceptInvitation, hasPendingInvitationForEmail };
 }
 
 module.exports = { createSharingModel };

@@ -59,6 +59,38 @@ test('POST /signup creates a real account, sets a working session cookie, and re
   } finally { await a.close(); await db.destroy(); }
 });
 
+test('signup respects the platform signup mode: disabled blocks everyone, invite_only requires a pending invitation for that email', async () => {
+  const { app: a, db } = await app({ publicDir: undefined });
+  try {
+    await db.setSignupMode('disabled');
+    assert.strictEqual((await signup(a, 'x1@example.com')).statusCode, 403);
+    await db.setSignupMode('invite_only');
+    assert.strictEqual((await signup(a, 'x2@example.com')).statusCode, 403); // no invitation exists for this email
+    // Create a real pending invitation for x3@example.com via the model directly (routes.sharing's
+    // own HTTP invite flow is tested in test/routes/sharing.test.js — this test only needs the
+    // signup-side gate, not the full invite-creation path).
+    const someoneElse = await db.createUser('inviter@example.com', 'password-123456');
+    const m = await db.createMachine('m', someoneElse.id); await m.ready;
+    const project = await db.upsertProject({ machineId: m.id, localId: 'aaaaaa', name: 'Alpha', kind: 'spectoflow' });
+    await db.createInvitation({ projectId: project.id, email: 'x3@example.com', roleId: db.SYSTEM_ROLE_IDS.VIEWER, invitedByUserId: someoneElse.id });
+    assert.strictEqual((await signup(a, 'x3@example.com')).statusCode, 200);
+    await db.setSignupMode('open');
+    assert.strictEqual((await signup(a, 'x4@example.com')).statusCode, 200); // open mode needs no invitation
+  } finally { await a.close(); await db.destroy(); }
+});
+
+test('the very first account ever created automatically becomes Platform Admin; the second does not', async () => {
+  const { app: a, db } = await app({ publicDir: undefined });
+  try {
+    const first = await signup(a, 'first@example.com');
+    const firstUser = await db.findUserByEmail('first@example.com');
+    assert.strictEqual(await db.hasPlatformPermission(firstUser.id, 'platform.manage_signup'), true);
+    await signup(a, 'second@example.com');
+    const secondUser = await db.findUserByEmail('second@example.com');
+    assert.strictEqual(await db.hasPlatformPermission(secondUser.id, 'platform.manage_signup'), false);
+  } finally { await a.close(); await db.destroy(); }
+});
+
 test('POST /login: correct credentials set a cookie; wrong password/unknown email are 401 and set no cookie; a tampered cookie is 401', async () => {
   const { app: a, db } = await app();
   try {
