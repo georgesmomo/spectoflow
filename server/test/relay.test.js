@@ -230,3 +230,17 @@ test('GET /api/hub/projects only lists projects the caller is a member of', asyn
     assert.strictEqual(outsiderList.projects.length, 0);
   } finally { await app.close(); await db.destroy(); }
 });
+
+test('DIAGNOSTIC: a hello from a machine with no owner_user_id logs a warning instead of silently skipping the Owner insert', async () => {
+  const { app, db, machine, url } = await boot();
+  try {
+    await db.knex('machines').where({ id: machine.id }).update({ owner_user_id: null });
+    const warnings = [];
+    const origWarn = app.log.warn.bind(app.log);
+    app.log.warn = (msg) => { warnings.push(msg); return origWarn(msg); };
+    const r = await fetch(url + '/connector/frames', { method: 'POST', headers: { Authorization: `Bearer ${machine.token}`, 'Content-Type': 'application/json' },
+      body: JSON.stringify([{ type: 'auth', token: machine.token }, { type: 'hello', machineName: 'laptop', projects: [{ localId: 'bbbbbb', name: 'Beta', kind: 'spectoflow' }] }]) });
+    assert.strictEqual(r.status, 200);
+    assert.ok(warnings.some((w) => /no owner_user_id/i.test(w)), warnings.join('\n'));
+  } finally { await app.close(); await db.destroy(); }
+});

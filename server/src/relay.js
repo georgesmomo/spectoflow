@@ -74,7 +74,16 @@ function registerRelay(app, { db, registry }) {
         // member. Idempotent — upsertProject/hello re-run on every reconnect, so only insert once.
         if (!(await db.getProjectOwnerUserId(row.id))) {
           const machine = await db.knex('machines').where({ id: machineId }).first();
-          if (machine && machine.owner_user_id) await db.addProjectMember(row.id, machine.owner_user_id, db.SYSTEM_ROLE_IDS.OWNER);
+          if (machine && machine.owner_user_id) {
+            await db.addProjectMember(row.id, machine.owner_user_id, db.SYSTEM_ROLE_IDS.OWNER);
+          } else {
+            // Diagnostic-only: this project has no Owner member and never will until its machine
+            // gets an owner_user_id — resulting in every /api/* call 404ing as "Unknown project."
+            // for everyone, with nothing else in the logs to explain why. Should not happen in
+            // practice (createMachine always takes an ownerUserId) but a stale/hand-edited row could
+            // hit this, and it would otherwise be completely undiagnosable.
+            app.log.warn(`project "${row.id}" (${p.name}) was published but its machine "${machineId}" has no owner_user_id — no Owner member was created, so this project will answer 404 to everyone.`);
+          }
         }
         localIdOf.set(row.id, { machineId, localId: p.localId });
         seen.add(p.localId);
