@@ -9,16 +9,19 @@
     "migrate": "node cli.js migrate",
     "test": "node --test \"test/**/*.test.js\""
   },
-  "engines": { "node": ">=22" },
+  "engines": {
+    "node": ">=22"
+  },
   "dependencies": {
-    "fastify": "^5.1.0",
-    "@fastify/websocket": "^11.0.2",
     "@fastify/cookie": "^11.0.2",
     "@fastify/rate-limit": "^10.2.1",
     "@fastify/static": "^8.0.3",
+    "@fastify/websocket": "^11.0.2",
+    "argon2": "^0.41.1",
+    "better-sqlite3": "^13.0.0",
+    "fastify": "^5.1.0",
     "knex": "^3.1.0",
     "mysql2": "^3.11.4",
-    "better-sqlite3": "^13.0.0",
     "pg": "^8.13.1"
   }
 }
