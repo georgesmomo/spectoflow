@@ -1,6 +1,6 @@
 /* ============================================================================================
  * Orbit — light-first, airy, circular design skin. Teal signal + amber accent, dotted ground,
- * Space Grotesk display / IBM Plex Sans body / JetBrains Mono numerics (all self-hosted, see the
+ * Bricolage Grotesque display / IBM Plex Sans body / JetBrains Mono numerics (all self-hosted, see the
  * @font-face rules already declared in styles.css). Navigation is NOT the tab bar — the tab bar is
  * hidden and replaced by a round "hub" button in the header that opens a full-screen radial menu
  * (orbit.js builds it from the very same #tabs buttons, so routing logic is fully reused).
@@ -15,7 +15,7 @@ html[data-design="orbit"] {
   --s-done:#1f9c5c; --s-blocked:#d93a3a;
   --radius:20px; --shadow:0 14px 40px rgba(14,29,33,.12);
   --sans:'IBM Plex Sans',ui-sans-serif,system-ui,sans-serif;
-  --display:'Space Grotesk',ui-sans-serif,system-ui,sans-serif;
+  --display:'Bricolage Grotesque',ui-sans-serif,system-ui,sans-serif;
   --mono:'JetBrains Mono',ui-monospace,Menlo,Consolas,monospace;
   --ob-dot: rgba(14,29,33,.07);
 }

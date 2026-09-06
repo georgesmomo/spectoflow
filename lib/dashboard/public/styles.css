@@ -10,7 +10,7 @@
   --radius: 14px; --shadow: 0 12px 34px rgba(0,0,0,.42);
   --mono: ui-monospace, "SF Mono", Menlo, Consolas, monospace;
   --sans: system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
-  --display: var(--sans);   /* headings / big numbers — designs may swap in a display face */
+  --display: 'Bricolage Grotesque', var(--sans);   /* Control Room's own display face; every other design overrides this in its own block */
 }
 [data-theme="light"] { --bg:#f4f5f9; --surface:#ffffff; --surface-2:#eef0f6; --line:#dde0ea; --ink:#1b1e28; --muted:#5c6478; --faint:#8b93a6; --signal:#6d54e0; --cool:#2f8e82; --on-accent:#ffffff; --s-todo:#6b7280; --s-in_progress:#c17d20; --s-to_validate:#2f8e82; --s-to_analyze:#8a6bb0; --s-done:#3f9f63; --s-blocked:#c85a6e; }
 * { box-sizing: border-box; }
@@ -873,9 +873,9 @@ body.booting .wf-step2 { opacity:0; animation:rise .4s cubic-bezier(.2,.8,.2,1) 
 }
 
 /* ================= Self-hosted fonts (offline, zero external dependency) ================= */
-@font-face{font-family:'Space Grotesk';font-style:normal;font-weight:400;font-display:swap;src:url(fonts/space-grotesk-400.woff2) format('woff2');}
-@font-face{font-family:'Space Grotesk';font-style:normal;font-weight:500;font-display:swap;src:url(fonts/space-grotesk-500.woff2) format('woff2');}
-@font-face{font-family:'Space Grotesk';font-style:normal;font-weight:700;font-display:swap;src:url(fonts/space-grotesk-700.woff2) format('woff2');}
+@font-face{font-family:'Bricolage Grotesque';font-style:normal;font-weight:400;font-display:swap;src:url(fonts/bricolage-grotesque-400.woff2) format('woff2');}
+@font-face{font-family:'Bricolage Grotesque';font-style:normal;font-weight:600;font-display:swap;src:url(fonts/bricolage-grotesque-600.woff2) format('woff2');}
+@font-face{font-family:'Bricolage Grotesque';font-style:normal;font-weight:700;font-display:swap;src:url(fonts/bricolage-grotesque-700.woff2) format('woff2');}
 @font-face{font-family:'Sora';font-style:normal;font-weight:400;font-display:swap;src:url(fonts/sora-400.woff2) format('woff2');}
 @font-face{font-family:'Sora';font-style:normal;font-weight:600;font-display:swap;src:url(fonts/sora-600.woff2) format('woff2');}
 @font-face{font-family:'Sora';font-style:normal;font-weight:700;font-display:swap;src:url(fonts/sora-700.woff2) format('woff2');}
@@ -899,7 +899,7 @@ body.booting .wf-step2 { opacity:0; animation:rise .4s cubic-bezier(.2,.8,.2,1) 
   --signal:#7c4dff; --cool:#00e5ff; --on-accent:#0d0b1a;
   --s-todo:#6f689e; --s-in_progress:#ff9f45; --s-to_validate:#00e5ff; --s-to_analyze:#c47dff; --s-done:#3ddc97; --s-blocked:#ff6b8a;
   --radius:16px; --shadow:0 18px 50px rgba(0,0,0,.55);
-  --sans:'Sora', system-ui, sans-serif; --display:'Space Grotesk', system-ui, sans-serif;
+  --sans:'Sora', system-ui, sans-serif; --display:'Bricolage Grotesque', system-ui, sans-serif;
 }
 :root[data-design="neon-command"] body { background:var(--bg); }
 :root[data-design="neon-command"] .kpi,
@@ -933,6 +933,7 @@ body.booting .wf-step2 { opacity:0; animation:rise .4s cubic-bezier(.2,.8,.2,1) 
   --signal:#5b6cff; --cool:#22d3ee; --on-accent:#ffffff;
   --s-todo:#6b7280; --s-in_progress:#f59e0b; --s-to_validate:#ec4899; --s-to_analyze:#a855f7; --s-done:#22c55e; --s-blocked:#ef4444;
   --radius:14px; --shadow:0 10px 30px rgba(0,0,0,.4);
+  --display:'Bricolage Grotesque', system-ui, sans-serif;
 }
 /* signature touches: a filled active tab pill + solid-indigo progress bars */
 :root[data-design="mission"] .tab.is-active { background:var(--signal); color:var(--on-accent); box-shadow:none; }
