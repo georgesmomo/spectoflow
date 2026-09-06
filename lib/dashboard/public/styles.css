@@ -545,7 +545,7 @@ body.booting .seg-anim { transform-origin:center; transform-box:fill-box; opacit
 body.booting .bar-fill { animation:grow .6s cubic-bezier(.2,.8,.2,1) both; animation-delay:calc(var(--i,0)*.07s); }
 @keyframes grow { from{ width:0; } }
 
-/* gradient ring (stroke="url(#grad)") fades/scales in */
+/* progress ring (flat var(--signal) stroke) fades/scales in */
 body.booting .ring-svg circle:last-of-type { transform-origin:center; animation:pop .5s cubic-bezier(.2,.8,.2,1) both; }
 
 @media (prefers-reduced-motion: reduce){
