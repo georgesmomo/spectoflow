@@ -25,7 +25,12 @@ services:
     volumes:
       - mysql-data:/var/lib/mysql
     healthcheck:
-      test: ["CMD", "mysqladmin", "ping", "-h", "localhost"]
+      # -h 127.0.0.1 forces mysqladmin to probe over TCP, not the local Unix socket. The socket
+      # answers pings during MySQL's own first-boot "temporary server" init phase (which listens
+      # on socket only, TCP port 0) — a socket-based ping would report "healthy" ~25s before
+      # mysqld is actually accepting the TCP connections on 3306 that `server` depends on,
+      # letting `server` start too early and crash with ECONNREFUSED.
+      test: ["CMD", "mysqladmin", "ping", "-h", "127.0.0.1"]
       interval: 10s
       timeout: 5s
       retries: 5
