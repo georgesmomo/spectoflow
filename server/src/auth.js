@@ -25,7 +25,19 @@ const isPublic = (url) => {
 
 const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
-async function registerAuth(fastify, { db, insecureDev, emailer }) {
+// Emailed links (verification, password reset) must never be built from a request's Host header —
+// it's fully attacker-controlled (directly, or via X-Forwarded-Host under TRUST_PROXY=1) and a
+// spoofed value would put a real, valid single-use token into a link pointing at an attacker's
+// domain. `baseUrl` is threaded in explicitly from server/src/index.js's BASE_URL env var instead.
+// The only exception is --insecure-dev with no baseUrl configured (local dev / tests): there is no
+// real attacker in that mode, so falling back to the request's own Host header is safe there.
+function resolveBaseUrl(req, insecureDev, baseUrl) {
+  if (baseUrl) return baseUrl;
+  if (insecureDev) return `${req.protocol}://${req.hostname}`;
+  throw new Error('baseUrl is required when insecureDev is false');
+}
+
+async function registerAuth(fastify, { db, insecureDev, emailer, baseUrl }) {
   await fastify.register(fastifyCookie);
   await fastify.register(fastifyRateLimit, { global: false });
 
@@ -51,7 +63,7 @@ async function registerAuth(fastify, { db, insecureDev, emailer }) {
     const session = await db.createSession(user.id, clientMeta(req));
     setSessionCookie(reply, session.token);
     const verifyToken = await db.createEmailVerificationToken(user.id);
-    const verifyUrl = `${req.protocol}://${req.hostname}/verify-email/${verifyToken}`;
+    const verifyUrl = `${resolveBaseUrl(req, insecureDev, baseUrl)}/verify-email/${verifyToken}`;
     try {
       await emailer.sendVerificationEmail(user.email, verifyUrl);
     } catch (err) {
@@ -91,7 +103,7 @@ async function registerAuth(fastify, { db, insecureDev, emailer }) {
   fastify.post('/account/resend-verification', async (req, reply) => {
     const token = await db.createEmailVerificationToken(req.user.id);
     const user = await db.findUserById(req.user.id);
-    const url = `${req.protocol}://${req.hostname}/verify-email/${token}`;
+    const url = `${resolveBaseUrl(req, insecureDev, baseUrl)}/verify-email/${token}`;
     try {
       await emailer.sendVerificationEmail(user.email, url);
     } catch (err) {
@@ -105,7 +117,7 @@ async function registerAuth(fastify, { db, insecureDev, emailer }) {
     const user = typeof email === 'string' ? await db.findUserByEmail(email) : null;
     if (user) {
       const token = await db.createPasswordResetToken(user.id);
-      const url = `${req.protocol}://${req.hostname}/password-reset/${token}`;
+      const url = `${resolveBaseUrl(req, insecureDev, baseUrl)}/password-reset/${token}`;
       try {
         await emailer.sendPasswordResetEmail(user.email, url);
       } catch (err) {

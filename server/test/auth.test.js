@@ -15,7 +15,10 @@ function fakeEmailer() {
 async function app(opts = {}) {
   const db = await createDb('sqlite::memory:'); await db.migrate();
   const emailer = opts.emailer || fakeEmailer();
-  const a = await buildApp({ db, insecureDev: false, publicDir: __dirname, emailer, ...opts });
+  // baseUrl is required whenever insecureDev is false (see server/src/auth.js's resolveBaseUrl) —
+  // this default keeps every existing test working without passing it explicitly; the SECURITY test
+  // below overrides it to prove links are built from it, never from a spoofed Host header.
+  const a = await buildApp({ db, insecureDev: false, baseUrl: 'http://127.0.0.1:3000', publicDir: __dirname, emailer, ...opts });
   return { app: a, db, emailer };
 }
 async function signup(a, email = 'alice@example.com', password = 'a-real-password-123') {
@@ -224,5 +227,21 @@ test('GET /password-reset/:token rejects a malformed token (reflected-XSS payloa
     const r = await a.inject({ method: 'GET', url: `/password-reset/${encodeURIComponent(payload)}` });
     assert.strictEqual(r.statusCode, 400);
     assert.ok(!r.body.includes(payload)); // never reflected into the response
+  } finally { await a.close(); await db.destroy(); }
+});
+
+test('SECURITY: in non-insecureDev mode, the signup verification link is built from baseUrl, never from a spoofed Host header (account-takeover regression)', async () => {
+  const { app: a, db, emailer } = await app({ baseUrl: 'https://dashboard.example.com' });
+  try {
+    const r = await a.inject({
+      method: 'POST', url: '/signup',
+      headers: { host: 'evil.example' },
+      payload: { email: 'victim@example.com', password: 'a-real-password-123' },
+    });
+    assert.strictEqual(r.statusCode, 200, r.body);
+    assert.strictEqual(emailer.sent.length, 1);
+    assert.strictEqual(emailer.sent[0].kind, 'verify');
+    assert.ok(emailer.sent[0].url.startsWith('https://dashboard.example.com/verify-email/'), emailer.sent[0].url);
+    assert.ok(!emailer.sent[0].url.includes('evil.example'));
   } finally { await a.close(); await db.destroy(); }
 });

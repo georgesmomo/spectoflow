@@ -5,10 +5,17 @@
  * op-relay enforcement (a separate route surface, wired up in a later task) — these routes exist and
  * are fully enforced on their own from the moment this task lands.
  */
+const { escapeHtml } = require('../escape');
+
 const TOKEN_RE = /^spf_[A-Za-z0-9_-]+$/;
 
-function escapeHtml(s) {
-  return String(s).replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+// See server/src/auth.js's resolveBaseUrl for why: an emailed link must never be built from a
+// request's attacker-controlled Host header. Duplicated here (rather than imported from auth.js)
+// because this route file has no other dependency on auth.js and the function is tiny.
+function resolveBaseUrl(req, insecureDev, baseUrl) {
+  if (baseUrl) return baseUrl;
+  if (insecureDev) return `${req.protocol}://${req.hostname}`;
+  throw new Error('baseUrl is required when insecureDev is false');
 }
 
 async function requirePermission(req, reply, db, projectId, permissionKey) {
@@ -27,13 +34,13 @@ async function isAssignableProjectRole(db, ownerUserId, roleId) {
   return assignable.some((r) => r.id === roleId);
 }
 
-async function registerSharing(app, { db, emailer }) {
+async function registerSharing(app, { db, emailer, insecureDev, baseUrl }) {
   app.get('/api/projects/:id/members', async (req, reply) => {
     if (!(await requirePermission(req, reply, db, req.params.id, 'project.read'))) return;
     return { members: await db.listProjectMembers(req.params.id) };
   });
 
-  app.post('/api/projects/:id/invite', async (req, reply) => {
+  app.post('/api/projects/:id/invite', { config: { rateLimit: { max: 10, timeWindow: '15 minutes' } } }, async (req, reply) => {
     const projectId = req.params.id;
     if (!(await requirePermission(req, reply, db, projectId, 'project.manage_members'))) return;
     const { email, roleId } = req.body || {};
@@ -42,7 +49,7 @@ async function registerSharing(app, { db, emailer }) {
     if (!(await isAssignableProjectRole(db, ownerUserId, roleId))) return reply.code(400).send({ error: 'Not a valid role for this project.' });
     const token = await db.createInvitation({ projectId, email, roleId, invitedByUserId: req.user.id });
     const project = await db.findProject(projectId);
-    const url = `${req.protocol}://${req.hostname}/invitations/${token}`;
+    const url = `${resolveBaseUrl(req, insecureDev, baseUrl)}/invitations/${token}`;
     try {
       await emailer.sendInvitationEmail(email, project ? project.name : 'a spectoflow project', url);
     } catch (err) {

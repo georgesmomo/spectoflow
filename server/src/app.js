@@ -9,10 +9,10 @@ const Fastify = require('fastify');
 const { registerAuth } = require('./auth');
 const { registerConnector, createRegistry } = require('./connector');
 
-async function buildApp({ db, insecureDev, publicDir, trustProxy, onFrame, registry, emailer }) {
+async function buildApp({ db, insecureDev, publicDir, trustProxy, onFrame, registry, emailer, baseUrl }) {
   const app = Fastify({ trustProxy: !!trustProxy });
   app.get('/healthz', async () => ({ ok: true }));
-  await registerAuth(app, { db, insecureDev, emailer });
+  await registerAuth(app, { db, insecureDev, emailer, baseUrl });
   await app.register(fastifyStatic, { root: publicDir || path.resolve(__dirname, '..', '..', 'lib', 'dashboard', 'public') });
   app.decorate('db', db);
   const reg = registry || createRegistry();
@@ -20,7 +20,7 @@ async function buildApp({ db, insecureDev, publicDir, trustProxy, onFrame, regis
   const relay = registerRelay(app, { db, registry: reg });
   await registerConnector(app, { db, registry: reg, onFrame: onFrame || relay.onFrame });
   const { registerSharing } = require('./routes/sharing');
-  await registerSharing(app, { db, emailer });
+  await registerSharing(app, { db, emailer, insecureDev, baseUrl });
   const { registerAdmin } = require('./routes/admin');
   await registerAdmin(app, { db });
   const { registerRoles } = require('./routes/roles');
