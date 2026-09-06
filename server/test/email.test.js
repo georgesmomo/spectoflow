@@ -23,6 +23,17 @@ test('sendVerificationEmail/sendPasswordResetEmail/sendInvitationEmail each send
   assert.strictEqual(transport.sent[0].from, 'spectoflow <noreply@example.com>');
 });
 
+test('sendInvitationEmail HTML-escapes a malicious project name (no raw HTML injected into the email body)', async () => {
+  const transport = fakeTransport();
+  const emailer = createEmailer({ transport });
+  const malicious = '<script>alert(1)</script><a href="https://evil.example/">Click to accept</a>';
+  await emailer.sendInvitationEmail('bob@example.com', malicious, 'https://dash.example.com/invitations/qqq111');
+  const html = transport.sent[0].html;
+  assert.ok(!html.includes('<script>alert(1)</script>'));
+  assert.ok(!html.includes('<a href="https://evil.example/">'));
+  assert.ok(html.includes('&lt;script&gt;alert(1)&lt;/script&gt;&lt;a href=&quot;https://evil.example/&quot;&gt;Click to accept&lt;/a&gt;'));
+});
+
 test('with insecureDev and no SMTP host configured, emails are logged to the console instead of sent', async () => {
   const emailer = createEmailer({ insecureDev: true }); // no smtpHost, no transport override
   const logs = [];

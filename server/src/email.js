@@ -6,6 +6,7 @@
  * on real SMTP.
  */
 const nodemailer = require('nodemailer');
+const { escapeHtml } = require('./escape');
 
 function createEmailer({ smtpHost, smtpPort, smtpUser, smtpPass, smtpFrom, insecureDev, transport } = {}) {
   const from = smtpFrom || 'spectoflow <noreply@localhost>';
@@ -25,7 +26,10 @@ function createEmailer({ smtpHost, smtpPort, smtpUser, smtpPass, smtpFrom, insec
   return {
     sendVerificationEmail: (to, url) => send(to, 'Verify your spectoflow email', `<p>Confirm your email address:</p><p><a href="${url}">${url}</a></p><p>This link expires in 24 hours.</p>`),
     sendPasswordResetEmail: (to, url) => send(to, 'Reset your spectoflow password', `<p>Reset your password:</p><p><a href="${url}">${url}</a></p><p>This link expires in 1 hour. If you didn't request this, ignore this email.</p>`),
-    sendInvitationEmail: (to, projectName, url) => send(to, `You've been invited to "${projectName}" on spectoflow`, `<p>You've been invited to join <strong>${projectName}</strong>.</p><p><a href="${url}">${url}</a></p><p>This link expires in 72 hours.</p>`),
+    // projectName is user-controlled (whoever renamed the project) and reaches an arbitrary email
+    // address via this invite — must be escaped before landing in the HTML body (the plain-text
+    // subject line doesn't render HTML, so it's left as-is there).
+    sendInvitationEmail: (to, projectName, url) => send(to, `You've been invited to "${projectName}" on spectoflow`, `<p>You've been invited to join <strong>${escapeHtml(projectName)}</strong>.</p><p><a href="${url}">${url}</a></p><p>This link expires in 72 hours.</p>`),
   };
 }
 
