@@ -1681,3 +1681,45 @@
   account,sharing}.js`, `server/src/{auth,app,index,relay,db,cli}.js`, `server/README.md`,
   `server/package.json` (version 0.2.0), `server/test/` (une douzaine de fichiers nouveaux ou étendus).
 
+### D68 — 0.3.0 (`server/`) : panneau membres, éditeur de rôles, page projets/groupes (suite directe de D67)
+
+- **ACTÉ.** Immédiatement après D67, l'utilisateur a demandé de continuer, l'invitant à choisir entre
+  C4 (exploitation : Docker, guides cPanel/VPS) et combler les manques que la revue finale de C2+C3
+  avait explicitement documentés sans les corriger. Recommandation retenue : combler ces manques
+  d'abord — sans eux, personne ne peut réellement inviter un membre ou organiser ses projets en groupe
+  sans écrire des `fetch()` à la main. Classé **bounded** (le flux existe déjà : toutes les API JSON
+  nécessaires étaient déjà construites et testées par C2+C3, il ne restait qu'à les habiller) — design
+  présenté et approuvé en chat, sans nouvelle spec ni nouveau plan écrit, exécuté directement (TDD tout
+  du long, revue à chaque lot).
+  - **Tension architecturale résolue avant tout code** : la spec disait « groupes visibles sur la page
+    d'accueil du hub », mais cette page (`lib/dashboard/public/hub.html`) est le code **partagé**,
+    identique entre le dashboard local et en ligne, que C2+C3 avait explicitement exclu de toucher.
+    Choix de l'utilisateur : une page dédiée dans `server/` plutôt que d'y toucher — `hub.html`/`hub.js`
+    restent intouchés.
+  - **Trou de conception comblé, pas seulement l'UI** : les rôles personnalisés de portée *plateforme*
+    étaient déjà créables (CRUD complet depuis C2+C3) mais **jamais assignables** — seul
+    `sys-platform-admin` avait une route d'assignation (promote/demote). Décision explicite de
+    l'utilisateur : combler ce trou maintenant plutôt que le documenter à nouveau. Deux nouvelles routes
+    (`POST`/`DELETE /api/admin/users/:id/roles[/:roleId]`), gatées par `platform.manage_users`,
+    refusant explicitement `sys-platform-admin` (qui reste exclusivement géré par promote/demote et sa
+    protection dernier-admin, jamais dupliquée ni contournée par cette nouvelle route).
+  - **Trois nouvelles pages** (même patron que `/account`/`/admin` déjà livrées — HTML+JS inline,
+    zéro nouveau framework) : `/roles` (éditeur de rôles, les deux portées, avec un nouveau
+    `GET /api/permissions?scope=` pour peupler la liste de cases à cocher) ; `/projects` (liste des
+    projets de l'appelant, assignation de groupe, gestion des groupes) ; `/projects/:id/members`
+    (panneau membres complet — inviter, retirer, changer de rôle).
+  - **Vigilance maintenue sur l'échappement** : chacune des trois nouvelles pages affiche au moins une
+    chaîne fournie par un utilisateur (nom de rôle, nom de projet, nom de groupe, email de membre) —
+    exactement la classe de bug déjà trouvée et corrigée quatre fois pendant C2+C3. Consigne explicite
+    donnée à chaque lot d'implémentation dès le départ (pas de cycle correctif après coup, cette fois) ;
+    vérifié à la fois par des tests automatisés (simulation de rendu avec une charge utile malveillante)
+    et par une vérification visuelle réelle en navigateur en fin de tâche (un nom de rôle, un nom de
+    projet et un nom de groupe contenant chacun du HTML actif se sont affichés comme texte littéral,
+    y compris dans le corps HTML d'un email d'invitation généré en conditions réelles).
+  - **QA** : 3 lots revus indépendamment (aucune correction nécessaire, tous approuvés du premier coup) ;
+    suite serveur 111/111, 0 échec ; vérification visuelle réelle en navigateur des trois nouvelles
+    pages plus l'extension de `/admin`.
+- Fichiers : `server/src/routes/projects.js` (nouveau), `server/src/routes/{admin,roles}.js`,
+  `server/src/models/rbac.js`, `server/src/app.js`, `server/package.json` (version 0.3.0),
+  `server/test/routes/{admin,roles,projects}.test.js`.
+

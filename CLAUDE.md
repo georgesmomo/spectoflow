@@ -106,7 +106,38 @@ Built across 6 tasks via `subagent-driven-development`, one final-review fix wav
 independently re-reproduced before/after by the re-reviewer). Full suite 312/313 (1 pre-existing
 Windows skip), 0 failures; real QA across all 12 design × theme combinations.
 
-## What exists (`server/` v0.2.0 — see DECISIONS D67)
+## What exists (`server/` v0.3.0 — see DECISIONS D68)
+
+**Project members panel, role editor, and a projects/groups page — the web UI C2+C3 (v0.2.0) shipped
+without.** Direct follow-up, same session: after v0.2.0's final review documented (rather than fixed)
+three gaps — custom platform-scope roles were creable but never assignable, and the spec's three
+planned web panels (project members, role editor, hub-page groups) had only their JSON APIs built —
+the user chose to close them now rather than move to C4 (deployment). Classified **bounded** (every
+JSON API this needed already existed and was already tested) — a short design was approved in chat,
+no new spec/plan document, executed directly.
+
+A real architectural tension surfaced before any code: the spec said groups belong "on the hub landing
+page," but that page (`lib/dashboard/public/hub.html`) is the shared, zero-dependency code identical
+between the local and online dashboard — exactly what C2+C3 had already ruled out touching. Resolved
+by building a dedicated `server/`-only page instead; `hub.html`/`hub.js` remain untouched.
+
+Two new routes close the platform-role-assignment gap: `POST`/`DELETE /api/admin/users/:id/roles[/:roleId]`
+(gated by `platform.manage_users`, explicitly refusing `sys-platform-admin` — that id stays exclusively
+managed by the existing `/promote`/`/demote` routes and their last-admin guard, never duplicated or
+bypassed here). Three new plain server-rendered pages follow the exact `/account`/`/admin` pattern
+(inline HTML+JS, no framework): `/roles` (role editor, both scopes, backed by a new
+`GET /api/permissions?scope=` catalog endpoint), `/projects` (the caller's own projects, group
+assignment, group CRUD), `/projects/:id/members` (invite, remove, change role).
+
+Every one of the three new pages renders at least one user-supplied string (role name, project name,
+group name, member email) — the exact bug class already found and fixed four times during C2+C3.
+Escaping was required upfront in every dispatch this time, not left to a review cycle: verified both by
+automated rendering-simulation tests and by a real browser check at the end (a role name, a project
+name, and a group name each containing live HTML rendered as literal text — including inside a real
+invitation email's HTML body, generated live against a running server).
+
+Three implementation batches, each independently reviewed and approved with no fix rounds needed.
+Server suite 111/111, 0 failures; real browser QA of all three new pages plus the `/admin` extension.
 
 **Real accounts, sessions, roles/permissions, and project sharing (sub-project C2, merged with C3).**
 `server/`'s single shared `SPECTOFLOW_ACCESS_KEY`/HMAC-signed cookie (C1, 0.25.0) is gone entirely,
