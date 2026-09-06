@@ -16,7 +16,7 @@
 * { box-sizing: border-box; }
 html,body { margin:0; height:100%; }
 body { background:var(--bg); color:var(--ink); font-family:var(--sans); font-size:14px; line-height:1.5; -webkit-font-smoothing:antialiased; overflow-x:hidden; }
-@media (prefers-reduced-motion: reduce){ *{ animation:none!important; transition:none!important; } }
+@media (prefers-reduced-motion: reduce){ *{ animation:none!important; transition:none!important; } .wf-arrow::after, .wf-conn::after { display:none; } }
 
 /* topbar — dense engineering-control-room header: brand+meter (left) / icon tabs (centre) / status+run (right) */
 .topbar { display:grid; grid-template-columns:auto minmax(0,1fr) auto; align-items:center; column-gap:14px; min-height:60px; padding:8px 16px; border-bottom:1px solid var(--line);

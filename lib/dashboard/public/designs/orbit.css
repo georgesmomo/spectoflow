@@ -77,7 +77,6 @@ html[data-design="orbit"] .av.running::after {
 @keyframes ob-ripple { 0%{ transform:scale(.9); opacity:.8; } 100%{ transform:scale(1.3); opacity:0; } }
 
 /* flowing teal particles along the workflow pipeline connectors */
-html[data-design="orbit"] .wf-arrow::after { background:rgba(255,255,255,.4); }
 html[data-design="orbit"] .wf-conn { position:relative; overflow:hidden; background:var(--signal); }
 html[data-design="orbit"] .wf-conn::after {
   content:""; position:absolute; top:-2px; left:0; width:6px; height:6px; border-radius:50%;
