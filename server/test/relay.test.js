@@ -92,3 +92,40 @@ test('an unknown server id is 404; SSE registers and gets a change event on snap
     assert.strictEqual(r.status, 404);
   } finally { await app.close(); await db.destroy(); }
 });
+
+test('a frame whose processing throws never crashes the process (no unhandledRejection) and never blocks a later frame from the same machine', async () => {
+  const { app, db, machine, url, authedFetch } = await boot();
+  const rejections = [];
+  const onUnhandled = (reason) => rejections.push(reason);
+  process.on('unhandledRejection', onUnhandled);
+  // Simulate the "transient DB error" scenario the reviewer described: force processFrame's
+  // `hello` handling to throw for one specific frame, exactly like a real DB failure would.
+  const originalUpsertProject = db.upsertProject.bind(db);
+  db.upsertProject = async (args) => {
+    if (args.localId === 'boom') throw new Error('forced failure for test');
+    return originalUpsertProject(args);
+  };
+  try {
+    // This frame's processing rejects inside processFrame — before the fix, the rejected promise
+    // at the tail of the per-machine chain would eventually surface as an unhandled rejection
+    // (nothing ever attaches a further .then()/.catch() once the machine goes quiet), crashing the
+    // whole process under Node's default --unhandled-rejections=throw.
+    await fetch(url + '/connector/frames', { method: 'POST', headers: { Authorization: `Bearer ${machine.token}`, 'Content-Type': 'application/json' },
+      body: JSON.stringify([{ type: 'auth', token: machine.token }, { type: 'hello', machineName: 'laptop', projects: [{ localId: 'boom', name: 'Boom', kind: 'spectoflow' }] }]) });
+    // A second, valid frame for the SAME machine right after — must still be processed even though
+    // the previous frame's processing threw (the chain must not be poisoned).
+    await fetch(url + '/connector/frames', { method: 'POST', headers: { Authorization: `Bearer ${machine.token}`, 'Content-Type': 'application/json' },
+      body: JSON.stringify([{ type: 'auth', token: machine.token }, { type: 'hello', machineName: 'laptop', projects: [{ localId: 'aaaaaa', name: 'Alpha', kind: 'spectoflow' }] }]) });
+    // Give the fire-and-forget onFrame chain time to fully settle (Node reports an unhandled
+    // rejection at the end of the microtask queue, well within this window).
+    await new Promise((r) => setTimeout(r, 150));
+    assert.strictEqual(rejections.length, 0); // caught inside safeProcessFrame — never reached the chain's tail unhandled
+    const list = await (await authedFetch('/api/hub/projects')).json();
+    assert.strictEqual(list.projects.length, 1);
+    assert.strictEqual(list.projects[0].name, 'Alpha'); // the later, valid frame was still processed
+  } finally {
+    db.upsertProject = originalUpsertProject;
+    process.removeListener('unhandledRejection', onUnhandled);
+    await app.close(); await db.destroy();
+  }
+});

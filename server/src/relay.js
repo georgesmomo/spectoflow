@@ -29,11 +29,26 @@ function registerRelay(app, { db, registry }) {
   // race: the snapshot's lookup of the just-announced project could run before the hello's own
   // await chain has registered it. Serialize per machine so each frame is fully processed, in
   // arrival order, before the next one starts — regardless of whether the caller awaits.
+  //
+  // safeProcessFrame() never rejects: if a frame's processing throws (e.g. a transient DB error),
+  // that must not (a) block subsequent frames from that machine from still being processed, and —
+  // just as importantly — (b) leave a rejected promise at the tail of the chain with nothing ever
+  // attached to it. (b) matters because nothing ever calls .then()/.catch() on the chain's own tail
+  // once a machine goes quiet (onFrame's caller in connector.js doesn't await it either), so a bare
+  // rejection there would surface as an unhandled promise rejection — which crashes the whole
+  // process under Node's default --unhandled-rejections=throw, taking down every connected machine
+  // and browser tab, not just the one whose frame failed. Catching inside safeProcessFrame (so the
+  // chain itself only ever resolves) closes that hole without changing the ordering guarantee above.
   function onFrame(machineId, frame) {
     const prev = chains.get(machineId) || Promise.resolve();
-    const next = prev.then(() => processFrame(machineId, frame), () => processFrame(machineId, frame));
+    const next = prev.then(() => safeProcessFrame(machineId, frame));
     chains.set(machineId, next);
     return next;
+  }
+
+  async function safeProcessFrame(machineId, frame) {
+    try { await processFrame(machineId, frame); }
+    catch (e) { console.error(`relay: error processing ${frame.type} frame from machine ${machineId}:`, e); }
   }
 
   async function processFrame(machineId, frame) {
