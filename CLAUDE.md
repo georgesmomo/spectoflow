@@ -32,7 +32,46 @@ workspace itself is carried over from a pre-0.24 `~/.spectoflow/` the first
 time the new code runs. `spectoflow skill create`/CI's `generate-dashboard` validator moved from a
 project-relative `require` to `spectoflow dashboard validate <file>`.
 
-## What exists (v0.23.5 — see DECISIONS D63)
+## What exists (v0.25.0 — see DECISIONS D65)
+
+**The dashboard goes online, part 1 — relay server + local connector.** Sub-project C1 of the "one
+dashboard, many projects" program (see `docs/online-dashboard-connector-design.md`; C1 is the first
+of four slices — C1 → D theme redesign → C2 accounts → C3 sharing → C4 ops). The local hub
+(`lib/dashboard/hub-server.js`) gains a connector role via a new, still zero-dependency
+`lib/dashboard/connector.js`: one outbound connection per machine (Node's native `WebSocket` client,
+HTTP long-poll fallback for hosts like cPanel/Passenger that don't pass WebSockets), authenticated by
+a machine token, that tees every published project's `emit` upward (`event`/`snapshot` frames,
+debounced 500ms) and executes incoming `op` frames through the exact same `ops.js` table the local
+HTTP layer uses — one process, one orchestrator state, whether a click came from the local dashboard
+or the hosted one. `lib/dashboard/routes.js` (extracted from `handlers.js`) is the shared route table
+both surfaces drive. `lib/workspace.js` gains `remote.json` (url/token/machineName/transport, mode
+0600) and a per-project `published` flag (nothing is online by default — `spectoflow dashboard
+publish` opts a project in explicitly). New CLI: `spectoflow dashboard login/logout/publish/
+unpublish`; `dashboard status`/`dashboard` itself now print whether this machine is connected online,
+replacing the old "later release" placeholder. The front-end gains a read-only offline banner (for a
+project whose machine is disconnected) and a remote-mode hub landing page — both inert for every
+existing local-only user.
+
+**A brand-new, separate application: `server/`.** Not zero-dependency (Fastify, Knex, and a database
+driver — MySQL by default, SQLite or PostgreSQL also supported) — the relay that a hosted dashboard
+actually runs. Lives in this repo (`server/`, already outside the npm package's `files`), shares
+nothing but the front-end (`lib/dashboard/public/`, served byte-identical) and the route table with
+the local hub. Machines authenticate with a token (`node server/cli.js token create`, shown once,
+only its SHA-256 stored); the web UI itself sits behind one shared access key
+(`SPECTOFLOW_ACCESS_KEY`) and a signed, stateless session cookie — no accounts yet, that's C2.
+`server/src/relay.js` turns a browser's request into an `op` frame for the owning machine (reusing
+`lib/dashboard/routes.js`) and a machine's frames into what the browser sees, including an offline
+project reading from its last known snapshot instead of hanging. Node ≥ 22 is now the floor for
+`spectoflow` (the native `WebSocket` client this all depends on). Only explicitly published projects
+are ever visible online.
+
+Built across 12 tasks via `subagent-driven-development`, each independently reviewed; the final
+whole-branch review caught one Critical, cross-task-only gap (an unpublished project's cached
+snapshot stayed readable via the relay forever, since only the online project *listing* checked the
+`published` flag — reads didn't) — fixed and independently re-verified before merge. A real
+end-to-end test spawns an actual local hub and drives it through the real CLI over both transports.
+
+## What exists (v0.24.0 — see DECISIONS D64)
 
 Direct follow-up: the user clicked the Board's read-only "workflow at a glance" strip (`.wf-mini`)
 expecting to toggle a step there, not knowing the real interactive pipeline lived only on the
@@ -583,6 +622,20 @@ npm test
 ```
 The storage engine is unit-testable directly (parse/serialize/granular write) — see how `store.js`
 round-trips in `docs/ARCHITECTURE.md`. Add real tests as part of the next milestones.
+
+**`server/` (the online-dashboard relay, sub-project C1)** is a separate application with its own
+dependencies — not covered by the root `npm test` (scoped to `test/`, never `server/test/`). Run it
+locally against SQLite (see `server/README.md` for the full picture, including MySQL/PostgreSQL and
+`--insecure-dev`):
+```bash
+cd server && npm install
+DATABASE_URL=sqlite:./data/spectoflow.db node cli.js migrate
+DATABASE_URL=sqlite:./data/spectoflow.db node cli.js token create --name="my laptop"
+node src/index.js --insecure-dev            # http://localhost:3000, no access key required (127.0.0.1 only)
+npm test                                     # server/'s own suite, incl. a real end-to-end test
+```
+Then, from a `spectoflow` project on the machine that created the token: `spectoflow dashboard login
+--url=http://localhost:3000 --token=<spf_…>` then `spectoflow dashboard publish`.
 
 ## How to work here
 

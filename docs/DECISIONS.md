@@ -1474,3 +1474,62 @@
   `templates/{AGENTS.md,README.md,capabilities.md,dashboards/.gitkeep,agents/framework-curator.md,
   skills/generate-dashboard/SKILL.md}`, `README.md`, `docs/{ARCHITECTURE.md,
   dashboard-separation-design.md}`, `test/` (une douzaine de fichiers nouveaux ou rebasés sur le hub).
+
+### D65 — 0.25.0 : le dashboard en ligne, partie 1 — serveur relais + connecteur local (sous-projet C1)
+
+- **ACTÉ.** Suite directe de D64 : une fois le dashboard sorti des projets (sous-projet A), l'utilisateur
+  a demandé à pousser la réflexion sur un dashboard en ligne multi-comptes (sous-projet C), décomposé en
+  brainstorming en quatre tranches — **C1** relais + connecteur (ce document), **D** refonte des thèmes
+  (juste après, pour que C2/C3 dessinent leurs nouveaux écrans sur le look final), **C2** comptes/sessions,
+  **C3** partage (membres, droits, groupes), **C4** exploitation (Docker, guides cPanel/VPS). C1 est le
+  socle : sans lui, rien de C2-C4 n'a de sens. Spec écrite et approuvée section par section
+  (`docs/online-dashboard-connector-design.md`), plan en 12 tâches
+  (`docs/superpowers/plans/2026-09-06-online-dashboard-connector.md`), exécuté via
+  `subagent-driven-development` (implémenteur + revue à chaque tâche, sur Sonnet à la demande explicite
+  de l'utilisateur pour cette exécution), directement sur `main`.
+  - **Décisions structurantes de l'utilisateur, contraignantes pour C1** : la machine locale reste la
+    source de vérité, le serveur ne fait que relayer ; le serveur est une **vraie application avec
+    dépendances** (Fastify, Knex, MySQL par défaut / SQLite / PostgreSQL) — le zéro-dépendance reste
+    propre au paquet `spectoflow` (CLI + hub + connecteur), jamais au serveur ; le code serveur vit dans
+    `server/` de ce même dépôt (jamais publié dans le paquet npm) ; les deux hébergements (VPS Docker et
+    cPanel/o2switch « Setup Node.js App ») doivent fonctionner, d'où un repli HTTP long-poll dès le jour
+    un ; Node ≥ 22 pour `spectoflow` (le client WebSocket natif) ; une seule clé d'accès web + cookie
+    signé (pas encore de comptes — C2) ; seuls les projets **explicitement publiés** sont visibles en
+    ligne ; parité complète des actions (le token de machine représente déjà son propriétaire).
+  - **Topologie** : le hub local (`lib/dashboard/hub-server.js`) gagne un rôle de connecteur
+    (`lib/dashboard/connector.js`, WebSocket natif + repli HTTP long-poll) qui relaie chaque `emit` de
+    projet (frames `event`/`snapshot`) et exécute les frames `op` reçues à travers la **même** table
+    `ops.js` que le HTTP local — un seul processus, un seul état d'orchestrateur, la leçon de D64 (I2)
+    appliquée dès la conception plutôt que redécouverte. Le serveur (`server/`, Fastify) ne charge jamais
+    `ops.js` et n'exécute rien lui-même : il traduit la **même** table de routes
+    (`lib/dashboard/routes.js`, extraite de `handlers.js` en tâche 1 précisément pour être chargeable sans
+    `ops.js`) en frames `op`, avec `reqId`/timeout 30 s → 504, et une lecture (`project.read`) qui sert
+    toujours le dernier instantané en base, jamais un aller-retour bloquant vers la machine.
+  - **Authentification** : `node server/cli.js token create` imprime un token machine une seule fois
+    (seul son SHA-256 est stocké) ; `spectoflow dashboard login --url --token` l'écrit dans
+    `~/.spectoflow/dashboard/remote.json` (mode 0600) ; côté web, une clé d'accès unique
+    (`SPECTOFLOW_ACCESS_KEY`, 16+ caractères, sinon refus de démarrer sauf `--insecure-dev` en
+    127.0.0.1 seul) pose un cookie signé (HMAC, sans état) via `POST /login`, limité en débit.
+  - **QA** : 12 tâches revues indépendamment (4 tours de correction au total, tous des bugs réels du
+    texte du plan lui-même plutôt que des dérives d'implémenteur — knex non-mémoïsant, `reply.sendFile`
+    jamais décoré, contournement d'authentification par préfixe non borné, course de traitement de
+    frames dans un même lot HTTP) ; suite serveur 22/22, suite racine 297/298 (1 skip Windows préexistant),
+    un vrai test de bout en bout (hub local réellement spawné, login/publish réels, écriture distante
+    visible dans le vrai fichier markdown, dégradation hors-ligne, reconnexion) répété sur les deux
+    transports.
+  - **Revue finale de branche** (les 12 tâches ensemble, modèle le plus capable pour cette étape) : un
+    défaut Critique qu'aucune revue par tâche ne pouvait voir isolément — dépublier un projet le
+    faisait bien disparaître de la liste en ligne, mais son dernier instantané restait lisible
+    indéfiniment via `GET /api/project?p=<id>` (le chemin de lecture ne vérifiait jamais le drapeau
+    `published`, seule la liste le faisait) — corrigé en une seule vague de correction consolidée
+    (`ownerOf()` relit `published` en base à chaque appel, sans cache) et re-vérifié par une revue
+    ciblée qui a reproduit l'échec avant/après. Rien d'autre à corriger avant fusion.
+  - **Reste pour C1+ / D / C2-C4** : la spec (§ « ce que C1 prépare ») documente déjà comment C2 remplace
+    la clé d'accès partagée par de vrais comptes, comment C3 attache droits/groupes aux identifiants
+    serveur des projets, et comment C4 n'a plus qu'à empaqueter (Docker, guide cPanel) une application déjà
+    12-factor.
+- Fichiers : `lib/dashboard/{connector,hub-server,routes}.js`, `lib/dashboard/handlers.js`,
+  `lib/workspace.js`, `bin/spectoflow.js`, `lib/dashboard/public/{app.js,i18n.js,index.html,styles.css,
+  hub.html,hub.js}`, `package.json` (engines ≥ 22, version 0.25.0), `server/` (nouvelle application :
+  `package.json`, `knexfile.js`, `migrations/`, `src/{db,app,auth,connector,relay,index}.js`, `cli.js`,
+  `README.md`, `test/`), `test/{routes,connector,hub-remote,cli-remote,public-remote-ui}.test.js`.
