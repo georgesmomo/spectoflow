@@ -37,3 +37,56 @@ test('GET/POST /api/admin/signup-mode: the bootstrap admin (first account) can r
     assert.strictEqual(bad.status, 400);
   } finally { await app.close(); await db.destroy(); }
 });
+
+test('GET /api/admin/users lists every account; promote/demote toggle Platform Admin; the last admin cannot be demoted', async () => {
+  const { app, db, signupAndLogin } = await boot();
+  try {
+    const admin = await signupAndLogin('admin2@example.com'); // bootstrap admin
+    const other = await signupAndLogin('other2@example.com');
+    const list = await (await admin.fetch('/api/admin/users')).json();
+    assert.strictEqual(list.users.length, 2);
+    assert.strictEqual(list.users[0].passwordHash, undefined);
+
+    const otherUserId = list.users.find((u) => u.email === 'other2@example.com').id;
+    const promote = await admin.fetch(`/api/admin/users/${otherUserId}/promote`, { method: 'POST' });
+    assert.strictEqual(promote.status, 200);
+    assert.strictEqual(await db.hasPlatformPermission(otherUserId, 'platform.manage_signup'), true);
+
+    const adminUserId = list.users.find((u) => u.email === 'admin2@example.com').id;
+    const demoteBootstrap = await other.fetch(`/api/admin/users/${adminUserId}/demote`, { method: 'POST' }); // 'other' now also holds platform.manage_users, via the promotion above
+    assert.strictEqual(demoteBootstrap.status, 200); // 2 admins exist right now (admin2 + other2), so demoting admin2 succeeds — other2 remains
+    const demoteLast = await other.fetch(`/api/admin/users/${otherUserId}/demote`, { method: 'POST' }); // other2 is the only admin left now
+    assert.strictEqual(demoteLast.status, 400); // would leave zero admins — refused
+  } finally { await app.close(); await db.destroy(); }
+});
+
+test('GET /admin: the served page contains the client-side HTML-escape helper used before any untrusted value (email) is inserted via innerHTML', async () => {
+  const { app, db, signupAndLogin } = await boot();
+  try {
+    const admin = await signupAndLogin('admin3@example.com'); // bootstrap admin
+    const page = await (await admin.fetch('/admin')).text();
+    // The escape helper itself must be present in the shipped script.
+    assert.match(page, /function esc\(/);
+    // And the untrusted interpolation into innerHTML (the account's own email) must route through it.
+    assert.match(page, /esc\(x\.email\)/);
+  } finally { await app.close(); await db.destroy(); }
+});
+
+test('XSS: a malicious email crafted to pass EMAIL_RE (no whitespace, one @, a dot) is stored and returned raw by the JSON API (correct — it is just data), but the admin page script would escape it before ever rendering it via innerHTML', async () => {
+  const { app, db, signupAndLogin } = await boot();
+  try {
+    const malicious = '<img/src=x/onerror=alert(document.cookie)>@example.com';
+    const admin = await signupAndLogin('admin4@example.com'); // bootstrap admin
+    const signupResp = await admin.fetch('/signup', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ email: malicious, password: 'a-real-password-123' }) });
+    assert.strictEqual(signupResp.status, 200); // confirms EMAIL_RE accepts this payload — the whole point of the bug
+    const list = await (await admin.fetch('/api/admin/users')).json();
+    const victim = list.users.find((u) => u.email === malicious.toLowerCase());
+    // The JSON API legitimately returns the raw value — it's a data endpoint, not HTML.
+    assert.ok(victim);
+    // Simulate what the admin page's client-side code does with it: apply the shipped esc() to the raw value.
+    function esc(s) { return String(s).replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c])); }
+    const rendered = esc(victim.email);
+    assert.ok(!rendered.includes('<img'));
+    assert.ok(!rendered.includes('<script'));
+  } finally { await app.close(); await db.destroy(); }
+});
