@@ -106,6 +106,62 @@ Built across 6 tasks via `subagent-driven-development`, one final-review fix wav
 independently re-reproduced before/after by the re-reviewer). Full suite 312/313 (1 pre-existing
 Windows skip), 0 failures; real QA across all 12 design × theme combinations.
 
+## What exists (`server/` v0.2.0 — see DECISIONS D67)
+
+**Real accounts, sessions, roles/permissions, and project sharing (sub-project C2, merged with C3).**
+`server/`'s single shared `SPECTOFLOW_ACCESS_KEY`/HMAC-signed cookie (C1, 0.25.0) is gone entirely,
+replaced by real accounts (`argon2id`), real per-device revocable sessions (`spf_`-prefixed hash-lookup
+tokens, same convention as machine tokens — only the SHA-256 is ever stored), and a unified
+roles→permissions engine spanning two scopes: platform (5 fixed system roles, `sys-platform-admin`
+down to `sys-viewer`) and project. Owner and Admin hold the *identical* permission set — what protects
+the Owner is a **status**, not a wider permission list: the membership row auto-inserted on a
+project's first publish can never be edited or removed through the API, only a local unpublish clears
+it. Both scopes support fully customizable roles, reusable across an account's own projects. Real
+email flows ship now, not deferred: non-blocking address verification, self-service password reset,
+and email-locked project invitations, all through one testable abstraction (`server/src/email.js`,
+injectable `nodemailer` transport, console fallback under `--insecure-dev`). The relay
+(`server/src/relay.js`) now enforces real per-operation permissions — 404 for a true non-member
+(indistinguishable from unpublished/nonexistent, extending C1's own invariant), 403 for a member whose
+role lacks the specific permission — and `GET /api/hub/projects` is re-scoped to the caller's own
+membership (never "every published project"); `platform.view_all_projects` grants a Platform Admin
+read-only visibility into any individual published project without widening that default listing.
+Flat project groups (one project = one group) round out the sharing model.
+
+Five real, exploitable vulnerabilities were found and fixed during this sub-project's own per-task
+reviews (a platform/project role-scope bypass in `assignPlatformRole`; a reflected XSS on the
+password-reset page; the `sys-owner` role being assignable through the ordinary invite/role-change API
+— letting anyone with `project.manage_members` mint a second, permanently un-removable "Owner" — paired
+with invitation acceptance never checking the accepting account's email against the invited one; a
+stored XSS on the account page via an unescaped login `User-Agent`/machine name; a stored XSS on the
+admin page via an unescaped account email, reachable by any anonymous signup against a Platform
+Admin's own session, combined with `GET /admin` itself carrying no permission check at all). The
+final whole-branch review (19 tasks together, most capable model) caught one further Critical no
+single task's scope could see: every emailed link (verification, password reset, invitation) was built
+from `req.hostname` — the attacker-controlled `Host` header, especially once `TRUST_PROXY=1` in
+production — making unauthenticated account takeover possible by spoofing that header on a password-
+reset request. Fixed with a required `BASE_URL` (boot refuses without it unless `--insecure-dev`),
+threaded explicitly to all four link-building call sites; three more Important findings fixed in the
+same wave (unescaped project names in invitation emails; deleting an in-use custom role could orphan
+membership rows or throw unhandled depending on the database driver; `server/README.md` had gone
+stale, still documenting the removed access-key model). Every fix independently re-verified, including
+hand-tracing every link-construction call site for the Critical one.
+
+Known, deliberate limitations, documented rather than silently designed around: `projects.group_id` is
+one shared column per project (matching the approved spec's own schema) — correct for the common
+single-owner case, but on a genuinely multi-member project the last person to set a group imposes it
+on every member, not just their own view. Separately, noted but out of this sub-project's scope:
+custom *platform*-scope roles can be created via `roles.js`'s CRUD but have no route to ever be
+assigned to a user (only `sys-platform-admin` is assignable today); the spec's three planned web
+panels (project members, role editor, hub-page groups) were never built by any of the 19 tasks — only
+their JSON APIs exist; sessions have no `expires_at` (only `revoked_at`, matching the approved spec's
+own column list) — a captured session token stays valid until explicitly revoked.
+
+Built across 19 tasks via `subagent-driven-development` (4 in-flight fix waves plus the final-review
+wave above), directly on `main`. Server suite 93/93, 0 failures; a real end-to-end test (two real
+accounts, a real locally-spawned hub, a real invitation accepted as Viewer, a real 403 write / 200
+read over the live relay). This entire sub-project stays inside `server/` — the root `spectoflow`
+package's own version and zero-dependency test suite are untouched.
+
 ## What exists (v0.24.0 — see DECISIONS D64)
 
 Direct follow-up: the user clicked the Board's read-only "workflow at a glance" strip (`.wf-mini`)
@@ -658,15 +714,16 @@ npm test
 The storage engine is unit-testable directly (parse/serialize/granular write) — see how `store.js`
 round-trips in `docs/ARCHITECTURE.md`. Add real tests as part of the next milestones.
 
-**`server/` (the online-dashboard relay, sub-project C1)** is a separate application with its own
-dependencies — not covered by the root `npm test` (scoped to `test/`, never `server/test/`). Run it
-locally against SQLite (see `server/README.md` for the full picture, including MySQL/PostgreSQL and
-`--insecure-dev`):
+**`server/` (the online-dashboard relay + accounts, sub-projects C1+C2/C3)** is a separate application
+with its own dependencies — not covered by the root `npm test` (scoped to `test/`, never
+`server/test/`). Run it locally against SQLite (see `server/README.md` for the full picture, including
+MySQL/PostgreSQL and `--insecure-dev`):
 ```bash
 cd server && npm install
 DATABASE_URL=sqlite:./data/spectoflow.db node cli.js migrate
-DATABASE_URL=sqlite:./data/spectoflow.db node cli.js token create --name="my laptop"
-node src/index.js --insecure-dev            # http://localhost:3000, no access key required (127.0.0.1 only)
+node src/index.js --insecure-dev            # http://localhost:3000, no BASE_URL/SMTP required (127.0.0.1 only)
+# open http://localhost:3000/signup and create the first account (becomes Platform Admin automatically)
+DATABASE_URL=sqlite:./data/spectoflow.db node cli.js token create --name="my laptop" --owner-email="you@example.com"
 npm test                                     # server/'s own suite, incl. a real end-to-end test
 ```
 Then, from a `spectoflow` project on the machine that created the token: `spectoflow dashboard login

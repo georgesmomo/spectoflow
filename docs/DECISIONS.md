@@ -1589,3 +1589,95 @@
   `lib/dashboard/public/fonts/bricolage-grotesque-{400,600,700}.woff2` (nouveaux, remplacent
   `space-grotesk-*.woff2`, supprimés), `test/dashboard-no-gradients.test.js` (nouveau), `package.json`
   (version 0.26.0).
+
+### D67 — 0.2.0 (`server/`) : comptes, sessions, rôles/permissions, partage de projets (sous-projet C2, fusionné avec C3)
+
+- **ACTÉ.** Suite directe de C1 (relais, 0.25.0) et D (thèmes, 0.26.0). Décision utilisateur d'origine
+  (verbatim, lors du brainstorming de C) : « chacun doit pouvoir créer son compte, ajouter ses projets,
+  ajouter les gens (qui ont des comptes) au projet avec des droits, organiser ses projets en groupe,
+  ... bref le plus complet possible » — un vrai SaaS multi-tenant. Pendant le brainstorming l'utilisateur
+  a explicitement élargi le périmètre à plusieurs reprises : « option 1, les comptes doivent avoir des
+  roles, les roles des permissions, ... bref comme on fait souvent. systeme de permission complet »
+  (RBAC complet, pas un simple booléen admin), puis « Fusionner C2 et C3 maintenant — tout le RBAC en un
+  seul sous-projet » (fusion décidée en cours de route), puis « Inclure aussi les groupes de projets
+  maintenant ». Spec écrite et approuvée section par section (`docs/online-dashboard-accounts-design.md`),
+  plan en 19 tâches (`docs/superpowers/plans/2026-09-06-online-dashboard-accounts.md`), exécuté via
+  `subagent-driven-development` directement sur `main`.
+  - **`SPECTOFLOW_ACCESS_KEY`/`SESSION_SECRET` disparaissent entièrement** — remplacés par de vrais
+    comptes (`argon2id`), de vraies sessions révocables par appareil (même convention de token
+    hash-lookup que les tokens machine : `spf_` + 32 octets aléatoires, seul le SHA-256 est stocké,
+    jamais le clair sauf au moment de la création), `POST /signup`/`POST /login`/`POST /logout` réels.
+    Le premier compte jamais créé sur l'instance devient automatiquement Platform Admin.
+  - **Moteur RBAC unifié, deux portées** : catalogue de permissions fixe (clés stables, jamais des ids
+    surrogates), 5 rôles système à ids figés (`sys-platform-admin`/`sys-owner`/`sys-admin`/`sys-editor`/
+    `sys-viewer`), rôles personnalisés créables aux deux portées (plateforme et projet) et réutilisables
+    par un compte sur tous ses projets. **Owner et Admin ont exactement le même jeu de permissions** —
+    ce qui protège l'Owner, c'est un **statut**, pas une permission plus large : sa ligne de membership
+    (insérée automatiquement à la première publication du projet, dans `relay.js`) ne peut jamais être
+    modifiée ni supprimée via l'API, seul un dépublier local le fait disparaître.
+  - **Emails réels dès cette étape** (pas différé) : vérification d'adresse non bloquante (le compte
+    fonctionne immédiatement), réinitialisation de mot de passe en libre-service, invitations de projet
+    par email — le tout via une seule abstraction testable (`server/src/email.js`, transport
+    `nodemailer` injectable, repli console en `--insecure-dev` sans SMTP configuré).
+  - **Partage de projet** : membres avec rôle, invitations par email (verrouillées à l'adresse invitée
+    — voir plus bas), groupes de projets à plat (un projet = un groupe). Application réelle des
+    permissions dans le relais (`server/src/relay.js`) : **404** pour qui n'est pas membre (et sans le
+    bypass `platform.view_all_projects` — indistinguable d'un projet dépublié ou inexistant, prolongeant
+    l'invariant déjà posé par C1), **403** pour un membre réel dont le rôle ne couvre pas l'opération
+    demandée. `GET /api/hub/projects` recadré à la seule appartenance de l'appelant (plus jamais « tous
+    les projets publiés »). `platform.view_all_projects` donne à un Platform Admin une visibilité en
+    lecture seule sur n'importe quel projet publié, sans jamais élargir cette liste par défaut.
+  - **Cinq vulnérabilités réelles trouvées et corrigées pendant les revues par tâche** (avant la revue
+    finale) : (1) `assignPlatformRole` acceptait un rôle de portée *projet* comme rôle *plateforme*, sans
+    contrôle de portée ; (2) XSS réfléchi sur la page de réinitialisation de mot de passe (le token brut
+    de l'URL, non validé, atteignait un bloc `<script>` inline) ; (3) le rôle système `sys-owner` était
+    assignable via l'API normale d'invitation/changement de rôle — n'importe quel Admin pouvait ainsi
+    créer un second « Owner » définitivement irrévocable — et l'acceptation d'invitation ne vérifiait pas
+    que l'email du compte acceptant correspondait à celui invité ; (4) XSS stocké sur la page de compte
+    (`userAgent` de connexion et nom de machine injectés bruts dans `innerHTML`) ; (5) XSS stocké sur la
+    page d'administration (email de n'importe quel compte, sans restriction de format, injecté brut dans
+    `innerHTML` — exploitable par une simple inscription anonyme contre la session d'un Platform Admin)
+    combiné à une absence totale de contrôle de permission sur la route `GET /admin` elle-même.
+  - **Revue finale de branche** (modèle le plus capable, sur les 19 tâches ensemble) : un défaut
+    **Critique** qu'aucune revue par tâche ne pouvait voir isolément — les liens envoyés par email
+    (vérification, réinitialisation, invitation) étaient construits à partir de `req.hostname`
+    (l'en-tête `Host`, entièrement contrôlé par l'appelant, surtout une fois `TRUST_PROXY=1` en
+    production) plutôt que d'une origine de confiance : une prise de contrôle de compte à distance,
+    non authentifiée, était possible en usurpant cet en-tête sur une simple demande de réinitialisation.
+    Corrigé par une variable `BASE_URL` obligatoire (le démarrage refuse sans elle, sauf
+    `--insecure-dev`), propagée explicitement jusqu'aux quatre points de construction de lien — plus
+    aucun ne lit l'en-tête en production. Trois défauts Importants corrigés dans la même vague : les
+    emails d'invitation n'échappaient jamais le nom du projet (contrairement à la page web équivalente)
+    — un nom de projet malveillant produisait un email de phishing à l'apparence légitime ; la
+    suppression d'un rôle personnalisé encore assigné pouvait orpheliner des lignes d'appartenance ou
+    déclencher une erreur non gérée selon le moteur de base de données ; `server/README.md` documentait
+    encore l'ancien modèle à clé unique et un exemple d'invite de commande devenu non fonctionnel après
+    la tâche 7. Trois correctifs mineurs bonus (limite de débit sur l'invitation par email, validation de
+    l'existence du compte cible en promotion/rétrogradation, une ligne de log pour un cas jusqu'ici
+    silencieux). Tout re-vérifié indépendamment (traçage à la main de chaque point de construction de
+    lien pour le Critique) ; une dernière incohérence triviale de documentation (l'exemple de démarrage
+    rapide se contredisait lui-même sur l'origine locale) corrigée directement, sans nouveau cycle.
+  - **Limitation connue et délibérée, documentée plutôt que corrigée en douce** : `projects.group_id`
+    est une colonne unique par projet (fidèle au schéma approuvé de la spec), donc sur un projet à
+    plusieurs membres, le dernier à définir un groupe l'impose de fait à tous les membres — l'intention
+    « purement personnelle » de la spec ne tient que pour le cas très majoritaire (un seul membre,
+    l'Owner). Une vraie personnalisation par visualiseur demanderait une table `(project_id,user_id)`
+    séparée — délibérément non construite ici sans l'accord explicite de l'utilisateur.
+  - **Autres limitations connues, hors périmètre de cette étape** (constatées en revue finale, sans
+    impact sur ce qui est livré) : les rôles personnalisés de portée *plateforme* peuvent être créés
+    (CRUD complet) mais aucune route n'existe encore pour en assigner un à un compte — seul
+    `sys-platform-admin` est assignable aujourd'hui (promotion/rétrogradation) ; les trois panneaux web
+    prévus par la spec et par l'architecture de ce plan (membres de projet, éditeur de rôle, groupes sur
+    la page d'accueil du hub) n'ont été construits par aucune des 19 tâches — seules leurs API JSON
+    existent (`sharing.js`/`roles.js`/`groups.js`) ; les sessions n'ont pas de `expires_at` (seulement
+    `revoked_at`, fidèle au schéma de la spec approuvée) — un jeton de session capturé reste valide tant
+    qu'il n'est pas explicitement révoqué.
+  - **QA** : 19 tâches revues indépendamment (4 vagues de correction en cours de route, en plus de la
+    vague de la revue finale) ; suite serveur 93/93, 0 échec ; un vrai test de bout en bout (deux
+    comptes réels, un hub local réellement spawné, une invitation réelle acceptée comme Viewer, un vrai
+    403 en écriture / un vrai 200 en lecture, sur le relais réel).
+- Fichiers : `server/migrations/000{3..10}_*.js`, `server/src/models/{users,rbac,sessions,tokens,
+  sharing,settings,groups}.js`, `server/src/{email,escape}.js`, `server/src/routes/{admin,roles,groups,
+  account,sharing}.js`, `server/src/{auth,app,index,relay,db,cli}.js`, `server/README.md`,
+  `server/package.json` (version 0.2.0), `server/test/` (une douzaine de fichiers nouveaux ou étendus).
+
