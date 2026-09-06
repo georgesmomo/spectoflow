@@ -70,7 +70,12 @@ async function bootServer() {
   const signupRes = await fetch(url + '/signup', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ email: 'e2e-test@example.com', password: 'a-real-password-123' }) });
   const cookie = signupRes.headers.get('set-cookie').split(';')[0];
   const authedFetch = (p, opts = {}) => fetch(url + p, { ...opts, headers: Object.assign({}, opts.headers, { Cookie: cookie }) });
-  return { app, db, url, authedFetch };
+  // Task 13: GET /api/hub/projects and every /api/* op are now scoped to project membership — the
+  // account driving authedFetch must BE the machine's owning account (the one auto-inserted as
+  // sys-owner on first publish/hello) for this test's "second browser tab" reads/writes to see
+  // anything at all, exactly like server/test/relay.test.js's own boot() (Task 13, Step 2).
+  const ownerUserId = (await db.findUserByEmail('e2e-test@example.com')).id;
+  return { app, db, url, authedFetch, ownerUserId };
 }
 function createToken(db, name, ownerUserId) { const m = db.createMachine(name, ownerUserId); return m.ready.then(() => m); }
 // Async, non-blocking CLI invocation — see file header point 3. Never execFileSync for a command
@@ -94,12 +99,14 @@ function startHub(home, port) {
 const hubPort = () => 5500 + Math.floor(Math.random() * 200);
 
 async function runOneScenario(transport) {
-  const { app, db, url, authedFetch } = await bootServer();
+  const { app, db, url, authedFetch, ownerUserId } = await bootServer();
   const home = fs.mkdtempSync(path.join(os.tmpdir(), `stf-e2e-${transport}-`));
   const projectDir = fs.mkdtempSync(path.join(os.tmpdir(), `stf-e2e-proj-${transport}-`));
   execFileSync('node', [BIN, 'init', projectDir], { stdio: 'pipe' });
-  const owner = await db.createUser(`e2e-owner-${transport}@example.com`, 'password-123456');
-  const machine = await createToken(db, `e2e-${transport}`, owner.id);
+  // The machine's owner must be the SAME account authedFetch drives (see bootServer's comment) —
+  // not a separate, unrelated account — for this test's own reads/writes to be visible under Task
+  // 13's real permission enforcement.
+  const machine = await createToken(db, `e2e-${transport}`, ownerUserId);
   const P = hubPort();
   let hub = null;
   try {

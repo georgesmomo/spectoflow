@@ -9,6 +9,19 @@ const { findRoute } = require('../../lib/dashboard/routes');
 
 const REPLY_TIMEOUT_MS = Number(process.env.SPECTOFLOW_RELAY_REPLY_TIMEOUT_MS) || 30000;
 
+// Every op's required permission — the same 20 op names lib/dashboard/routes.js's ROUTES table
+// defines (server/src/relay.js never hardcodes a second copy of that table; this maps each of ITS
+// names to the ONE permission that gates it, kept in sync with routes.js by the fact that an
+// unrecognized op name below fails closed — see checkAccess's `required` lookup).
+const OP_PERMISSIONS = {
+  'project.read': 'project.read', 'agentfile.read': 'project.read', 'files.tree': 'project.read', 'files.read': 'project.read',
+  'files.write': 'project.write', 'files.mkdir': 'project.write', 'task.add': 'project.write', 'task.update': 'project.write',
+  'task.comment': 'project.write', 'workflow.toggle': 'project.write', 'run.start': 'project.write', 'chat.summarize': 'project.write',
+  'chat.clear': 'project.write', 'orchestrate.start': 'project.write', 'orchestrate.approve': 'project.write',
+  'settings.save': 'project.manage_settings',
+  'attention.add': 'project.write', 'attention.promote': 'project.write', 'attention.update': 'project.write', 'attention.remove': 'project.write',
+};
+
 function registerRelay(app, { db, registry }) {
   const pending = new Map();        // reqId -> {resolve,reject,timer}
   const sse = new Map();            // serverId -> Set<reply.raw>
@@ -127,8 +140,25 @@ function registerRelay(app, { db, registry }) {
     });
   }
 
-  app.get('/api/hub/projects', async () => {
-    const rows = await db.listPublic();
+  // Resolves to exactly one of 'ok' | 'forbidden' | 'not-member'. A real member missing the specific
+  // permission an op requires is 'forbidden' (403) — a real, distinguishable account with the wrong
+  // role. Someone who isn't a member at all is 'not-member' (404) — indistinguishable from an
+  // unpublished/nonexistent project, matching C1's existing pattern for unpublished projects, UNLESS
+  // they hold platform.view_all_projects, which grants read-only ('project.read' only) visibility
+  // regardless of membership.
+  async function checkAccess(userId, serverId, requiredPermission) {
+    const perms = await db.resolveProjectPermissions(userId, serverId);
+    if (perms.has(requiredPermission)) return 'ok';
+    if (perms.size > 0) return 'forbidden';
+    // platform.view_all_projects makes a non-member's presence on this project visible/real (not
+    // 'not-member'/404) even for a non-read op — they just lack that op's specific permission, so a
+    // write is 'forbidden' (403), same as a real member with the wrong role would get.
+    if (await db.hasPlatformPermission(userId, 'platform.view_all_projects')) return requiredPermission === 'project.read' ? 'ok' : 'forbidden';
+    return 'not-member';
+  }
+
+  app.get('/api/hub/projects', async (req) => {
+    const rows = await db.listPublishedProjectsForUser(req.user.id);
     const projects = await Promise.all(rows.map(async (r) => {
       const m = await db.knex('machines').where({ id: r.machine_id }).first();
       const st = registry.status(r.machine_id);
@@ -145,6 +175,9 @@ function registerRelay(app, { db, registry }) {
     // 404 as "Unknown project.", so unpublishing takes a cached serverId out of circulation for SSE
     // exactly like reads below, not just for writes.
     if (!owner || !owner.published) return reply.code(404).send({ error: 'Unknown project.' });
+    const access = await checkAccess(req.user.id, serverId, 'project.read');
+    if (access === 'not-member') return reply.code(404).send({ error: 'Unknown project.' });
+    if (access === 'forbidden') return reply.code(403).send({ error: 'You do not have permission to view this project.' });
     reply.raw.writeHead(200, { 'Content-Type': 'text/event-stream', 'Cache-Control': 'no-cache', Connection: 'keep-alive' });
     reply.raw.write('data: ' + JSON.stringify({ type: 'hello' }) + '\n\n');
     if (!sse.has(serverId)) sse.set(serverId, new Set());
@@ -165,6 +198,11 @@ function registerRelay(app, { db, registry }) {
     const route = findRoute(req.method, req.raw.url.split('?')[0]);
     if (!route) return reply.callNotFound();
     const [, , opName, argsFn] = route;
+    const required = OP_PERMISSIONS[opName];
+    if (!required) return reply.callNotFound(); // unrecognized op — fail closed, never silently allow
+    const access = await checkAccess(req.user.id, serverId, required);
+    if (access === 'not-member') return reply.code(404).send({ error: 'Unknown project.' });
+    if (access === 'forbidden') return reply.code(403).send({ error: 'You do not have permission to do that on this project.' });
     const u = new URL(req.raw.url, 'http://x');
     const args = argsFn(u, req.body || {}, u.pathname);
     const st = registry.status(owner.machineId);

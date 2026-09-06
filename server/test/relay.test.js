@@ -17,22 +17,19 @@ function fakeEmailer() {
 }
 async function boot() {
   const db = await createDb('sqlite::memory:'); await db.migrate();
-  const owner = await db.createUser('machine-owner@example.com', 'password-123456');
+  const owner = await db.createUser('relay-test@example.com', 'a-real-password-123');
   const m = db.createMachine('laptop', owner.id); await m.ready;
   const registry = createRegistry();
   const app = await buildApp({ db, insecureDev: true, publicDir: __dirname, registry, emailer: fakeEmailer() });
   await app.listen({ port: 0, host: '127.0.0.1' });
   const url = `http://127.0.0.1:${app.server.address().port}`;
-  // The relay's browser-facing routes sit behind the real session-cookie auth (server/src/auth.js) —
-  // sign up a real, fresh test account (which also logs it in, per Task 5's /signup) and thread the
-  // cookie through every subsequent request, so this test exercises the real, protected surface.
-  const signupRes = await fetch(url + '/signup', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ email: 'relay-test@example.com', password: 'a-real-password-123' }) });
-  const cookie = signupRes.headers.get('set-cookie').split(';')[0];
+  const loginRes = await fetch(url + '/login', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ email: 'relay-test@example.com', password: 'a-real-password-123' }) });
+  const cookie = loginRes.headers.get('set-cookie').split(';')[0];
   function authedFetch(p, opts = {}) {
     const headers = Object.assign({}, opts.headers, { Cookie: cookie });
     return fetch(url + p, { ...opts, headers });
   }
-  return { app, db, machine: m, registry, url, authedFetch };
+  return { app, db, machine: m, registry, url, authedFetch, ownerUserId: owner.id };
 }
 function fakeSocket() { const sent = []; return { readyState: 1, send: (s) => sent.push(JSON.parse(s)), sent }; }
 
@@ -169,4 +166,67 @@ test('a frame whose processing throws never crashes the process (no unhandledRej
     process.removeListener('unhandledRejection', onUnhandled);
     await app.close(); await db.destroy();
   }
+});
+
+test('a Viewer member can read but gets 403 on a write; a non-member gets 404 (indistinguishable from unpublished)', async () => {
+  const { app, db, machine, url, authedFetch, ownerUserId } = await boot();
+  try {
+    await fetch(url + '/connector/frames', { method: 'POST', headers: { Authorization: `Bearer ${machine.token}`, 'Content-Type': 'application/json' },
+      body: JSON.stringify([{ type: 'auth', token: machine.token }, { type: 'hello', machineName: 'laptop', projects: [{ localId: 'aaaaaa', name: 'Alpha', kind: 'spectoflow', stats: null }] }, { type: 'snapshot', p: 'aaaaaa', project: { projectName: 'Alpha', plans: [] } }]) });
+    const serverId = (await (await authedFetch('/api/hub/projects')).json()).projects[0].id;
+
+    const viewer = await db.createUser('viewer@example.com', 'a-real-password-123');
+    await db.addProjectMember(serverId, viewer.id, db.SYSTEM_ROLE_IDS.VIEWER);
+    const viewerLogin = await fetch(url + '/login', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ email: 'viewer@example.com', password: 'a-real-password-123' }) });
+    const viewerCookie = viewerLogin.headers.get('set-cookie').split(';')[0];
+    const viewerFetch = (p, opts = {}) => fetch(url + p, { ...opts, headers: Object.assign({}, opts.headers, { Cookie: viewerCookie }) });
+
+    const readOk = await viewerFetch(`/api/project?p=${serverId}`);
+    assert.strictEqual(readOk.status, 200);
+    const writeForbidden = await viewerFetch(`/api/task?p=${serverId}`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ title: 'nope' }) });
+    assert.strictEqual(writeForbidden.status, 403);
+
+    const stranger = await db.createUser('stranger@example.com', 'a-real-password-123');
+    const strangerLogin = await fetch(url + '/login', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ email: 'stranger@example.com', password: 'a-real-password-123' }) });
+    const strangerCookie = strangerLogin.headers.get('set-cookie').split(';')[0];
+    const strangerFetch = (p, opts = {}) => fetch(url + p, { ...opts, headers: Object.assign({}, opts.headers, { Cookie: strangerCookie }) });
+    const notMember = await strangerFetch(`/api/project?p=${serverId}`);
+    assert.strictEqual(notMember.status, 404);
+    const notMemberSse = await strangerFetch(`/api/events?p=${serverId}`);
+    assert.strictEqual(notMemberSse.status, 404);
+  } finally { await app.close(); await db.destroy(); }
+});
+
+test('platform.view_all_projects grants a non-member READ visibility but not write', async () => {
+  const { app, db, machine, url, authedFetch } = await boot();
+  try {
+    await fetch(url + '/connector/frames', { method: 'POST', headers: { Authorization: `Bearer ${machine.token}`, 'Content-Type': 'application/json' },
+      body: JSON.stringify([{ type: 'auth', token: machine.token }, { type: 'hello', machineName: 'laptop', projects: [{ localId: 'aaaaaa', name: 'Alpha', kind: 'spectoflow', stats: null }] }, { type: 'snapshot', p: 'aaaaaa', project: { projectName: 'Alpha', plans: [] } }]) });
+    const serverId = (await (await authedFetch('/api/hub/projects')).json()).projects[0].id;
+
+    const superAdmin = await db.createUser('super@example.com', 'a-real-password-123');
+    await db.assignPlatformRole(superAdmin.id, db.SYSTEM_ROLE_IDS.PLATFORM_ADMIN);
+    const login = await fetch(url + '/login', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ email: 'super@example.com', password: 'a-real-password-123' }) });
+    const cookie = login.headers.get('set-cookie').split(';')[0];
+    const adminFetch = (p, opts = {}) => fetch(url + p, { ...opts, headers: Object.assign({}, opts.headers, { Cookie: cookie }) });
+
+    assert.strictEqual((await adminFetch(`/api/project?p=${serverId}`)).status, 200);
+    assert.strictEqual((await adminFetch(`/api/task?p=${serverId}`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ title: 'x' }) })).status, 403);
+  } finally { await app.close(); await db.destroy(); }
+});
+
+test('GET /api/hub/projects only lists projects the caller is a member of', async () => {
+  const { app, db, machine, url, authedFetch, ownerUserId } = await boot();
+  try {
+    await fetch(url + '/connector/frames', { method: 'POST', headers: { Authorization: `Bearer ${machine.token}`, 'Content-Type': 'application/json' },
+      body: JSON.stringify([{ type: 'auth', token: machine.token }, { type: 'hello', machineName: 'laptop', projects: [{ localId: 'aaaaaa', name: 'Alpha', kind: 'spectoflow', stats: null }] }]) });
+    const ownerList = await (await authedFetch('/api/hub/projects')).json();
+    assert.strictEqual(ownerList.projects.length, 1);
+    const outsider = await db.createUser('outsider@example.com', 'a-real-password-123');
+    const login = await fetch(url + '/login', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ email: 'outsider@example.com', password: 'a-real-password-123' }) });
+    const cookie = login.headers.get('set-cookie').split(';')[0];
+    const outsiderFetch = (p, opts = {}) => fetch(url + p, { ...opts, headers: Object.assign({}, opts.headers, { Cookie: cookie }) });
+    const outsiderList = await (await outsiderFetch('/api/hub/projects')).json();
+    assert.strictEqual(outsiderList.projects.length, 0);
+  } finally { await app.close(); await db.destroy(); }
 });

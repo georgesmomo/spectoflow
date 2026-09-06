@@ -15,5 +15,9 @@ async function registerAdmin(app, { db }) {
     catch (e) { return reply.code(400).send({ error: e.message }); }
     return { ok: true };
   });
+  app.get('/api/admin/projects', async (req, reply) => {
+    if (!(await requirePlatformPermission(req, reply, db, 'platform.view_all_projects'))) return;
+    return { projects: await db.listPublic() };
+  });
 }
 module.exports = { registerAdmin };
