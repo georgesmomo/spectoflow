@@ -163,7 +163,7 @@ function registerRelay(app, { db, registry }) {
       const m = await db.knex('machines').where({ id: r.machine_id }).first();
       const st = registry.status(r.machine_id);
       const cached = registry.entry(r.machine_id).projects && registry.entry(r.machine_id).projects.get(r.local_id);
-      return { id: r.id, name: r.name, kind: r.kind, machine: m ? m.name : 'unknown', online: st.connected, lastSeen: st.lastSeen, stats: (cached && cached.stats) || null, lastOpened: r.snapshot_at || r.created_at };
+      return { id: r.id, name: r.name, kind: r.kind, machine: m ? m.name : 'unknown', online: st.connected, lastSeen: st.lastSeen, stats: (cached && cached.stats) || null, lastOpened: r.snapshot_at || r.created_at, groupId: r.group_id || null };
     }));
     return { mode: 'remote', projects };
   });
