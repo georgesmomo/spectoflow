@@ -1,0 +1,12 @@
+.git
+node_modules
+server/node_modules
+server/data
+server/.env
+server/test
+test
+demo
+docs
+.superpowers
+.claude
+.github
