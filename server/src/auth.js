@@ -12,7 +12,7 @@ const fastifyRateLimit = require('@fastify/rate-limit');
 const COOKIE = 'spf_session';
 const THIRTY_DAYS_S = 30 * 24 * 60 * 60;
 const PUBLIC_EXACT = ['/healthz', '/login', '/signup'];
-const PUBLIC_PREFIXES = ['/connector/', '/login-assets/', '/verify-email/'];
+const PUBLIC_PREFIXES = ['/connector/', '/login-assets/', '/verify-email/', '/password-reset/'];
 const isPublic = (url) => PUBLIC_EXACT.includes(url) || PUBLIC_PREFIXES.some((p) => url.startsWith(p));
 
 const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
@@ -86,6 +86,31 @@ async function registerAuth(fastify, { db, insecureDev, emailer }) {
     return { ok: true };
   });
 
+  fastify.post('/password-reset/request', { config: { rateLimit: { max: 10, timeWindow: '15 minutes' } } }, async (req, reply) => {
+    const email = req.body && req.body.email;
+    const user = typeof email === 'string' ? await db.findUserByEmail(email) : null;
+    if (user) {
+      const token = await db.createPasswordResetToken(user.id);
+      const url = `${req.protocol}://${req.hostname}/password-reset/${token}`;
+      try {
+        await emailer.sendPasswordResetEmail(user.email, url);
+      } catch (err) {
+        fastify.log.error(err, 'failed to send password reset email');
+      }
+    }
+    return { ok: true }; // identical response whether or not the email exists
+  });
+  fastify.get('/password-reset/:token', async (req, reply) => reply.type('text/html').send(PASSWORD_RESET_HTML(req.params.token)));
+  fastify.post('/password-reset/confirm', async (req, reply) => {
+    const { token, newPassword } = req.body || {};
+    if (typeof newPassword !== 'string' || newPassword.length < 12) return reply.code(400).send({ error: 'Password must be at least 12 characters.' });
+    const userId = typeof token === 'string' ? await db.consumePasswordResetToken(token) : null;
+    if (!userId) return reply.code(400).send({ error: 'This link is invalid or has expired.' });
+    await db.updatePassword(userId, newPassword);
+    await db.revokeAllSessionsForUser(userId);
+    return { ok: true };
+  });
+
   fastify.addHook('onRequest', async (req, reply) => {
     if (isPublic(req.raw.url)) return;
     const token = req.cookies[COOKIE];
@@ -124,6 +149,13 @@ if(r.ok) location.href='/'; else document.getElementById('err').textContent=(awa
 
 const VERIFY_OK_HTML = `<!doctype html><html><head><meta charset="utf-8"><title>spectoflow</title><style>${FORM_STYLE}</style></head><body>
 <div style="text-align:center"><h1 style="font-size:16px">Email verified</h1><p style="color:#8b93a6">You're all set. <a href="/">Go to your dashboard</a>.</p></div></body></html>`;
+const PASSWORD_RESET_HTML = (token) => `<!doctype html><html><head><meta charset="utf-8"><title>spectoflow</title><style>${FORM_STYLE}</style></head><body>
+<form id="f"><h1 style="margin:0 0 4px;font-size:16px">Reset your password</h1>
+<input id="password" type="password" placeholder="New password (12+ characters)" autocomplete="new-password" autofocus />
+<p class="err" id="err"></p><button type="submit">Set new password</button></form>
+<script>document.getElementById('f').addEventListener('submit',async(e)=>{e.preventDefault();
+const r=await fetch('/password-reset/confirm',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({token:${JSON.stringify(token)},newPassword:document.getElementById('password').value})});
+if(r.ok) location.href='/login'; else document.getElementById('err').textContent=(await r.json()).error||'Could not reset the password.';});</script></body></html>`;
 const VERIFY_FAIL_HTML = `<!doctype html><html><head><meta charset="utf-8"><title>spectoflow</title><style>${FORM_STYLE}</style></head><body>
 <div style="text-align:center"><h1 style="font-size:16px">Link expired or already used</h1><p style="color:#8b93a6">Sign in and request a new verification email from your account page.</p></div></body></html>`;
 

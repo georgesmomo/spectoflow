@@ -156,3 +156,31 @@ test('POST /signup still succeeds with a working session cookie when the verific
     assert.ok(user);
   } finally { await a.close(); await db.destroy(); }
 });
+
+test('password reset: request never reveals whether the email exists; confirm updates the password and revokes every session', async () => {
+  const { app: a, db, emailer } = await app({ publicDir: undefined });
+  try {
+    const rSignup = await signup(a);
+    const oldCookie = rSignup.cookies.find((c) => c.name === 'spf_session').value;
+    const reqUnknown = await a.inject({ method: 'POST', url: '/password-reset/request', payload: { email: 'nobody@example.com' } });
+    assert.strictEqual(reqUnknown.statusCode, 200);
+    assert.strictEqual(emailer.sent.filter((m) => m.kind === 'reset').length, 0); // nothing actually sent for an unknown email
+    const reqKnown = await a.inject({ method: 'POST', url: '/password-reset/request', payload: { email: 'alice@example.com' } });
+    assert.strictEqual(reqKnown.statusCode, 200);
+    const resetEmails = emailer.sent.filter((m) => m.kind === 'reset');
+    assert.strictEqual(resetEmails.length, 1);
+    const token = resetEmails[0].url.split('/password-reset/')[1];
+    const page = await a.inject({ method: 'GET', url: `/password-reset/${token}` });
+    assert.strictEqual(page.statusCode, 200);
+    const badPassword = await a.inject({ method: 'POST', url: '/password-reset/confirm', payload: { token, newPassword: 'short' } });
+    assert.strictEqual(badPassword.statusCode, 400);
+    const confirm = await a.inject({ method: 'POST', url: '/password-reset/confirm', payload: { token, newPassword: 'a-brand-new-password-1' } });
+    assert.strictEqual(confirm.statusCode, 200);
+    const stillOld = await a.inject({ method: 'GET', url: '/', cookies: { spf_session: oldCookie } });
+    assert.strictEqual(stillOld.statusCode, 401); // old session revoked by the reset
+    const login = await a.inject({ method: 'POST', url: '/login', payload: { email: 'alice@example.com', password: 'a-brand-new-password-1' } });
+    assert.strictEqual(login.statusCode, 200);
+    const again = await a.inject({ method: 'POST', url: '/password-reset/confirm', payload: { token, newPassword: 'yet-another-password-2' } });
+    assert.strictEqual(again.statusCode, 400); // single-use
+  } finally { await a.close(); await db.destroy(); }
+});
