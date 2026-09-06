@@ -3,6 +3,7 @@
 const fs = require('fs');
 const path = require('path');
 const http = require('http');
+const os = require('os');
 const readline = require('readline');
 const { spawn } = require('child_process');
 const store = require('../lib/store');
@@ -212,7 +213,6 @@ function dashboardInit() {
   } catch (e) { console.log(`${c.y('!')} ${e.message}`); process.exitCode = 1; }
 }
 
-const REMOTE_NOTE = 'This version manages local dashboards. Remote dashboards (login with a token) come in a later release — continuing with your local dashboard.';
 function isLocalUrl(u) { try { return ['localhost', '127.0.0.1', '::1'].includes(new URL(u).hostname); } catch { return true; } }
 // The one-time question every dashboard-starting command answers before doing anything else: which
 // dashboard should this project talk to? `--url` answers it without prompting. Otherwise, only when
@@ -241,7 +241,6 @@ async function resolveDashboardUrl() {
     globalConfig.set('dashboard.url', answer || globalConfig.get('dashboard.url').value);
   }
   const url = globalConfig.get('dashboard.url').value;
-  if (!isLocalUrl(url)) console.log(`${c.y('!')} ${REMOTE_NOTE}`);
   return url;
 }
 
@@ -250,13 +249,90 @@ async function resolveDashboardUrl() {
 async function dashboard() {
   const sub = argv[1];
   if (sub === 'init') return dashboardInit();
-  if (sub === 'login') { console.log(REMOTE_NOTE); return; }
+  if (sub === 'login') return dashboardLogin();
+  if (sub === 'logout') return dashboardLogout();
+  if (sub === 'publish') return dashboardPublish(true);
+  if (sub === 'unpublish') return dashboardPublish(false);
   if (sub === 'stop') return stopDashboard();
   if (sub === 'status') return dashboardStatus();
   if (sub === 'restart') return restartDashboard();
   if (sub === 'create') return runCustomize('dashboard');
   if (sub === 'validate') return validateDashboardFile(argv[2]);
   return startDashboard();
+}
+
+// ---- online dashboard (C1): login / logout / publish / unpublish ----
+// The machine token authenticates this machine to a hosted dashboard (server/). `login` checks it
+// against POST /connector/whoami, stores it in the workspace's remote.json (0600) and points
+// dashboard.url at the server; the hub — running or next started — opens the outbound connection.
+async function fetchJSON(url, init = {}, timeoutMs = 10000) {
+  const res = await fetch(url, { ...init, signal: AbortSignal.timeout(timeoutMs) });
+  let data = {}; try { data = await res.json(); } catch {}
+  return { status: res.status, ok: res.ok, data };
+}
+// Best-effort call on the running local hub; null when no hub is up (the caller says "next start will").
+async function hubCall(pathname, payload) {
+  const info = workspace.readLock();
+  if (!info || !info.port || !(await probeDashboard(info.port))) return null;
+  try { return await fetchJSON(`http://localhost:${info.port}${pathname}`, payload === undefined ? {} : { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload) }); }
+  catch { return null; }
+}
+function fail(msg) { console.log(`${c.y('!')} ${msg}`); process.exitCode = 1; }
+async function dashboardLogin() {
+  const url = flag('url'), token = flag('token'), transport = flag('transport') || 'ws';
+  if (!url || !token) { console.log(`Usage: spectoflow dashboard login --url=<https://…> --token=<spf_…> ${c.dim('[--name=<machine name>] [--transport=ws|http]')}`); process.exitCode = 1; return; }
+  let base;
+  try { base = new URL(url); if (!/^https?:$/.test(base.protocol)) throw new Error(); } catch { return fail('--url must be an http(s) URL, e.g. https://dashboard.example.com'); }
+  if (!['ws', 'http'].includes(transport)) return fail('--transport must be ws or http');
+  const clean = base.toString().replace(/\/+$/, '');
+  let who;
+  try { who = await fetchJSON(`${clean}/connector/whoami`, { method: 'POST', headers: { Authorization: `Bearer ${token}` } }); }
+  catch (e) { return fail(`could not reach ${clean} (${e.cause && e.cause.code ? e.cause.code : e.name === 'TimeoutError' ? 'timeout' : e.message})`); }
+  if (who.status === 401) return fail(`${clean} rejected this token — create one on the server: node cli.js token create --name="${os.hostname()}"`);
+  if (!who.ok) return fail(`${clean} answered HTTP ${who.status} — is that the spectoflow server?`);
+  const machineName = flag('name') || os.hostname();
+  workspace.migrateLegacyHome(); if (!workspace.exists()) workspace.init({});
+  workspace.writeRemote({ url: clean, token, machineName, transport });
+  globalConfig.set('dashboard.url', clean);
+  console.log(`${c.g('✓')} logged in to ${c.bold(clean)} as ${c.bold(machineName)} ${c.dim(`(machine ${who.data.machineId || '?'}, ${transport})`)}`);
+  const r = await hubCall('/api/hub/remote/reconnect', {});
+  console.log(`  ${c.dim(r ? 'the running hub is connecting now' : 'the next `spectoflow dashboard` will connect')}`);
+  console.log(`  publish a project from inside it:  ${c.g('spectoflow dashboard publish')}`);
+}
+async function dashboardLogout() {
+  const had = workspace.clearRemote();
+  globalConfig.set('dashboard.url', `http://localhost:${resolvePort(argv)}`);
+  await hubCall('/api/hub/remote/reconnect', {});
+  console.log(had ? `${c.g('✓')} logged out — this machine no longer connects to an online dashboard` : `${c.dim('○')} not logged in to any online dashboard`);
+}
+async function dashboardPublish(published) {
+  let id = flag('id');
+  if (!id) {
+    const entry = registry.findByPath(process.cwd());
+    if (!entry) return fail(`this folder isn't registered in the dashboard yet — run ${c.g('spectoflow dashboard')} here first, or pass --id=<id> (see ${c.g('spectoflow projects')})`);
+    id = entry.id;
+  }
+  const meta = workspace.setPublished(id, published);
+  if (!meta) return fail(`no project registered with id ${id}`);
+  await hubCall(`/api/hub/projects/${encodeURIComponent(id)}/publish`, { published });
+  if (!published) return console.log(`${c.g('✓')} ${id} is no longer published`);
+  console.log(`${c.g('✓')} ${id} is published`);
+  const remote = workspace.readRemote();
+  if (remote) console.log(`  online: ${c.bold(remote.url)}`);
+  else console.log(`  ${c.dim('not logged in yet —')} ${c.g('spectoflow dashboard login --url=… --token=…')}`);
+}
+// The one-line "online" status under the local one — used by `dashboard` and `dashboard status`.
+async function printOnlineLine(port, running) {
+  const remote = workspace.readRemote();
+  if (remote) {
+    let s = null;
+    if (running) { try { s = (await fetchJSON(`http://localhost:${port}/api/hub/remote`)).data; } catch {} }
+    if (s && s.connected) return console.log(`${c.g('●')} online → ${c.bold(remote.url)} ${c.dim(`(connected via ${s.transport}, machine "${remote.machineName}")`)}`);
+    const why = !running ? 'hub not running' : s && s.lastError ? `not connected: ${s.lastError}` : 'connecting…';
+    return console.log(`${c.dim('○')} online → ${c.bold(remote.url)} ${c.dim(`(${why})`)}`);
+  }
+  const url = globalConfig.get('dashboard.url').value;
+  if (!isLocalUrl(url)) console.log(`${c.dim('○')} online → ${url} ${c.dim('— not logged in:')} ${c.g('spectoflow dashboard login --url=… --token=…')}`);
 }
 
 // ---- projects: the multi-project registry's CLI surface (the workspace's projects.json) ----
@@ -361,6 +437,7 @@ async function startDashboard() {
   const info = workspace.readLock();
   if (info && info.port && await probeDashboard(info.port)) {
     console.log(`${c.g('●')} hub already running → ${c.bold(boardUrl(info.port))}`);
+    await printOnlineLine(info.port, true);
     return printDashboardCommands();
   }
   const port = resolvePort(argv);
@@ -374,6 +451,7 @@ async function startDashboard() {
   for (let i = 0; i < 20 && !up; i++) { await new Promise((r) => setTimeout(r, 250)); up = await probeDashboard(port, 300); }
   if (up) console.log(`${c.g('✓')} hub started → ${c.bold(boardUrl(port))}  ${c.dim('(pid ' + child.pid + ')')}`);
   else console.log(`${c.y('!')} spawned (pid ${child.pid}) but it isn't responding on http://localhost:${port} yet — check ${c.g('spectoflow dashboard status')} in a moment, or its own output if something's wrong.`);
+  await printOnlineLine(port, up);
   printDashboardCommands();
 }
 
@@ -392,6 +470,7 @@ async function dashboardStatus() {
   const running = await probeDashboard(port);
   if (running) console.log(`${c.g('●')} hub running → ${c.bold('http://localhost:' + port)}${info && info.pid ? c.dim(' (pid ' + info.pid + ')') : ''}`);
   else console.log(`${c.dim('○')} hub not running`);
+  await printOnlineLine(port, running);
 }
 
 async function restartDashboard() {
@@ -504,7 +583,7 @@ ${c.bold('Dashboard')}
   ${c.g('dashboard status')}             is it running? (url + pid)
   ${c.g('dashboard stop')}               stop it ${c.dim('(alias: stop)')}
   ${c.g('dashboard restart')}            stop then start
-  ${c.g('dashboard login')}               connect to a remote dashboard ${c.dim('(coming in a later release)')}
+  ${c.g('dashboard login')} ${c.dim('--url=<u> --token=<t>')}  connect this machine to an online dashboard ${c.dim('(logout · publish · unpublish)')}
   ${c.g('projects')} ${c.dim('[remove <id>]')}     list every project seen so far
 
 ${c.bold('Customize')} ${c.dim('— same as Settings → Customize, from the terminal')}
@@ -542,7 +621,7 @@ const HELP = {
   ${c.g('--force')} (${c.g('-f')}) overwrites a diverged file in place instead of dropping a ${c.dim('*.new')}
   — use it when you know you have no local edits worth keeping (e.g. a file stuck diverged from an
   earlier update). It never touches config.json, workflow.md, specs/ or plans/.`,
-  dashboard: `${c.bold('spectoflow dashboard')} ${c.dim('[--port=NNNN] [--url=<u>] [init|status|stop|restart|create|validate|login]')}\n
+  dashboard: `${c.bold('spectoflow dashboard')} ${c.dim('[--port=NNNN] [--url=<u>] [init|status|stop|restart|create|validate|login|logout|publish|unpublish]')}\n
   Start the local control plane in the ${c.bold('background')} (default ${c.dim('4319')} or
   ${c.dim('$SPECTOFLOW_PORT')}) and hand the prompt back. ${c.g('--url=<u>')} sets which dashboard this
   project talks to (${c.dim('~/.spectoflow/config.json → dashboard.url')}) — asked once, interactively,
@@ -553,7 +632,10 @@ const HELP = {
     ${c.g('restart')}   stop then start
     ${c.g('create')}    generate a custom dashboard, e.g. ${c.dim('spectoflow dashboard create "..." --auto')}
     ${c.g('validate <file>')}  check a custom-view JSON against the block schema
-    ${c.g('login')}     connect to a remote dashboard ${c.dim('(coming in a later release)')}`,
+    ${c.g('login')}     connect this machine to an online dashboard: ${c.dim('--url=<https://…> --token=<spf_…> [--name=<machine>] [--transport=ws|http]')}
+    ${c.g('logout')}    forget it (remote.json removed, dashboard.url back to local)
+    ${c.g('publish')}   make the current project (or ${c.dim('--id=<id>')}) visible online — nothing is published by default
+    ${c.g('unpublish')} take it back offline`,
   projects: `${c.bold('spectoflow projects')} ${c.dim('[remove <id>]')}\n
   List every registered project in the global registry (the dashboard workspace's projects.json) (stored by
   ${c.g('spectoflow dashboard')}) — id, name, path. ${c.g('remove <id>')} drops one (e.g. a project that moved

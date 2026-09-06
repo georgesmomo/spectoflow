@@ -32,17 +32,18 @@ test('spectoflow dashboard with no TTY and no dashboard.url stores the local def
   assert.strictEqual(run(h, ['config', 'get', 'dashboard.url']).trim(), 'http://localhost:4319');
 });
 
-test('spectoflow dashboard --url=<remote> stores it and explains remote dashboards are not managed yet', () => {
+test('spectoflow dashboard --url=<remote> stores it and no longer claims remote dashboards are unsupported', () => {
   const h = home();
   const out = run(h, ['dashboard', 'status', '--url=https://dashboard.example.com'], { stdio: ['ignore', 'pipe', 'pipe'] });
-  assert.match(out, /later release|not managed yet|coming/i);
+  assert.ok(!/later release/i.test(out));
+  assert.match(out, /not logged in/i);   // a remote URL without a login → the hint to run `dashboard login`
   assert.strictEqual(run(h, ['config', 'get', 'dashboard.url']).trim(), 'https://dashboard.example.com');
 });
 
-test('dashboard login is reserved: exits 0 with the same message', () => {
+test('dashboard login without arguments prints usage and exits 1', () => {
   const r = spawnSync('node', [BIN, 'dashboard', 'login'], { encoding: 'utf8', env: { ...process.env, SPECTOFLOW_HOME: home() } });
-  assert.strictEqual(r.status, 0);
-  assert.match(r.stdout, /later release|coming/i);
+  assert.strictEqual(r.status, 1);
+  assert.match(r.stdout, /Usage: spectoflow dashboard login/);
 });
 
 test('dashboard status --url=<malformed> exits with code 1 and prints a clean error message', () => {
