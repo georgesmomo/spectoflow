@@ -38,6 +38,9 @@ function createRbacModel(knex) {
     return Promise.all(rows.map((r) => getRole(r.id)));
   }
   async function assignPlatformRole(userId, roleId) {
+    const role = await knex('roles').where({ id: roleId }).first();
+    if (!role) throw new Error(`role "${roleId}" is not a platform-scope role`);
+    if (role.scope !== 'platform') throw new Error(`role "${roleId}" is not a platform-scope role`);
     const exists = await knex('user_platform_roles').where({ user_id: userId, role_id: roleId }).first();
     if (!exists) await knex('user_platform_roles').insert({ user_id: userId, role_id: roleId });
   }

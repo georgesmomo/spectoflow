@@ -56,3 +56,13 @@ test('assignPlatformRole/removePlatformRole/listPlatformRolesForUser/hasPlatform
     assert.strictEqual(await db.hasPlatformPermission(u.id, 'platform.manage_signup'), false);
   } finally { await db.destroy(); }
 });
+
+test('assignPlatformRole rejects a non-platform-scope role', async () => {
+  const db = await fresh();
+  try {
+    const u = await db.createUser('user@example.com', 'password-123456');
+    const owner = await db.createUser('owner@example.com', 'password-123456');
+    const projectRole = await db.createRole({ scope: 'project', ownerUserId: owner.id, name: 'Project Reviewer', permissionKeys: ['project.read'] });
+    await assert.rejects(() => db.assignPlatformRole(u.id, projectRole.id), /not a platform-scope role/i);
+  } finally { await db.destroy(); }
+});
