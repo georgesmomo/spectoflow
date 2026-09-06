@@ -66,3 +66,36 @@ test('DELETE /api/roles/:id: 403 for a system role, 403 for someone else\'s role
     assert.strictEqual((await alice.fetch(`/api/roles/${created.role.id}`, { method: 'DELETE' })).status, 200);
   } finally { await app.close(); await db.destroy(); }
 });
+
+test('DELETE /api/roles/:id refuses (409) while the role is assigned to a project member; succeeds once the assignment is removed', async () => {
+  const { app, db, signupAndLogin } = await boot();
+  try {
+    const alice = await signupAndLogin('alice4@example.com');
+    const created = await (await alice.fetch('/api/roles', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ scope: 'project', name: 'Assigned', permissionKeys: ['project.read'] }) })).json();
+    const roleId = created.role.id;
+    const m = db.createMachine('laptop', alice.userId); await m.ready;
+    const project = await db.upsertProject({ machineId: m.id, localId: 'zzzzzz', name: 'Zeta', kind: 'spectoflow' });
+    await db.addProjectMember(project.id, alice.userId, roleId);
+    const blocked = await alice.fetch(`/api/roles/${roleId}`, { method: 'DELETE' });
+    assert.strictEqual(blocked.status, 409);
+    assert.match((await blocked.json()).error, /currently assigned/i);
+    const removed = await db.removeProjectMember(project.id, alice.userId);
+    assert.strictEqual(removed, 'ok');
+    const success = await alice.fetch(`/api/roles/${roleId}`, { method: 'DELETE' });
+    assert.strictEqual(success.status, 200);
+  } finally { await app.close(); await db.destroy(); }
+});
+
+test('DELETE /api/roles/:id refuses (409) while the role is on a pending invitation', async () => {
+  const { app, db, signupAndLogin } = await boot();
+  try {
+    const alice = await signupAndLogin('alice5@example.com');
+    const created = await (await alice.fetch('/api/roles', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ scope: 'project', name: 'Invited', permissionKeys: ['project.read'] }) })).json();
+    const roleId = created.role.id;
+    const m = db.createMachine('laptop', alice.userId); await m.ready;
+    const project = await db.upsertProject({ machineId: m.id, localId: 'yyyyyy', name: 'Yotta', kind: 'spectoflow' });
+    await db.createInvitation({ projectId: project.id, email: 'invitee5@example.com', roleId, invitedByUserId: alice.userId });
+    const blocked = await alice.fetch(`/api/roles/${roleId}`, { method: 'DELETE' });
+    assert.strictEqual(blocked.status, 409);
+  } finally { await app.close(); await db.destroy(); }
+});

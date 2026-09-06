@@ -24,7 +24,14 @@ async function registerRoles(app, { db }) {
     const role = await db.getRole(req.params.id);
     if (!role) return reply.code(404).send({ error: 'Role not found.' });
     if (role.isSystem || role.ownerUserId !== req.user.id) return reply.code(403).send({ error: 'You can only delete your own custom roles.' });
-    await db.deleteRole(req.params.id);
+    try {
+      await db.deleteRole(req.params.id);
+    } catch (e) {
+      if (/currently assigned/i.test(e.message)) {
+        return reply.code(409).send({ error: 'This role is currently assigned — remove it from every member/invitation first.' });
+      }
+      throw e;
+    }
     return { ok: true };
   });
 }

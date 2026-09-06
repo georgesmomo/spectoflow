@@ -26,10 +26,24 @@ function createRbacModel(knex) {
     if (permissionKeys.length) await knex('role_permissions').insert(permissionKeys.map((permission_key) => ({ role_id: id, permission_key })));
     return getRole(id);
   }
+  // `project_members.role_id`/`project_invitations.role_id`/`user_platform_roles.role_id` carry no
+  // `onDelete` clause, and this codebase's own SQLite test driver doesn't enforce foreign keys at
+  // all — so deleting an in-use role would either orphan those rows silently (a member becomes
+  // indistinguishable from a non-member) on SQLite, or throw an unhandled DB error on a driver that
+  // DOES enforce FKs (MySQL/Postgres). Refuse instead, before ever attempting the delete.
+  async function isRoleInUse(roleId) {
+    const [inMembers, inInvitations, inPlatformRoles] = await Promise.all([
+      knex('project_members').where({ role_id: roleId }).first(),
+      knex('project_invitations').where({ role_id: roleId }).first(),
+      knex('user_platform_roles').where({ role_id: roleId }).first(),
+    ]);
+    return !!(inMembers || inInvitations || inPlatformRoles);
+  }
   async function deleteRole(roleId) {
     const row = await knex('roles').where({ id: roleId }).first();
     if (!row) return false;
     if (row.is_system) throw new Error('cannot delete a system role');
+    if (await isRoleInUse(roleId)) throw new Error('role is currently assigned to a member or invitation');
     await knex('roles').where({ id: roleId }).delete(); // role_permissions cascades
     return true;
   }
