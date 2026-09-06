@@ -100,7 +100,13 @@ async function registerAuth(fastify, { db, insecureDev, emailer }) {
     }
     return { ok: true }; // identical response whether or not the email exists
   });
-  fastify.get('/password-reset/:token', async (req, reply) => reply.type('text/html').send(PASSWORD_RESET_HTML(req.params.token)));
+  fastify.get('/password-reset/:token', async (req, reply) => {
+    const token = req.params.token;
+    if (typeof token !== 'string' || !/^spf_[A-Za-z0-9_-]+$/.test(token)) {
+      return reply.code(400).type('text/html').send(PASSWORD_RESET_INVALID_HTML);
+    }
+    return reply.type('text/html').send(PASSWORD_RESET_HTML(token));
+  });
   fastify.post('/password-reset/confirm', async (req, reply) => {
     const { token, newPassword } = req.body || {};
     if (typeof newPassword !== 'string' || newPassword.length < 12) return reply.code(400).send({ error: 'Password must be at least 12 characters.' });
@@ -154,8 +160,10 @@ const PASSWORD_RESET_HTML = (token) => `<!doctype html><html><head><meta charset
 <input id="password" type="password" placeholder="New password (12+ characters)" autocomplete="new-password" autofocus />
 <p class="err" id="err"></p><button type="submit">Set new password</button></form>
 <script>document.getElementById('f').addEventListener('submit',async(e)=>{e.preventDefault();
-const r=await fetch('/password-reset/confirm',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({token:${JSON.stringify(token)},newPassword:document.getElementById('password').value})});
+const r=await fetch('/password-reset/confirm',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({token:${JSON.stringify(token).replace(/</g, '\\u003c')},newPassword:document.getElementById('password').value})});
 if(r.ok) location.href='/login'; else document.getElementById('err').textContent=(await r.json()).error||'Could not reset the password.';});</script></body></html>`;
+const PASSWORD_RESET_INVALID_HTML = `<!doctype html><html><head><meta charset="utf-8"><title>spectoflow</title><style>${FORM_STYLE}</style></head><body>
+<div style="text-align:center"><h1 style="font-size:16px">Link expired or already used</h1><p style="color:#8b93a6">Sign in and request a new password reset from the login page.</p></div></body></html>`;
 const VERIFY_FAIL_HTML = `<!doctype html><html><head><meta charset="utf-8"><title>spectoflow</title><style>${FORM_STYLE}</style></head><body>
 <div style="text-align:center"><h1 style="font-size:16px">Link expired or already used</h1><p style="color:#8b93a6">Sign in and request a new verification email from your account page.</p></div></body></html>`;
 

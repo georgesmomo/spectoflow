@@ -184,3 +184,13 @@ test('password reset: request never reveals whether the email exists; confirm up
     assert.strictEqual(again.statusCode, 400); // single-use
   } finally { await a.close(); await db.destroy(); }
 });
+
+test('GET /password-reset/:token rejects a malformed token (reflected-XSS payload) with 400 instead of rendering it', async () => {
+  const { app: a, db } = await app({ publicDir: undefined });
+  try {
+    const payload = '</script><script>alert(1)</script>';
+    const r = await a.inject({ method: 'GET', url: `/password-reset/${encodeURIComponent(payload)}` });
+    assert.strictEqual(r.statusCode, 400);
+    assert.ok(!r.body.includes(payload)); // never reflected into the response
+  } finally { await a.close(); await db.destroy(); }
+});
