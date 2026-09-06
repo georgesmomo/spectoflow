@@ -67,11 +67,15 @@ async function registerAdmin(app, { db }) {
   });
   app.post('/api/admin/users/:id/promote', async (req, reply) => {
     if (!(await requirePlatformPermission(req, reply, db, 'platform.manage_users'))) return;
+    const user = await db.findUserById(req.params.id);
+    if (!user) return reply.code(404).send({ error: 'User not found.' });
     await db.assignPlatformRole(req.params.id, db.SYSTEM_ROLE_IDS.PLATFORM_ADMIN);
     return { ok: true };
   });
   app.post('/api/admin/users/:id/demote', async (req, reply) => {
     if (!(await requirePlatformPermission(req, reply, db, 'platform.manage_users'))) return;
+    const user = await db.findUserById(req.params.id);
+    if (!user) return reply.code(404).send({ error: 'User not found.' });
     const count = await db.countUsersWithPlatformRole(db.SYSTEM_ROLE_IDS.PLATFORM_ADMIN);
     const targetIsAdmin = await db.hasPlatformPermission(req.params.id, 'platform.manage_signup'); // any real admin permission implies membership in the role, this checks it holds the actual role
     if (targetIsAdmin && count <= 1) return reply.code(400).send({ error: 'Cannot remove the last Platform Admin.' });

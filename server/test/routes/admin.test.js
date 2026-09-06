@@ -60,6 +60,18 @@ test('GET /api/admin/users lists every account; promote/demote toggle Platform A
   } finally { await app.close(); await db.destroy(); }
 });
 
+test('promote/demote with a nonexistent user id return 404 instead of an unhandled DB error', async () => {
+  const { app, db, signupAndLogin } = await boot();
+  try {
+    const admin = await signupAndLogin('admin6@example.com'); // bootstrap admin
+    const bogusId = 'no-such-user-id';
+    const promote = await admin.fetch(`/api/admin/users/${bogusId}/promote`, { method: 'POST' });
+    assert.strictEqual(promote.status, 404);
+    const demote = await admin.fetch(`/api/admin/users/${bogusId}/demote`, { method: 'POST' });
+    assert.strictEqual(demote.status, 404);
+  } finally { await app.close(); await db.destroy(); }
+});
+
 test('GET /admin: the served page contains the client-side HTML-escape helper used before any untrusted value (email) is inserted via innerHTML', async () => {
   const { app, db, signupAndLogin } = await boot();
   try {
