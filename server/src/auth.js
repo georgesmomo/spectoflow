@@ -12,8 +12,13 @@ const fastifyRateLimit = require('@fastify/rate-limit');
 
 const COOKIE = 'spf_session';
 const THIRTY_DAYS_MS = 30 * 24 * 60 * 60 * 1000;
-const PUBLIC_PREFIXES = ['/healthz', '/login', '/connector/'];
-const isPublic = (url) => PUBLIC_PREFIXES.some((p) => url === p || url.startsWith(p));
+// `/healthz` and `/login` are exact routes only — `startsWith` matching would also let
+// `/login-bypass-test`/`/loginZZZ`/`/healthzXYZ` through to whatever the SPA fallback serves,
+// with no cookie at all. `/connector/` and `/login-assets/` are genuine subtrees, bounded by
+// their trailing slash, so prefix matching is correct (and safe) for those two only.
+const PUBLIC_EXACT = ['/healthz', '/login'];
+const PUBLIC_PREFIXES = ['/connector/', '/login-assets/'];
+const isPublic = (url) => PUBLIC_EXACT.includes(url) || PUBLIC_PREFIXES.some((p) => url.startsWith(p));
 
 function sign(secret, expiresAt) {
   const mac = crypto.createHmac('sha256', secret).update(String(expiresAt)).digest('base64url');

@@ -12,7 +12,7 @@ async function buildApp({ db, accessKey, sessionSecret, insecureDev, publicDir, 
   const app = Fastify({ trustProxy: !!trustProxy });
   app.get('/healthz', async () => ({ ok: true }));
   await registerAuth(app, { accessKey, sessionSecret, insecureDev });
-  await app.register(fastifyStatic, { root: publicDir || path.resolve(__dirname, '..', '..', 'lib', 'dashboard', 'public'), decorateReply: false });
+  await app.register(fastifyStatic, { root: publicDir || path.resolve(__dirname, '..', '..', 'lib', 'dashboard', 'public') });
   app.get('/', async (_req, reply) => reply.sendFile('hub.html'));
   app.get('/p/:id/*', async (_req, reply) => reply.sendFile('index.html'));
   app.setNotFoundHandler((req, reply) => {
