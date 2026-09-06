@@ -7,12 +7,20 @@ const { buildApp } = require('../src/app');
 const { createDb } = require('../src/db');
 const { createRegistry } = require('../src/connector');
 
+function fakeEmailer() {
+  const sent = [];
+  return { sent,
+    sendVerificationEmail: async (to, url) => { sent.push({ kind: 'verify', to, url }); },
+    sendPasswordResetEmail: async (to, url) => { sent.push({ kind: 'reset', to, url }); },
+    sendInvitationEmail: async (to, projectName, url) => { sent.push({ kind: 'invite', to, projectName, url }); },
+  };
+}
 async function boot() {
   const db = await createDb('sqlite::memory:'); await db.migrate();
   const owner = await db.createUser('machine-owner@example.com', 'password-123456');
   const m = db.createMachine('laptop', owner.id); await m.ready;
   const registry = createRegistry();
-  const app = await buildApp({ db, insecureDev: true, publicDir: __dirname, registry });
+  const app = await buildApp({ db, insecureDev: true, publicDir: __dirname, registry, emailer: fakeEmailer() });
   await app.listen({ port: 0, host: '127.0.0.1' });
   const url = `http://127.0.0.1:${app.server.address().port}`;
   // The relay's browser-facing routes sit behind the real session-cookie auth (server/src/auth.js) —

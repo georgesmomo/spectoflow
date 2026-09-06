@@ -6,6 +6,7 @@
  */
 const { createDb } = require('./db');
 const { buildApp } = require('./app');
+const { createEmailer } = require('./email');
 
 async function main() {
   const insecureDev = process.argv.includes('--insecure-dev') || process.env.INSECURE_DEV === '1';
@@ -13,7 +14,12 @@ async function main() {
 
   const db = await createDb(process.env.DATABASE_URL);
   await db.migrate();
-  const app = await buildApp({ db, insecureDev, trustProxy: process.env.TRUST_PROXY === '1' });
+  const emailer = createEmailer({
+    smtpHost: process.env.SMTP_HOST, smtpPort: process.env.SMTP_PORT,
+    smtpUser: process.env.SMTP_USER, smtpPass: process.env.SMTP_PASS,
+    smtpFrom: process.env.SMTP_FROM, insecureDev,
+  });
+  const app = await buildApp({ db, insecureDev, trustProxy: process.env.TRUST_PROXY === '1', emailer });
   const port = Number(process.env.PORT) || 3000;
   const host = insecureDev ? '127.0.0.1' : '0.0.0.0';
   await app.listen({ port, host });

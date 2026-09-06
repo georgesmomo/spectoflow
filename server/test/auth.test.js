@@ -4,10 +4,19 @@ const assert = require('node:assert');
 const { buildApp } = require('../src/app');
 const { createDb } = require('../src/db');
 
+function fakeEmailer() {
+  const sent = [];
+  return { sent,
+    sendVerificationEmail: async (to, url) => { sent.push({ kind: 'verify', to, url }); },
+    sendPasswordResetEmail: async (to, url) => { sent.push({ kind: 'reset', to, url }); },
+    sendInvitationEmail: async (to, projectName, url) => { sent.push({ kind: 'invite', to, projectName, url }); },
+  };
+}
 async function app(opts = {}) {
   const db = await createDb('sqlite::memory:'); await db.migrate();
-  const a = await buildApp({ db, insecureDev: false, publicDir: __dirname, ...opts });
-  return { app: a, db };
+  const emailer = opts.emailer || fakeEmailer();
+  const a = await buildApp({ db, insecureDev: false, publicDir: __dirname, emailer, ...opts });
+  return { app: a, db, emailer };
 }
 async function signup(a, email = 'alice@example.com', password = 'a-real-password-123') {
   return a.inject({ method: 'POST', url: '/signup', payload: { email, password } });
@@ -31,7 +40,7 @@ test('every other route is 401 without a session cookie; GET /login and GET /sig
 });
 
 test('POST /signup creates a real account, sets a working session cookie, and rejects a duplicate email', async () => {
-  const { app: a, db } = await app({ publicDir: undefined });
+  const { app: a, db, emailer } = await app({ publicDir: undefined });
   try {
     const r = await signup(a);
     assert.strictEqual(r.statusCode, 200, r.body);
@@ -44,6 +53,9 @@ test('POST /signup creates a real account, sets a working session cookie, and re
     assert.strictEqual(dup.statusCode, 409);
     const user = await db.findUserByEmail('alice@example.com');
     assert.ok(user);
+    assert.strictEqual(emailer.sent.length, 1);
+    assert.strictEqual(emailer.sent[0].kind, 'verify');
+    assert.strictEqual(emailer.sent[0].to, 'alice@example.com');
   } finally { await a.close(); await db.destroy(); }
 });
 
@@ -94,5 +106,38 @@ test('POST /signup validates: missing fields 400, a too-short password 400', asy
   try {
     assert.strictEqual((await a.inject({ method: 'POST', url: '/signup', payload: { email: 'x@example.com' } })).statusCode, 400);
     assert.strictEqual((await a.inject({ method: 'POST', url: '/signup', payload: { email: 'x@example.com', password: 'short' } })).statusCode, 400);
+  } finally { await a.close(); await db.destroy(); }
+});
+
+test('GET /verify-email/:token marks the account verified once, and only once', async () => {
+  const { app: a, db, emailer } = await app({ publicDir: undefined });
+  try {
+    await signup(a);
+    const link = emailer.sent[0].url;
+    const token = link.split('/verify-email/')[1];
+    const before = await db.findUserByEmail('alice@example.com');
+    assert.strictEqual(before.email_verified_at, null);
+    const r1 = await a.inject({ method: 'GET', url: `/verify-email/${token}` });
+    assert.strictEqual(r1.statusCode, 200);
+    assert.ok((await db.findUserByEmail('alice@example.com')).email_verified_at);
+    const r2 = await a.inject({ method: 'GET', url: `/verify-email/${token}` });
+    assert.strictEqual(r2.statusCode, 400); // already used
+    const bogus = await a.inject({ method: 'GET', url: '/verify-email/spf_bogus' });
+    assert.strictEqual(bogus.statusCode, 400);
+  } finally { await a.close(); await db.destroy(); }
+});
+
+test('POST /account/resend-verification requires a session and sends a fresh email', async () => {
+  const { app: a, db, emailer } = await app();
+  try {
+    const anon = await a.inject({ method: 'POST', url: '/account/resend-verification' });
+    assert.strictEqual(anon.statusCode, 401);
+    const r = await signup(a);
+    const cookie = r.cookies.find((c) => c.name === 'spf_session').value;
+    assert.strictEqual(emailer.sent.length, 1);
+    const resend = await a.inject({ method: 'POST', url: '/account/resend-verification', cookies: { spf_session: cookie } });
+    assert.strictEqual(resend.statusCode, 200);
+    assert.strictEqual(emailer.sent.length, 2);
+    assert.strictEqual(emailer.sent[1].kind, 'verify');
   } finally { await a.close(); await db.destroy(); }
 });

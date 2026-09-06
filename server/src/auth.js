@@ -12,12 +12,12 @@ const fastifyRateLimit = require('@fastify/rate-limit');
 const COOKIE = 'spf_session';
 const THIRTY_DAYS_S = 30 * 24 * 60 * 60;
 const PUBLIC_EXACT = ['/healthz', '/login', '/signup'];
-const PUBLIC_PREFIXES = ['/connector/', '/login-assets/'];
+const PUBLIC_PREFIXES = ['/connector/', '/login-assets/', '/verify-email/'];
 const isPublic = (url) => PUBLIC_EXACT.includes(url) || PUBLIC_PREFIXES.some((p) => url.startsWith(p));
 
 const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
-async function registerAuth(fastify, { db, insecureDev }) {
+async function registerAuth(fastify, { db, insecureDev, emailer }) {
   await fastify.register(fastifyCookie);
   await fastify.register(fastifyRateLimit, { global: false });
 
@@ -36,6 +36,9 @@ async function registerAuth(fastify, { db, insecureDev }) {
     const user = await db.createUser(email, password);
     const session = await db.createSession(user.id, clientMeta(req));
     setSessionCookie(reply, session.token);
+    const verifyToken = await db.createEmailVerificationToken(user.id);
+    const verifyUrl = `${req.protocol}://${req.hostname}/verify-email/${verifyToken}`;
+    await emailer.sendVerificationEmail(user.email, verifyUrl);
     return { ok: true, userId: user.id };
   });
 
@@ -58,6 +61,20 @@ async function registerAuth(fastify, { db, insecureDev }) {
     const session = token && await db.findSessionByToken(token);
     if (session) await db.revokeSession(session.id);
     reply.clearCookie(COOKIE, { path: '/' });
+    return { ok: true };
+  });
+
+  fastify.get('/verify-email/:token', async (req, reply) => {
+    const userId = await db.consumeEmailVerificationToken(req.params.token);
+    if (!userId) return reply.code(400).type('text/html').send(VERIFY_FAIL_HTML);
+    await db.markEmailVerified(userId);
+    return reply.type('text/html').send(VERIFY_OK_HTML);
+  });
+  fastify.post('/account/resend-verification', async (req, reply) => {
+    const token = await db.createEmailVerificationToken(req.user.id);
+    const user = await db.findUserById(req.user.id);
+    const url = `${req.protocol}://${req.hostname}/verify-email/${token}`;
+    await emailer.sendVerificationEmail(user.email, url);
     return { ok: true };
   });
 
@@ -96,5 +113,10 @@ const SIGNUP_HTML = `<!doctype html><html><head><meta charset="utf-8"><title>spe
 <script>document.getElementById('f').addEventListener('submit',async(e)=>{e.preventDefault();
 const r=await fetch('/signup',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({email:document.getElementById('email').value,password:document.getElementById('password').value})});
 if(r.ok) location.href='/'; else document.getElementById('err').textContent=(await r.json()).error||'Could not create the account.';});</script></body></html>`;
+
+const VERIFY_OK_HTML = `<!doctype html><html><head><meta charset="utf-8"><title>spectoflow</title><style>${FORM_STYLE}</style></head><body>
+<div style="text-align:center"><h1 style="font-size:16px">Email verified</h1><p style="color:#8b93a6">You're all set. <a href="/">Go to your dashboard</a>.</p></div></body></html>`;
+const VERIFY_FAIL_HTML = `<!doctype html><html><head><meta charset="utf-8"><title>spectoflow</title><style>${FORM_STYLE}</style></head><body>
+<div style="text-align:center"><h1 style="font-size:16px">Link expired or already used</h1><p style="color:#8b93a6">Sign in and request a new verification email from your account page.</p></div></body></html>`;
 
 module.exports = { registerAuth, COOKIE, isPublic };

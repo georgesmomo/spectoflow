@@ -9,10 +9,10 @@ const Fastify = require('fastify');
 const { registerAuth } = require('./auth');
 const { registerConnector, createRegistry } = require('./connector');
 
-async function buildApp({ db, insecureDev, publicDir, trustProxy, onFrame, registry }) {
+async function buildApp({ db, insecureDev, publicDir, trustProxy, onFrame, registry, emailer }) {
   const app = Fastify({ trustProxy: !!trustProxy });
   app.get('/healthz', async () => ({ ok: true }));
-  await registerAuth(app, { db, insecureDev });
+  await registerAuth(app, { db, insecureDev, emailer });
   await app.register(fastifyStatic, { root: publicDir || path.resolve(__dirname, '..', '..', 'lib', 'dashboard', 'public') });
   app.decorate('db', db);
   const reg = registry || createRegistry();
