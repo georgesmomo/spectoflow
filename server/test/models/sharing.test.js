@@ -70,3 +70,22 @@ test('createInvitation/findInvitationByToken/acceptInvitation: single-use, joins
     assert.strictEqual(await db.acceptInvitation('spf_bogus', invitee.id), null);
   } finally { await db.destroy(); }
 });
+
+test('acceptInvitation refuses a user whose account email does not match the invitation email (email-locked)', async () => {
+  const db = await fresh();
+  try {
+    const owner = await db.createUser('owner5@example.com', 'password-123456');
+    const project = await projectFor(db, owner.id);
+    const token = await db.createInvitation({ projectId: project.id, email: 'invitee5@example.com', roleId: db.SYSTEM_ROLE_IDS.VIEWER, invitedByUserId: owner.id });
+    const stranger = await db.createUser('stranger5@example.com', 'password-123456');
+    assert.strictEqual(await db.acceptInvitation(token, stranger.id), null);
+    // not silently burned: still findable/unconsumed afterward
+    const found = await db.findInvitationByToken(token);
+    assert.strictEqual(found.projectId, project.id);
+    assert.deepStrictEqual(await db.resolveProjectPermissions(stranger.id, project.id), new Set());
+    // the legitimate invitee can still accept it correctly afterward
+    const invitee = await db.createUser('invitee5@example.com', 'password-123456');
+    assert.strictEqual(await db.acceptInvitation(token, invitee.id), project.id);
+    assert.deepStrictEqual(await db.resolveProjectPermissions(invitee.id, project.id), new Set(['project.read']));
+  } finally { await db.destroy(); }
+});

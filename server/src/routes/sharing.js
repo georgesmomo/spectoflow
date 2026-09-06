@@ -17,6 +17,16 @@ async function requirePermission(req, reply, db, projectId, permissionKey) {
   return true;
 }
 
+// sys-owner is never an assignable role through this API — it is only ever created by relay.js's
+// own auto-insert on first publish. Assigning it here would mint a second, permanently un-removable
+// "Owner" (removeProjectMember/changeMemberRole both refuse to touch any sys-owner membership),
+// defeating the whole Owner-protection invariant this task is built around.
+async function isAssignableProjectRole(db, ownerUserId, roleId) {
+  if (roleId === db.SYSTEM_ROLE_IDS.OWNER) return false;
+  const assignable = await db.listRolesByScope('project', ownerUserId);
+  return assignable.some((r) => r.id === roleId);
+}
+
 async function registerSharing(app, { db, emailer }) {
   app.get('/api/projects/:id/members', async (req, reply) => {
     if (!(await requirePermission(req, reply, db, req.params.id, 'project.read'))) return;
@@ -29,8 +39,7 @@ async function registerSharing(app, { db, emailer }) {
     const { email, roleId } = req.body || {};
     if (typeof email !== 'string' || !email.includes('@')) return reply.code(400).send({ error: 'A valid email is required.' });
     const ownerUserId = await db.getProjectOwnerUserId(projectId);
-    const assignable = await db.listRolesByScope('project', ownerUserId);
-    if (!assignable.some((r) => r.id === roleId)) return reply.code(400).send({ error: 'Not a valid role for this project.' });
+    if (!(await isAssignableProjectRole(db, ownerUserId, roleId))) return reply.code(400).send({ error: 'Not a valid role for this project.' });
     const token = await db.createInvitation({ projectId, email, roleId, invitedByUserId: req.user.id });
     const project = await db.findProject(projectId);
     const url = `${req.protocol}://${req.hostname}/invitations/${token}`;
@@ -55,8 +64,7 @@ async function registerSharing(app, { db, emailer }) {
     if (!(await requirePermission(req, reply, db, projectId, 'project.manage_members'))) return;
     const { roleId } = req.body || {};
     const ownerUserId = await db.getProjectOwnerUserId(projectId);
-    const assignable = await db.listRolesByScope('project', ownerUserId);
-    if (!assignable.some((r) => r.id === roleId)) return reply.code(400).send({ error: 'Not a valid role for this project.' });
+    if (!(await isAssignableProjectRole(db, ownerUserId, roleId))) return reply.code(400).send({ error: 'Not a valid role for this project.' });
     const result = await db.changeMemberRole(projectId, req.params.userId, roleId);
     if (result === 'not-found') return reply.code(404).send({ error: 'Not a member of this project.' });
     if (result === 'protected') return reply.code(403).send({ error: "The project owner's role can't be changed here." });

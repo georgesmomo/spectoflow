@@ -61,6 +61,12 @@ function createSharingModel(knex) {
   async function acceptInvitation(rawToken, userId) {
     const inv = await findInvitationByToken(rawToken);
     if (!inv) return null;
+    // Email-locked (docs/online-dashboard-accounts-design.md §2): an invitation is only acceptable
+    // by the account whose email matches the one it was sent to — otherwise anyone who obtains the
+    // raw token (forwarded email, shared link, browser history) could join under an unrelated
+    // account. A mismatch is treated the same as an invalid token: not consumed, still findable.
+    const user = await knex('users').where({ id: userId }).first();
+    if (!user || user.email.toLowerCase() !== inv.email.toLowerCase()) return null;
     await knex('project_invitations').where({ id: inv.id }).update({ accepted_at: knex.fn.now() });
     await addProjectMember(inv.projectId, userId, inv.roleId);
     return inv.projectId;

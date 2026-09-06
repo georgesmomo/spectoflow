@@ -68,6 +68,22 @@ test('the Owner\'s own membership cannot be removed or changed via the API, even
   } finally { await app.close(); await db.destroy(); }
 });
 
+test('sys-owner cannot be assigned via invite or role-change — only relay.js\'s auto-insert can create it', async () => {
+  const { app, db, signupAndLogin } = await boot();
+  try {
+    const owner = await signupAndLogin('owner6@example.com');
+    const project = await publishedProject(db, owner.userId);
+    const invite = await owner.fetch(`/api/projects/${project.id}/invite`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ email: 'second-owner@example.com', roleId: db.SYSTEM_ROLE_IDS.OWNER }) });
+    assert.strictEqual(invite.status, 400);
+    const editor = await signupAndLogin('editor6@example.com');
+    await db.addProjectMember(project.id, editor.userId, db.SYSTEM_ROLE_IDS.EDITOR);
+    const change = await owner.fetch(`/api/projects/${project.id}/members/${editor.userId}`, { method: 'PATCH', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ roleId: db.SYSTEM_ROLE_IDS.OWNER }) });
+    assert.strictEqual(change.status, 400);
+    // still just Editor — the role-change never went through
+    assert.deepStrictEqual(await db.findMembership(project.id, editor.userId), { roleId: db.SYSTEM_ROLE_IDS.EDITOR });
+  } finally { await app.close(); await db.destroy(); }
+});
+
 // --- Required proactive security fixes (established pattern from Tasks 9/10) ---
 
 test('GET /invitations/:token rejects a malformed token (reflected-XSS payload) with 400 instead of rendering it', async () => {
