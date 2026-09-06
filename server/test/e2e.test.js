@@ -12,10 +12,11 @@
  * and test/cli-remote.test.js):
  *   1. Every /api/* and /api/hub/* route on the SERVER sits behind the session-cookie auth
  *      (server/src/auth.js) regardless of `insecureDev` (that flag only relaxes the cookie's `secure`
- *      attribute for non-HTTPS local testing, never the auth check itself) — so this test logs in via
- *      POST /login once per scenario and threads the cookie through every subsequent server request,
- *      exactly like relay.test.js's `authedFetch`. Plain, unauthenticated fetches are only ever made
- *      against the *local hub* (lib/dashboard/hub-server.js), which has no login of its own.
+ *      attribute for non-HTTPS local testing, never the auth check itself) — so this test signs up
+ *      (which also logs in) via POST /signup once per scenario and threads the cookie through every
+ *      subsequent server request, exactly like relay.test.js's `authedFetch`. Plain, unauthenticated
+ *      fetches are only ever made against the *local hub* (lib/dashboard/hub-server.js), which has no
+ *      login of its own.
  *   2. `spectoflow dashboard publish` resolves the project by looking it up in the registry
  *      (`registry.findByPath(cwd)`) — a project must already be registered before it can be published.
  *      Normally `spectoflow dashboard` does this registration as a side effect, but this test drives
@@ -50,18 +51,16 @@ const workspace = require('../../lib/workspace');
 const KIT = path.resolve(__dirname, '..', '..');
 const BIN = path.join(KIT, 'bin', 'spectoflow.js');
 const HUB = path.join(KIT, 'lib', 'dashboard', 'hub-server.js');
-const ACCESS_KEY = 'x'.repeat(20);
-
 async function bootServer() {
   const db = await createDb('sqlite::memory:'); await db.migrate();
-  const app = await buildApp({ db, accessKey: ACCESS_KEY, sessionSecret: 's'.repeat(32), insecureDev: true, publicDir: path.join(KIT, 'lib', 'dashboard', 'public') });
+  const app = await buildApp({ db, insecureDev: true, publicDir: path.join(KIT, 'lib', 'dashboard', 'public') });
   await app.listen({ port: 0, host: '127.0.0.1' });
   const url = `http://127.0.0.1:${app.server.address().port}`;
-  // Every /api/* route sits behind the session-cookie auth (server/src/auth.js) regardless of
-  // insecureDev — log in once here and thread the cookie through every subsequent request, matching
-  // server/test/relay.test.js's own `authedFetch` pattern.
-  const loginRes = await fetch(url + '/login', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ key: ACCESS_KEY }) });
-  const cookie = loginRes.headers.get('set-cookie').split(';')[0];
+  // Every /api/* route sits behind the real session-cookie auth (server/src/auth.js) — sign up a
+  // real, fresh test account (also logs it in, per Task 5's /signup) and thread the cookie through
+  // every subsequent request, matching server/test/relay.test.js's own `authedFetch` pattern.
+  const signupRes = await fetch(url + '/signup', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ email: 'e2e-test@example.com', password: 'a-real-password-123' }) });
+  const cookie = signupRes.headers.get('set-cookie').split(';')[0];
   const authedFetch = (p, opts = {}) => fetch(url + p, { ...opts, headers: Object.assign({}, opts.headers, { Cookie: cookie }) });
   return { app, db, url, authedFetch };
 }

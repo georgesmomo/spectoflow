@@ -7,22 +7,18 @@ const { buildApp } = require('../src/app');
 const { createDb } = require('../src/db');
 const { createRegistry } = require('../src/connector');
 
-const ACCESS_KEY = 'x'.repeat(20);
-
 async function boot() {
   const db = await createDb('sqlite::memory:'); await db.migrate();
   const m = db.createMachine('laptop'); await m.ready;
   const registry = createRegistry();
-  const app = await buildApp({ db, accessKey: ACCESS_KEY, sessionSecret: 's'.repeat(32), insecureDev: true, publicDir: __dirname, registry });
+  const app = await buildApp({ db, insecureDev: true, publicDir: __dirname, registry });
   await app.listen({ port: 0, host: '127.0.0.1' });
   const url = `http://127.0.0.1:${app.server.address().port}`;
-  // The relay's browser-facing routes (/api/*, /api/hub/*, /api/events) sit behind the same
-  // session-cookie auth as every other non-public route (server/src/auth.js) — log in once here
-  // and thread the cookie through every subsequent request to those routes so this test exercises
-  // the real, protected surface rather than bypassing it.
-  const loginRes = await fetch(url + '/login', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ key: ACCESS_KEY }) });
-  const setCookie = loginRes.headers.get('set-cookie');
-  const cookie = setCookie.split(';')[0];
+  // The relay's browser-facing routes sit behind the real session-cookie auth (server/src/auth.js) —
+  // sign up a real, fresh test account (which also logs it in, per Task 5's /signup) and thread the
+  // cookie through every subsequent request, so this test exercises the real, protected surface.
+  const signupRes = await fetch(url + '/signup', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ email: 'relay-test@example.com', password: 'a-real-password-123' }) });
+  const cookie = signupRes.headers.get('set-cookie').split(';')[0];
   function authedFetch(p, opts = {}) {
     const headers = Object.assign({}, opts.headers, { Cookie: cookie });
     return fetch(url + p, { ...opts, headers });

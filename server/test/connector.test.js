@@ -9,7 +9,7 @@ async function boot() {
   const db = await createDb('sqlite::memory:'); await db.migrate();
   const m = db.createMachine('laptop'); await m.ready;
   const frames = [];
-  const app = await buildApp({ db, accessKey: 'x'.repeat(20), sessionSecret: 's'.repeat(32), insecureDev: true, publicDir: __dirname, onFrame: (machineId, frame) => frames.push({ machineId, frame }) });
+  const app = await buildApp({ db, insecureDev: true, publicDir: __dirname, onFrame: (machineId, frame) => frames.push({ machineId, frame }) });
   await app.listen({ port: 0, host: '127.0.0.1' });
   const addr = app.server.address();
   return { app, db, machine: m, frames, url: `http://127.0.0.1:${addr.port}` };
