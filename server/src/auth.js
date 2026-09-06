@@ -13,7 +13,15 @@ const COOKIE = 'spf_session';
 const THIRTY_DAYS_S = 30 * 24 * 60 * 60;
 const PUBLIC_EXACT = ['/healthz', '/login', '/signup'];
 const PUBLIC_PREFIXES = ['/connector/', '/login-assets/', '/verify-email/', '/password-reset/'];
-const isPublic = (url) => PUBLIC_EXACT.includes(url) || PUBLIC_PREFIXES.some((p) => url.startsWith(p));
+// Only the invitation LANDING PAGE (`GET /invitations/:token`) is public — a plain prefix match
+// would also cover `/invitations/:token/accept`, which must require a real session (per the spec's
+// flow: sign in/up first, then come back and accept), so this matches a bare `/invitations/<token>`
+// path only, never one with a further segment like `/accept`.
+const INVITATION_PAGE_RE = /^\/invitations\/[^/]+$/;
+const isPublic = (url) => {
+  const path = url.split('?')[0];
+  return PUBLIC_EXACT.includes(path) || PUBLIC_PREFIXES.some((p) => path.startsWith(p)) || INVITATION_PAGE_RE.test(path);
+};
 
 const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 

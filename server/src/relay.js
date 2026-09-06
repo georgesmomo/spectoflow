@@ -57,6 +57,12 @@ function registerRelay(app, { db, registry }) {
       for (const p of frame.projects || []) {
         const row = await db.upsertProject({ machineId, localId: p.localId, name: p.name, kind: p.kind || 'spectoflow' });
         await db.setPublished(row.id, true); // a project sent in `hello` is, by construction, published
+        // First publish only: the machine's owning account becomes this project's protected Owner
+        // member. Idempotent — upsertProject/hello re-run on every reconnect, so only insert once.
+        if (!(await db.getProjectOwnerUserId(row.id))) {
+          const machine = await db.knex('machines').where({ id: machineId }).first();
+          if (machine && machine.owner_user_id) await db.addProjectMember(row.id, machine.owner_user_id, db.SYSTEM_ROLE_IDS.OWNER);
+        }
         localIdOf.set(row.id, { machineId, localId: p.localId });
         seen.add(p.localId);
         registry.entry(machineId).projects = registry.entry(machineId).projects || new Map();

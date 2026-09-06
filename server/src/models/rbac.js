@@ -58,7 +58,13 @@ function createRbacModel(knex) {
       .first();
     return !!row;
   }
-  return { SYSTEM_ROLE_IDS, getRole, createRole, deleteRole, listRolesByScope, assignPlatformRole, removePlatformRole, listPlatformRolesForUser, hasPlatformPermission };
+  async function resolveProjectPermissions(userId, projectId) {
+    const membership = await knex('project_members').where({ project_id: projectId, user_id: userId }).first();
+    if (!membership) return new Set();
+    const perms = await knex('role_permissions').where({ role_id: membership.role_id }).select('permission_key');
+    return new Set(perms.map((p) => p.permission_key));
+  }
+  return { SYSTEM_ROLE_IDS, getRole, createRole, deleteRole, listRolesByScope, assignPlatformRole, removePlatformRole, listPlatformRolesForUser, hasPlatformPermission, resolveProjectPermissions };
 }
 
 module.exports = { createRbacModel, SYSTEM_ROLE_IDS };

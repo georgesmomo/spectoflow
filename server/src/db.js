@@ -13,6 +13,7 @@ const { createUsersModel } = require('./models/users');
 const { createRbacModel } = require('./models/rbac');
 const { createSessionsModel } = require('./models/sessions');
 const { createTokensModel } = require('./models/tokens');
+const { createSharingModel } = require('./models/sharing');
 
 function randomId(bytes) { return crypto.randomBytes(bytes).toString('base64url'); }
 function hash(token) { return crypto.createHash('sha256').update(token).digest('hex'); }
@@ -83,6 +84,7 @@ async function createDb(databaseUrl) {
   const rbacModel = createRbacModel(knex);
   const sessionsModel = createSessionsModel(knex);
   const tokensModel = createTokensModel(knex);
+  const sharingModel = createSharingModel(knex);
 
   return {
     knex, migrate, createMachine, machineByToken, touchMachine, listMachines, revokeMachine,
@@ -91,6 +93,7 @@ async function createDb(databaseUrl) {
     ...rbacModel,
     ...sessionsModel,
     ...tokensModel,
+    ...sharingModel,
     destroy: () => knex.destroy(),
   };
 }
