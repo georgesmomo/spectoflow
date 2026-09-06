@@ -168,7 +168,7 @@ html[data-design="console"] .sync-dot { box-shadow:0 0 0 0 color-mix(in srgb,var
 
 /* ============ WORKFLOW PIPELINE — flowing particles on enabled connectors ============ */
 html[data-design="console"] .wf-link { position:relative; overflow:visible; }
-html[data-design="console"] .wf-link.on { background:linear-gradient(90deg,color-mix(in srgb,var(--signal) 55%,var(--line)),var(--line)); }
+html[data-design="console"] .wf-link.on { background:var(--signal); }
 html[data-design="console"] .wf-link.on::after {
   content:""; position:absolute; top:-2px; left:0; width:6px; height:6px; border-radius:50%;
   background:var(--cool); box-shadow:0 0 8px var(--cool); opacity:0;
