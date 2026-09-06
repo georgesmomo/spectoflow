@@ -7,8 +7,9 @@ const path = require('path');
 const fastifyStatic = require('@fastify/static');
 const Fastify = require('fastify');
 const { registerAuth } = require('./auth');
+const { registerConnector, createRegistry } = require('./connector');
 
-async function buildApp({ db, accessKey, sessionSecret, insecureDev, publicDir, trustProxy }) {
+async function buildApp({ db, accessKey, sessionSecret, insecureDev, publicDir, trustProxy, onFrame, registry }) {
   const app = Fastify({ trustProxy: !!trustProxy });
   app.get('/healthz', async () => ({ ok: true }));
   await registerAuth(app, { accessKey, sessionSecret, insecureDev });
@@ -20,6 +21,9 @@ async function buildApp({ db, accessKey, sessionSecret, insecureDev, publicDir, 
     reply.code(404).send({ error: 'Not found' });
   });
   app.decorate('db', db);
+  const reg = registry || createRegistry();
+  await registerConnector(app, { db, registry: reg, onFrame: onFrame || (() => {}) });
+  app.decorate('connectorRegistry', reg);
   return app;
 }
 
