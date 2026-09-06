@@ -96,6 +96,22 @@ test('GET /invitations/:token rejects a malformed token (reflected-XSS payload) 
   } finally { await app.close(); await db.destroy(); }
 });
 
+test('POST /api/projects/:id/invite is rate-limited: the 11th attempt within the window is 429', async () => {
+  const { app, db, signupAndLogin } = await boot();
+  try {
+    const owner = await signupAndLogin('owner7@example.com');
+    const project = await publishedProject(db, owner.userId);
+    let last;
+    for (let i = 0; i < 11; i++) {
+      last = await owner.fetch(`/api/projects/${project.id}/invite`, {
+        method: 'POST', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ email: `invitee${i}@example.com`, roleId: db.SYSTEM_ROLE_IDS.VIEWER }),
+      });
+    }
+    assert.strictEqual(last.status, 429);
+  } finally { await app.close(); await db.destroy(); }
+});
+
 test('GET /invitations/:token HTML-escapes a project name containing a script tag', async () => {
   const { app, db, signupAndLogin } = await boot();
   try {
