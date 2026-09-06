@@ -106,6 +106,48 @@ Built across 6 tasks via `subagent-driven-development`, one final-review fix wav
 independently re-reproduced before/after by the re-reviewer). Full suite 312/313 (1 pre-existing
 Windows skip), 0 failures; real QA across all 12 design × theme combinations.
 
+## What exists (`server/` deployment — Docker + VPS/cPanel guides — see DECISIONS D69)
+
+**Sub-project C4 — the last slice of the "one dashboard, many projects" program.** `server/` was
+feature-complete after C2+C3 (v0.3.0) but had no packaged way to actually deploy it — this sub-project
+adds that, with zero application-code changes (no version bump: the running app is unchanged, only
+its deployment artifacts are new). Two hosting paths, both promised since C1: `server/Dockerfile` +
+`docker-entrypoint.sh` + a root `docker-compose.yml` orchestrate the app, MySQL 8, and Caddy 2
+(automatic Let's Encrypt HTTPS) — migrations run automatically and idempotently on every container
+start; `server/docs/deploy-vps.md` walks through it end to end. For hosts without Docker (cPanel/
+o2switch), `server/docs/deploy-cpanel.md` uses cPanel's native "Setup Node.js App" feature instead.
+
+A real architectural gap surfaced immediately in Task 1, not anticipated when this sub-project was
+planned: `server/` is not actually self-contained — `server/src/relay.js` and `server/src/app.js`
+deliberately reach outside `server/` into the repo-root `lib/dashboard/` (C1's own design: `server/`
+shares the front-end and route table with the local hub, never duplicates them). A Docker build
+context scoped to `server/` alone can't copy from outside itself, so the real build is repo-root-
+context (`docker build -f server/Dockerfile -t spectoflow-server .` from the repo root), with the
+image mirroring the source tree's own relative-require depth. A second real bug surfaced during live
+verification: MySQL's official Docker image answers `mysqladmin ping -h localhost` via its Unix
+socket during first-boot initialization, up to ~25s before the real server is listening on TCP 3306 —
+a classic race that let `server` start too early and crash-loop. Fixed by forcing `-h 127.0.0.1` (a
+genuine TCP probe). Both fixes were verified live: a full `docker compose up -d --build` reaches
+healthy with zero restarts, migrations apply, a real signup/login round-trip succeeds against the
+`mysql2` driver (the only place in this entire codebase that driver is ever exercised — every
+automated test uses `sqlite::memory:` only), and data survives a container restart via the named
+volume.
+
+The final whole-branch review caught what no single task's scope could: `server/README.md` still
+described this exact work as unbuilt, and neither new guide was linked from anywhere in the repo;
+neither guide told the operator to close public signup (`open` by default) on an internet-facing
+instance; the VPS guide's own stated reason for cloning the full repo referenced the pre-fix build
+mechanism rather than the real one. All fixed in one wave, independently re-verified.
+
+Known, deliberate trade-off, documented rather than silently redesigned: Caddy and MySQL both receive
+the entire `server/.env` file (including credentials neither strictly needs, like SMTP passwords) —
+one file to fill in was the spec's own explicit simplicity choice; splitting per-service env files to
+shrink blast radius is a legitimate future hardening, not done here without the user's own sign-off.
+
+Built across 5 tasks via `subagent-driven-development` (2 in-flight fix rounds for the two real bugs
+above, plus the final-review wave), directly on `main`. No automated test suite applies (no
+application code changed) — every check was real, live verification against a real running stack.
+
 ## What exists (`server/` v0.3.0 — see DECISIONS D68)
 
 **Project members panel, role editor, and a projects/groups page — the web UI C2+C3 (v0.2.0) shipped

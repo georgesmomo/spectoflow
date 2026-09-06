@@ -1723,3 +1723,63 @@
   `server/src/models/rbac.js`, `server/src/app.js`, `server/package.json` (version 0.3.0),
   `server/test/routes/{admin,roles,projects}.test.js`.
 
+### D69 — Docker + guides de déploiement VPS/cPanel pour `server/` (sous-projet C4)
+
+- **ACTÉ.** Dernière tranche du programme « un seul dashboard, plusieurs projets » annoncée dès C1
+  (D65 : « C4 exploitation — Docker, guides cPanel/VPS »). Après D68, l'utilisateur a confirmé
+  vouloir enchaîner sur C4 plutôt que de fermer la session. Classé **architectural** (aucun flux de
+  déploiement existant à modifier — pas de Dockerfile, pas de guide) : questions posées une par une,
+  spec écrite et approuvée (`docs/superpowers/specs/2026-09-06-server-deployment-design.md`,
+  auto-revue ayant trouvé et corrigé 3 incohérences avant la revue utilisateur), plan en 5 tâches
+  (`docs/superpowers/plans/2026-09-06-server-deployment.md`), exécuté via
+  `subagent-driven-development` directement sur `main`. Zéro changement de code applicatif dans tout
+  ce sous-projet — uniquement des artefacts de déploiement et de la documentation.
+  - **Décisions structurantes de l'utilisateur** : les deux hébergements promis dès C1 (VPS Docker et
+    cPanel/o2switch, ce dernier sans Docker possible) ; MySQL en conteneur par défaut (pas SQLite,
+    pas de choix configurable pour rester simple) ; Caddy inclus avec HTTPS automatique (Let's
+    Encrypt) plutôt que de supposer un reverse-proxy déjà en place ; migrations automatiques au
+    démarrage du conteneur plutôt qu'une étape manuelle séparée.
+  - **Défaut de plan réel découvert en cours d'implémentation, non anticipé par le controller** :
+    `server/` n'est en réalité PAS autonome — `server/src/relay.js` et `server/src/app.js` exigent
+    délibérément des fichiers hors de `server/`, dans `lib/dashboard/` à la racine du dépôt (choix de
+    conception de C1 : `server/` partage le front-end et la table de routes avec le hub local, ne les
+    duplique jamais). Un contexte de build Docker limité à `server/` seul ne peut pas copier des
+    fichiers extérieurs à lui-même. Corrigé dès la tâche 1 : contexte de build = racine du dépôt
+    (`docker build -f server/Dockerfile -t spectoflow-server .` depuis la racine), l'image reproduisant
+    la même profondeur de chemins relatifs que l'arborescence source. Ce correctif s'est propagé
+    correctement partout où c'était nécessaire (compose, guides) — sauf dans un paragraphe du guide
+    VPS, repéré et corrigé seulement à la revue finale de branche.
+  - **Deuxième bug réel trouvé pendant la vérification en direct** : une course classique de
+    healthcheck MySQL — `mysqladmin ping -h localhost` répond via le socket Unix, que le « serveur
+    temporaire » de MySQL (phase d'initialisation au premier démarrage) sert pendant ~25s avant que le
+    vrai `mysqld` n'écoute réellement sur TCP 3306 — laissant `depends_on: condition: service_healthy`
+    démarrer `server` trop tôt, qui plantait alors en boucle avec `ECONNREFUSED`. Corrigé en forçant
+    `-h 127.0.0.1` (sonde TCP réelle). Vérifié : `docker compose up -d --build` frais atteint l'état
+    sain sans redémarrage, migrations appliquées, aller-retour signup/login réel via le pilote `mysql2`
+    (jamais exercé ailleurs dans tout ce dépôt — la suite de tests entière n'utilise que
+    `sqlite::memory:`), persistance confirmée après redémarrage via le volume nommé.
+  - **Revue finale de branche** (les 5 tâches ensemble, modèle le plus capable) : 0 défaut Critique
+    (aucun secret jamais committé — vérifié sur tout l'historique, pas seulement l'arbre final ; le
+    port MySQL n'est jamais publié vers l'hôte ; conteneur non-root ; outils de compilation confinés à
+    l'étage de build jeté). 4 défauts Importants, tous corrigés en une vague : `server/README.md`
+    annonçait encore Docker/cPanel comme du travail futur non fait, et aucun des deux nouveaux guides
+    n'était lié depuis nulle part dans le dépôt ; aucun des deux guides n'indiquait de fermer
+    l'inscription publique (`open` par défaut) après la création du premier compte sur une instance
+    exposée à internet ; le guide VPS justifiait le clone complet du dépôt par l'ancien mécanisme de
+    build (déjà corrigé ailleurs, jamais répercuté dans sa propre prose). Le quatrième défaut Important
+    — l'absence de cette même entrée D69/CLAUDE.md — est celui que cette entrée referme.
+  - **Limitation connue et délibérée, documentée plutôt que corrigée en douce** : Caddy et MySQL
+    reçoivent tous deux l'intégralité de `server/.env` (mot de passe MySQL, `DATABASE_URL` complet,
+    identifiants SMTP) alors que Caddy n'a besoin que du nom de domaine — un fichier unique à remplir
+    reste le compromis choisi dès la spec (auto-revue) pour la simplicité ; réduire cette surface via
+    des fichiers d'environnement séparés par service est une amélioration légitime pour plus tard, pas
+    quelque chose à redessiner en douce dans une décision déjà approuvée.
+  - **QA** : 5 tâches revues indépendamment (2 vagues de correction en cours de route pour de vrais
+    bugs — contexte de build, course du healthcheck — plus la vague de la revue finale) ; vérification
+    réelle et non simulée à chaque étape (image construite, pile compose réellement démarrée contre un
+    vrai MySQL, vrai aller-retour compte/session, persistance testée par un vrai redémarrage) — aucun
+    test automatisé n'existe pour ce sous-projet puisqu'il ne contient aucun code applicatif.
+- Fichiers : `server/{Dockerfile,docker-entrypoint.sh}`, `docker-compose.yml` et `Caddyfile` (racine
+  du dépôt), `server/.env.example`, `server/docs/{deploy-vps,deploy-cpanel}.md`, `server/README.md`,
+  `README.md` (racine), `.dockerignore` (racine), `server/.gitignore`.
+
