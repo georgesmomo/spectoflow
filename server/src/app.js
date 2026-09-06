@@ -29,6 +29,8 @@ async function buildApp({ db, insecureDev, publicDir, trustProxy, onFrame, regis
   await registerGroups(app, { db });
   const { registerAccount } = require('./routes/account');
   await registerAccount(app, { db, insecureDev });
+  const { registerProjects } = require('./routes/projects');
+  await registerProjects(app, { db });
   app.decorate('connectorRegistry', reg);
   app.get('/', async (_req, reply) => reply.sendFile('hub.html'));
   app.get('/p/:id/*', async (_req, reply) => reply.sendFile('index.html'));
