@@ -54,11 +54,19 @@ Do **not** set `PORT` — cPanel's Node.js App feature assigns and manages the p
 Back on the Node.js App's main screen, use the **"Run NPM Install"** button cPanel provides — this is
 the equivalent of `npm ci` on the Docker path, done through cPanel's own UI instead.
 
-## 6. Run database migrations once
+## 6. (Optional) Run database migrations now, without waiting for Restart
 
-Using cPanel's **Terminal** feature (or SSH, if your host provides it) — make sure the shell has the
-environment variables from Step 4 available (cPanel's Node.js App page provides a command to "Enter
-to the virtual environment", which also loads them; otherwise set `DATABASE_URL` inline for this one
+You don't strictly need this step: `src/index.js` — the very file Step 3 set as the startup file —
+calls `db.migrate()` itself, unconditionally, every time it starts, before it begins listening. So
+migrations already run automatically whenever the app (re)starts, cPanel exactly like the Docker
+path — restarting via Step 7 alone is enough to bring the schema up to date.
+
+Running it here through Terminal is only a faster way to apply migrations right after a fresh
+upload, without waiting for a full app restart — useful, for instance, to catch a migration error
+early rather than finding out only when the app fails to come up in Step 7. Using cPanel's
+**Terminal** feature (or SSH, if your host provides it) — make sure the shell has the environment
+variables from Step 4 available (cPanel's Node.js App page provides a command to "Enter to the
+virtual environment", which also loads them; otherwise set `DATABASE_URL` inline for this one
 command):
 
 ```bash
@@ -66,15 +74,15 @@ cd <application root from Step 3>
 node cli.js migrate
 ```
 
-Expected output: `✓ migrations applied`. This is a one-time step for a fresh database — running it
-again later (e.g. after an update) is always safe, since migrations are idempotent, but it does need
-to be run manually here (unlike the Docker path, where it happens automatically on every restart —
-cPanel's Node.js App feature has no equivalent "run this before starting" hook).
+Expected output: `✓ migrations applied`. Safe to run at any time, including when nothing has
+changed — migrations are idempotent, and this is the exact same `db.migrate()` call `index.js`
+already makes on every startup, just triggered manually and earlier.
 
 ## 7. Start (or restart) the application
 
-Back on the Node.js App's main screen, click **Restart**. Visit `https://<your-domain>/healthz` — you
-should see `{"ok":true}`.
+Back on the Node.js App's main screen, click **Restart** — this runs migrations automatically as
+part of `src/index.js` starting up (see Step 6), so it alone is enough even if you skipped Step 6.
+Visit `https://<your-domain>/healthz` — you should see `{"ok":true}`.
 
 ## 8. Create the first account, then connect a machine
 
@@ -89,6 +97,8 @@ spectoflow dashboard publish
 
 ## Updating later
 
-Re-upload the changed files (Step 2), re-run "Run NPM Install" if dependencies changed (Step 5),
-re-run `node cli.js migrate` via Terminal (Step 6 — always safe, even if nothing changed), then
-Restart the app (Step 7).
+Re-upload the changed files (Step 2), re-run "Run NPM Install" if dependencies changed (Step 5), then
+Restart the app (Step 7) — migrations run automatically as part of that restart, same mechanism as
+Step 6/7 above, so there is no separate migration step to remember. Running `node cli.js migrate` via
+Terminal first (Step 6) is still fine and always safe, even if nothing changed — it's just optional,
+not required.
