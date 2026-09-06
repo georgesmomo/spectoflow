@@ -114,3 +114,115 @@ test('XSS: a malicious email crafted to pass EMAIL_RE (no whitespace, one @, a d
     assert.ok(!rendered.includes('<script'));
   } finally { await app.close(); await db.destroy(); }
 });
+
+test('POST /api/admin/users/:id/roles assigns a custom platform role, which grants its permissions', async () => {
+  const { app, db, signupAndLogin } = await boot();
+  try {
+    const admin = await signupAndLogin('admin7@example.com'); // bootstrap admin, holds platform.manage_roles
+    const other = await signupAndLogin('other7@example.com');
+    const list = await (await admin.fetch('/api/admin/users')).json();
+    const otherId = list.users.find((u) => u.email === 'other7@example.com').id;
+
+    const createRole = await admin.fetch('/api/roles', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ scope: 'platform', name: 'Support', permissionKeys: ['platform.view_all_projects'] }) });
+    assert.strictEqual(createRole.status, 200);
+    const role = (await createRole.json()).role;
+
+    const assign = await admin.fetch(`/api/admin/users/${otherId}/roles`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ roleId: role.id }) });
+    assert.strictEqual(assign.status, 200);
+    assert.strictEqual(await db.hasPlatformPermission(otherId, 'platform.view_all_projects'), true);
+  } finally { await app.close(); await db.destroy(); }
+});
+
+test('POST /api/admin/users/:id/roles refuses sys-platform-admin — that role is exclusively managed by /promote', async () => {
+  const { app, db, signupAndLogin } = await boot();
+  try {
+    const admin = await signupAndLogin('admin8@example.com');
+    const other = await signupAndLogin('other8@example.com');
+    const list = await (await admin.fetch('/api/admin/users')).json();
+    const otherId = list.users.find((u) => u.email === 'other8@example.com').id;
+    const assign = await admin.fetch(`/api/admin/users/${otherId}/roles`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ roleId: db.SYSTEM_ROLE_IDS.PLATFORM_ADMIN }) });
+    assert.strictEqual(assign.status, 400);
+    assert.match((await assign.json()).error, /\/promote/);
+  } finally { await app.close(); await db.destroy(); }
+});
+
+test('DELETE /api/admin/users/:id/roles/:roleId removes a custom platform role assignment', async () => {
+  const { app, db, signupAndLogin } = await boot();
+  try {
+    const admin = await signupAndLogin('admin9@example.com');
+    const other = await signupAndLogin('other9@example.com');
+    const list = await (await admin.fetch('/api/admin/users')).json();
+    const otherId = list.users.find((u) => u.email === 'other9@example.com').id;
+    const createRole = await admin.fetch('/api/roles', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ scope: 'platform', name: 'Support', permissionKeys: ['platform.view_all_projects'] }) });
+    const role = (await createRole.json()).role;
+    await admin.fetch(`/api/admin/users/${otherId}/roles`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ roleId: role.id }) });
+    assert.strictEqual(await db.hasPlatformPermission(otherId, 'platform.view_all_projects'), true);
+
+    const remove = await admin.fetch(`/api/admin/users/${otherId}/roles/${role.id}`, { method: 'DELETE' });
+    assert.strictEqual(remove.status, 200);
+    assert.strictEqual(await db.hasPlatformPermission(otherId, 'platform.view_all_projects'), false);
+  } finally { await app.close(); await db.destroy(); }
+});
+
+test('DELETE /api/admin/users/:id/roles/sys-platform-admin refuses — must use /demote instead', async () => {
+  const { app, db, signupAndLogin } = await boot();
+  try {
+    const admin = await signupAndLogin('admin10@example.com');
+    const other = await signupAndLogin('other10@example.com');
+    const list = await (await admin.fetch('/api/admin/users')).json();
+    const otherId = list.users.find((u) => u.email === 'other10@example.com').id;
+    const remove = await admin.fetch(`/api/admin/users/${otherId}/roles/${db.SYSTEM_ROLE_IDS.PLATFORM_ADMIN}`, { method: 'DELETE' });
+    assert.strictEqual(remove.status, 400);
+    assert.match((await remove.json()).error, /\/demote/);
+  } finally { await app.close(); await db.destroy(); }
+});
+
+test('POST/DELETE /api/admin/users/:id/roles: 404 for a nonexistent user; 403 for a caller without platform.manage_users', async () => {
+  const { app, db, signupAndLogin } = await boot();
+  try {
+    const admin = await signupAndLogin('admin11@example.com');
+    const notAdmin = await signupAndLogin('later11@example.com');
+    const bogusId = 'no-such-user-id';
+
+    const createRole = await admin.fetch('/api/roles', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ scope: 'platform', name: 'Support', permissionKeys: ['platform.view_all_projects'] }) });
+    const role = (await createRole.json()).role;
+
+    const assign404 = await admin.fetch(`/api/admin/users/${bogusId}/roles`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ roleId: role.id }) });
+    assert.strictEqual(assign404.status, 404);
+    const remove404 = await admin.fetch(`/api/admin/users/${bogusId}/roles/${role.id}`, { method: 'DELETE' });
+    assert.strictEqual(remove404.status, 404);
+
+    const list = await (await admin.fetch('/api/admin/users')).json();
+    const notAdminId = list.users.find((u) => u.email === 'later11@example.com').id;
+    const assign403 = await notAdmin.fetch(`/api/admin/users/${notAdminId}/roles`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ roleId: role.id }) });
+    assert.strictEqual(assign403.status, 403);
+    const remove403 = await notAdmin.fetch(`/api/admin/users/${notAdminId}/roles/${role.id}`, { method: 'DELETE' });
+    assert.strictEqual(remove403.status, 403);
+  } finally { await app.close(); await db.destroy(); }
+});
+
+test('GET /api/admin/users includes each user\'s platformRoles array', async () => {
+  const { app, db, signupAndLogin } = await boot();
+  try {
+    const admin = await signupAndLogin('admin12@example.com'); // bootstrap admin -> holds sys-platform-admin
+    const other = await signupAndLogin('other12@example.com'); // fresh account -> no platform roles
+    const list = await (await admin.fetch('/api/admin/users')).json();
+    const adminRow = list.users.find((u) => u.email === 'admin12@example.com');
+    const otherRow = list.users.find((u) => u.email === 'other12@example.com');
+    assert.ok(Array.isArray(adminRow.platformRoles));
+    assert.ok(adminRow.platformRoles.length > 0);
+    assert.ok(Array.isArray(otherRow.platformRoles));
+    assert.strictEqual(otherRow.platformRoles.length, 0);
+  } finally { await app.close(); await db.destroy(); }
+});
+
+test('GET /admin: the served page escapes custom platform role names before inserting them via innerHTML', async () => {
+  const { app, db, signupAndLogin } = await boot();
+  try {
+    const admin = await signupAndLogin('admin13@example.com');
+    const page = await (await admin.fetch('/admin')).text();
+    assert.match(page, /function esc\(/);
+    // The role-name interpolation for a granted platform role must also route through esc().
+    assert.match(page, /esc\([a-zA-Z_$][\w$]*\.name\)/);
+  } finally { await app.close(); await db.destroy(); }
+});
