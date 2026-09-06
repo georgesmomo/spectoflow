@@ -49,3 +49,26 @@ test('a revoked token is rejected at whoami and the WebSocket auth frame alike',
     assert.strictEqual(r.status, 401);
   } finally { await app.close(); await db.destroy(); }
 });
+
+test('a revoked token is rejected at the WebSocket auth frame too (socket closes 4401/unauthorized), not just at whoami', async () => {
+  const { app, db, machine, url } = await boot();
+  try {
+    await db.revokeMachine(machine.id);
+    // The test above only covers the plain HTTP handshake — connector.js's WS route
+    // (server/src/connector.js, app.get('/connector/ws', ...)) re-authenticates independently off
+    // the frame's own `token` field, so a revoked token must be rejected there too, not just at
+    // whoami. Drive a real WebSocket (Node's built-in global, same client the local connector uses
+    // in lib/dashboard/connector.js) all the way to sending the `auth` frame and assert the server
+    // closes the socket with the exact code/reason connector.js uses for an unauthorized auth
+    // attempt (4401 / 'unauthorized') rather than accepting it.
+    const ws = new WebSocket(url.replace(/^http/, 'ws') + '/connector/ws');
+    const closeEvent = await new Promise((resolve, reject) => {
+      const t = setTimeout(() => reject(new Error('socket never closed')), 5000);
+      ws.addEventListener('open', () => ws.send(JSON.stringify({ type: 'auth', token: machine.token })));
+      ws.addEventListener('close', (ev) => { clearTimeout(t); resolve(ev); });
+      ws.addEventListener('error', () => {}); // a close with a non-1000 code also fires 'error' on some runtimes — ignored, 'close' is what's asserted
+    });
+    assert.strictEqual(closeEvent.code, 4401);
+    assert.strictEqual(closeEvent.reason, 'unauthorized');
+  } finally { await app.close(); await db.destroy(); }
+});

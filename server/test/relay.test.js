@@ -93,6 +93,42 @@ test('an unknown server id is 404; SSE registers and gets a change event on snap
   } finally { await app.close(); await db.destroy(); }
 });
 
+test('unpublishing a project 404s both GET /api/project and GET /api/events (never serves stale cached data, never hangs)', async () => {
+  const { app, db, machine, url, authedFetch } = await boot();
+  try {
+    await fetch(url + '/connector/frames', { method: 'POST', headers: { Authorization: `Bearer ${machine.token}`, 'Content-Type': 'application/json' },
+      body: JSON.stringify([{ type: 'auth', token: machine.token }, { type: 'hello', machineName: 'laptop', projects: [{ localId: 'aaaaaa', name: 'Alpha', kind: 'spectoflow', stats: null }] },
+        { type: 'snapshot', p: 'aaaaaa', project: { projectName: 'Alpha', plans: [] } }]) });
+    const serverId = (await (await authedFetch('/api/hub/projects')).json()).projects[0].id;
+
+    // Published: project.read answers from the cached snapshot, and SSE registers a subscriber.
+    const readOk = await authedFetch(`/api/project?p=${serverId}`);
+    assert.strictEqual(readOk.status, 200);
+    assert.strictEqual((await readOk.json()).projectName, 'Alpha');
+    const sseOk = await authedFetch(`/api/events?p=${serverId}`);
+    assert.strictEqual(sseOk.status, 200);
+    // An SSE response body never ends on its own — cancel it so the underlying socket closes and
+    // this test doesn't hang waiting on a stream nothing will ever finish.
+    if (sseOk.body && sseOk.body.cancel) await sseOk.body.cancel();
+
+    // Unpublish: send a `hello` that no longer lists this project — relay.js's own onFrame() marks
+    // any previously-published project absent from a machine's latest hello as unpublished (row and
+    // last_snapshot kept, just no longer servable).
+    await fetch(url + '/connector/frames', { method: 'POST', headers: { Authorization: `Bearer ${machine.token}`, 'Content-Type': 'application/json' },
+      body: JSON.stringify([{ type: 'auth', token: machine.token }, { type: 'hello', machineName: 'laptop', projects: [] }]) });
+
+    // Same serverId, same cached snapshot still sitting in the DB — but it must now 404 exactly like
+    // an unknown project, not silently keep answering from the stale cache.
+    const readAfter = await authedFetch(`/api/project?p=${serverId}`);
+    assert.strictEqual(readAfter.status, 404);
+    assert.deepStrictEqual(await readAfter.json(), { error: 'Unknown project.' });
+
+    const sseAfter = await authedFetch(`/api/events?p=${serverId}`);
+    assert.strictEqual(sseAfter.status, 404);
+    assert.deepStrictEqual(await sseAfter.json(), { error: 'Unknown project.' });
+  } finally { await app.close(); await db.destroy(); }
+});
+
 test('a frame whose processing throws never crashes the process (no unhandledRejection) and never blocks a later frame from the same machine', async () => {
   const { app, db, machine, url, authedFetch } = await boot();
   const rejections = [];

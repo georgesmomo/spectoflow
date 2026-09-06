@@ -95,14 +95,22 @@ function registerRelay(app, { db, registry }) {
     return { total, done };
   }
 
+  // machineId/localId never change for a given serverId once assigned, so those are safe to cache
+  // forever — but `published` can flip at any time (an unpublish must take effect immediately, not
+  // just for calls that happen to miss the cache), so it is always re-read fresh from the DB rather
+  // than memoized alongside the rest of the row.
   async function ownerOf(serverId) {
     const cached = localIdOf.get(serverId);
-    if (cached) return cached;
+    if (cached) {
+      const row = await db.findProject(serverId);
+      if (!row) return null;
+      return { ...cached, published: row.published };
+    }
     const row = await db.findProject(serverId);
     if (!row) return null;
     const found = { machineId: row.machine_id, localId: row.local_id };
     localIdOf.set(serverId, found);
-    return found;
+    return { ...found, published: row.published };
   }
   function sendOp(machineId, frame) {
     return new Promise((resolve) => {
@@ -127,7 +135,10 @@ function registerRelay(app, { db, registry }) {
   app.get('/api/events', async (req, reply) => {
     const serverId = req.query.p;
     const owner = serverId && await ownerOf(serverId);
-    if (!owner) return reply.code(404).send({ error: 'Unknown project.' });
+    // An unpublished project (or one that never existed) is indistinguishable to the caller — both
+    // 404 as "Unknown project.", so unpublishing takes a cached serverId out of circulation for SSE
+    // exactly like reads below, not just for writes.
+    if (!owner || !owner.published) return reply.code(404).send({ error: 'Unknown project.' });
     reply.raw.writeHead(200, { 'Content-Type': 'text/event-stream', 'Cache-Control': 'no-cache', Connection: 'keep-alive' });
     reply.raw.write('data: ' + JSON.stringify({ type: 'hello' }) + '\n\n');
     if (!sse.has(serverId)) sse.set(serverId, new Set());
@@ -140,7 +151,11 @@ function registerRelay(app, { db, registry }) {
     if (req.raw.url.startsWith('/api/hub/') || req.raw.url.startsWith('/api/events')) return reply.callNotFound();
     const serverId = req.query.p;
     const owner = serverId && await ownerOf(serverId);
-    if (!owner) return reply.code(404).send({ error: 'Unknown project.' });
+    // An unpublished project must 404 exactly like an unknown one, for every op including
+    // `project.read`'s cache-only special case below — otherwise unpublishing would stop a project
+    // from being listed in /api/hub/projects while its last-known snapshot stayed readable forever
+    // to anyone who still has (or guesses) its serverId.
+    if (!owner || !owner.published) return reply.code(404).send({ error: 'Unknown project.' });
     const route = findRoute(req.method, req.raw.url.split('?')[0]);
     if (!route) return reply.callNotFound();
     const [, , opName, argsFn] = route;
