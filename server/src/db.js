@@ -10,6 +10,7 @@ const crypto = require('crypto');
 const knexLib = require('knex');
 const { fromUrl } = require('../knexfile');
 const { createUsersModel } = require('./models/users');
+const { createRbacModel } = require('./models/rbac');
 
 function randomId(bytes) { return crypto.randomBytes(bytes).toString('base64url'); }
 function hash(token) { return crypto.createHash('sha256').update(token).digest('hex'); }
@@ -77,11 +78,13 @@ async function createDb(databaseUrl) {
   }
 
   const usersModel = createUsersModel(knex);
+  const rbacModel = createRbacModel(knex);
 
   return {
     knex, migrate, createMachine, machineByToken, touchMachine, listMachines, revokeMachine,
     upsertProject, findProject, findByMachineLocal, setPublished, listPublishedByMachine, listPublic, saveSnapshot,
     ...usersModel,
+    ...rbacModel,
     destroy: () => knex.destroy(),
   };
 }
