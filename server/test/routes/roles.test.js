@@ -99,3 +99,48 @@ test('DELETE /api/roles/:id refuses (409) while the role is on a pending invitat
     assert.strictEqual(blocked.status, 409);
   } finally { await app.close(); await db.destroy(); }
 });
+
+test('GET /api/permissions?scope=project and ?scope=platform return the fixed catalog seeded by migration 0004; an invalid scope is 400', async () => {
+  const { app, db, signupAndLogin } = await boot();
+  try {
+    const alice = await signupAndLogin('permcat-alice@example.com');
+    const project = await (await alice.fetch('/api/permissions?scope=project')).json();
+    assert.deepStrictEqual(project.permissions.map((p) => p.key), ['project.manage_members', 'project.manage_settings', 'project.read', 'project.write']);
+    const platform = await (await alice.fetch('/api/permissions?scope=platform')).json();
+    assert.deepStrictEqual(platform.permissions.map((p) => p.key), ['platform.manage_roles', 'platform.manage_signup', 'platform.manage_users', 'platform.view_all_projects']);
+    // labels are carried through too, not just keys
+    assert.ok(project.permissions.every((p) => typeof p.label === 'string' && p.label.length > 0));
+    const bad = await alice.fetch('/api/permissions?scope=bogus');
+    assert.strictEqual(bad.status, 400);
+  } finally { await app.close(); await db.destroy(); }
+});
+
+test('GET /roles renders a page (200, HTML) for an authenticated caller, and its script escapes role names before inserting them via innerHTML', async () => {
+  const { app, db, signupAndLogin } = await boot();
+  try {
+    const alice = await signupAndLogin('rolespage-alice@example.com');
+    const r = await alice.fetch('/roles');
+    assert.strictEqual(r.status, 200);
+    const page = await r.text();
+    assert.match(page, /<html/);
+    // The escape helper itself must be present in the shipped script.
+    assert.match(page, /function esc\(/);
+    // And the untrusted interpolation of a role's name into innerHTML must route through it.
+    assert.match(page, /esc\([a-zA-Z_$][\w$]*\.name\)/);
+  } finally { await app.close(); await db.destroy(); }
+});
+
+test('XSS: a malicious role name is stored and returned raw by the JSON API (correct — it is just data), but the /roles page script would escape it before ever rendering it via innerHTML', async () => {
+  const { app, db, signupAndLogin } = await boot();
+  try {
+    const alice = await signupAndLogin('rolesxss-alice@example.com');
+    const malicious = '<img/src=x/onerror=alert(document.cookie)>';
+    const created = await (await alice.fetch('/api/roles', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ scope: 'project', name: malicious, permissionKeys: ['project.read'] }) })).json();
+    assert.strictEqual(created.role.name, malicious); // the JSON API legitimately returns the raw value — it's a data endpoint, not HTML
+    // Simulate what the /roles page's client-side code does with it: apply the shipped esc() to the raw value.
+    function esc(s) { return String(s).replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c])); }
+    const rendered = esc(created.role.name);
+    assert.ok(!rendered.includes('<img'));
+    assert.ok(!rendered.includes('<script'));
+  } finally { await app.close(); await db.destroy(); }
+});

@@ -51,6 +51,9 @@ function createRbacModel(knex) {
     const rows = await knex('roles').where({ scope }).andWhere((qb) => qb.where({ is_system: true }).orWhere({ owner_user_id: ownerUserId })).orderBy('name');
     return Promise.all(rows.map((r) => getRole(r.id)));
   }
+  async function listPermissions(scope) {
+    return knex('permissions').where({ scope }).select('key', 'label').orderBy('key');
+  }
   async function assignPlatformRole(userId, roleId) {
     const role = await knex('roles').where({ id: roleId }).first();
     if (!role) throw new Error(`role "${roleId}" is not a platform-scope role`);
@@ -82,7 +85,7 @@ function createRbacModel(knex) {
     const r = await knex('user_platform_roles').where({ role_id: roleId }).count({ n: 'user_id' }).first();
     return Number(r.n);
   }
-  return { SYSTEM_ROLE_IDS, getRole, createRole, deleteRole, listRolesByScope, assignPlatformRole, removePlatformRole, listPlatformRolesForUser, hasPlatformPermission, resolveProjectPermissions, countUsersWithPlatformRole };
+  return { SYSTEM_ROLE_IDS, getRole, createRole, deleteRole, listRolesByScope, listPermissions, assignPlatformRole, removePlatformRole, listPlatformRolesForUser, hasPlatformPermission, resolveProjectPermissions, countUsersWithPlatformRole };
 }
 
 module.exports = { createRbacModel, SYSTEM_ROLE_IDS };
