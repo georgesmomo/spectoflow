@@ -17,7 +17,7 @@ front-end and protocol, and is deployed on its own.
 cd server
 npm install
 DATABASE_URL=sqlite:./data/spectoflow.db node cli.js migrate
-BASE_URL=https://dashboard.example.com DATABASE_URL=sqlite:./data/spectoflow.db PORT=3000 node src/index.js
+BASE_URL=http://localhost:3000 DATABASE_URL=sqlite:./data/spectoflow.db PORT=3000 node src/index.js
 ```
 
 Real accounts, not a shared key: open `http://localhost:3000/signup` (or `POST /signup`) and create
