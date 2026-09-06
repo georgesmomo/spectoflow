@@ -1,6 +1,6 @@
 {
   "name": "spectoflow-server",
-  "version": "0.2.0",
+  "version": "0.3.0",
   "private": true,
   "description": "Hosted relay for spectoflow's online dashboard (sub-project C1) — not published, deployed alongside a checkout of the spectoflow repo.",
   "main": "src/index.js",
