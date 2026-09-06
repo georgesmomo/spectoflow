@@ -20,7 +20,7 @@ async function createDb(databaseUrl) {
   const knex = knexLib(fromUrl(databaseUrl));
   async function migrate() { await knex.migrate.latest(); }
 
-  function createMachine(name) {
+  function createMachine(name, ownerUserId) {
     const id = randomId(8);              // ~11 chars base64url
     const token = 'spf_' + randomId(32);  // printed once by the caller (cli.js)
     // Synchronous-looking API for the caller's convenience (`token create` prints it immediately).
@@ -36,7 +36,7 @@ async function createDb(databaseUrl) {
     // query off immediately and silences Node's unhandled-rejection warning for callers who never
     // await `ready`; a caller who does await it (the admin CLI, before printing the token) still
     // sees the real rejection if the insert genuinely fails.
-    const ready = Promise.resolve(knex('machines').insert({ id, name, token_hash: hash(token) }));
+    const ready = Promise.resolve(knex('machines').insert({ id, name, token_hash: hash(token), owner_user_id: ownerUserId }));
     ready.catch(() => {});
     return { id, name, token, ready };
   }

@@ -8,7 +8,8 @@ async function fresh() { const db = await createDb('sqlite::memory:'); await db.
 test('createMachine prints the token once; only its hash is stored; machineByToken looks it up', async () => {
   const db = await fresh();
   try {
-    const m = db.createMachine('laptop');
+    const owner = await db.createUser(`owner-${Math.random().toString(36).slice(2)}@example.com`, 'password-123456');
+    const m = db.createMachine('laptop', owner.id);
     assert.match(m.token, /^spf_[A-Za-z0-9_-]{20,}$/);
     assert.ok(m.id && m.id.length >= 8);
     const row = await db.knex('machines').where({ id: m.id }).first();
@@ -23,12 +24,13 @@ test('createMachine prints the token once; only its hash is stored; machineByTok
 test('revokeMachine blanks token lookups; touchMachine bumps last_seen', async () => {
   const db = await fresh();
   try {
-    const m = db.createMachine('box');
+    const owner = await db.createUser(`owner-${Math.random().toString(36).slice(2)}@example.com`, 'password-123456');
+    const m = db.createMachine('box', owner.id);
     assert.strictEqual(await db.revokeMachine(m.id), true);
     assert.strictEqual(await db.machineByToken(m.token), null);
     assert.strictEqual(await db.revokeMachine('unknown-id'), false);
     const before = (await db.knex('machines').where({ id: m.id }).first()).last_seen;
-    const m2 = db.createMachine('box2');
+    const m2 = db.createMachine('box2', owner.id);
     await db.touchMachine(m2.id);
     const after = (await db.knex('machines').where({ id: m2.id }).first()).last_seen;
     assert.ok(after, 'last_seen set'); assert.strictEqual(before, null);
@@ -38,12 +40,13 @@ test('revokeMachine blanks token lookups; touchMachine bumps last_seen', async (
 test('upsertProject assigns a stable server id per (machine, localId) and updates in place on re-announce', async () => {
   const db = await fresh();
   try {
-    const m = db.createMachine('laptop');
+    const owner = await db.createUser(`owner-${Math.random().toString(36).slice(2)}@example.com`, 'password-123456');
+    const m = db.createMachine('laptop', owner.id);
     const p1 = await db.upsertProject({ machineId: m.id, localId: 'aaaaaa', name: 'Alpha', kind: 'spectoflow' });
     assert.ok(p1.id && p1.id.length === 10);
     const p2 = await db.upsertProject({ machineId: m.id, localId: 'aaaaaa', name: 'Alpha renamed', kind: 'spectoflow' });
     assert.strictEqual(p2.id, p1.id); assert.strictEqual(p2.name, 'Alpha renamed');
-    const other = db.createMachine('other-box');
+    const other = db.createMachine('other-box', owner.id);
     const p3 = await db.upsertProject({ machineId: other.id, localId: 'aaaaaa', name: 'Same local id, other machine', kind: 'spectoflow' });
     assert.notStrictEqual(p3.id, p1.id);
   } finally { await db.destroy(); }
@@ -52,7 +55,8 @@ test('upsertProject assigns a stable server id per (machine, localId) and update
 test('setPublished / findProject / listPublishedByMachine / listPublic / saveSnapshot', async () => {
   const db = await fresh();
   try {
-    const m = db.createMachine('laptop');
+    const owner = await db.createUser(`owner-${Math.random().toString(36).slice(2)}@example.com`, 'password-123456');
+    const m = db.createMachine('laptop', owner.id);
     const p = await db.upsertProject({ machineId: m.id, localId: 'aaaaaa', name: 'Alpha', kind: 'spectoflow' });
     assert.strictEqual(await db.findProject(p.id).then((r) => r.published), false);
     assert.deepStrictEqual(await db.listPublishedByMachine(m.id), []);

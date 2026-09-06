@@ -64,7 +64,7 @@ async function bootServer() {
   const authedFetch = (p, opts = {}) => fetch(url + p, { ...opts, headers: Object.assign({}, opts.headers, { Cookie: cookie }) });
   return { app, db, url, authedFetch };
 }
-function createToken(db, name) { const m = db.createMachine(name); return m.ready.then(() => m); }
+function createToken(db, name, ownerUserId) { const m = db.createMachine(name, ownerUserId); return m.ready.then(() => m); }
 // Async, non-blocking CLI invocation — see file header point 3. Never execFileSync for a command
 // that talks to the in-process server: that would freeze this process's own event loop (and so the
 // Fastify server itself) until the child exits.
@@ -90,7 +90,8 @@ async function runOneScenario(transport) {
   const home = fs.mkdtempSync(path.join(os.tmpdir(), `stf-e2e-${transport}-`));
   const projectDir = fs.mkdtempSync(path.join(os.tmpdir(), `stf-e2e-proj-${transport}-`));
   execFileSync('node', [BIN, 'init', projectDir], { stdio: 'pipe' });
-  const machine = await createToken(db, `e2e-${transport}`);
+  const owner = await db.createUser(`e2e-owner-${transport}@example.com`, 'password-123456');
+  const machine = await createToken(db, `e2e-${transport}`, owner.id);
   const P = hubPort();
   let hub = null;
   try {

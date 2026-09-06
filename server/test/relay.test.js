@@ -9,7 +9,8 @@ const { createRegistry } = require('../src/connector');
 
 async function boot() {
   const db = await createDb('sqlite::memory:'); await db.migrate();
-  const m = db.createMachine('laptop'); await m.ready;
+  const owner = await db.createUser('machine-owner@example.com', 'password-123456');
+  const m = db.createMachine('laptop', owner.id); await m.ready;
   const registry = createRegistry();
   const app = await buildApp({ db, insecureDev: true, publicDir: __dirname, registry });
   await app.listen({ port: 0, host: '127.0.0.1' });

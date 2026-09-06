@@ -16,8 +16,11 @@ async function main() {
     if (cmd === 'migrate') { await db.migrate(); console.log('✓ migrations applied'); return; }
     if (cmd === 'token' && sub === 'create') {
       const name = flag('name');
-      if (!name) { console.error('Usage: node cli.js token create --name="laptop"'); process.exitCode = 1; return; }
-      const m = db.createMachine(name); await m.ready;
+      const ownerEmail = flag('owner-email');
+      if (!name || !ownerEmail) { console.error('Usage: node cli.js token create --name="laptop" --owner-email="you@example.com"'); process.exitCode = 1; return; }
+      const owner = await db.findUserByEmail(ownerEmail);
+      if (!owner) { console.error(`! no account found with email "${ownerEmail}" — create the account first (via the web /signup page), then run this again.`); process.exitCode = 1; return; }
+      const m = db.createMachine(name, owner.id); await m.ready;
       console.log(`✓ machine "${name}" created — id ${m.id}`);
       console.log(`  token (shown once, store it now):\n\n  ${m.token}\n`);
       return;

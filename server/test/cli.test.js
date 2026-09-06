@@ -10,10 +10,17 @@ const CLI = path.resolve(__dirname, '..', 'cli.js');
 function dbUrl() { return 'sqlite:' + path.join(fs.mkdtempSync(path.join(os.tmpdir(), 'stf-srv-cli-')), 'db.sqlite'); }
 const run = (url, args) => execFileSync('node', [CLI, ...args], { encoding: 'utf8', env: { ...process.env, DATABASE_URL: url } });
 
-test('migrate then token create prints the token once; list shows it active; revoke closes it', () => {
+test('migrate, then create a real owner account via signup, then token create prints the token once; list shows it active; revoke closes it', async () => {
   const url = dbUrl();
   run(url, ['migrate']);
-  const created = run(url, ['token', 'create', '--name=ci-box']);
+  // token create now requires an existing owner account — create one directly via the db model
+  // (no HTTP server involved in this CLI-only test), matching how a real admin would point the CLI
+  // at an account created through the web /signup page.
+  const { createDb } = require('../src/db');
+  const db = await createDb(url);
+  await db.createUser('ci-owner@example.com', 'password-123456');
+  await db.destroy();
+  const created = run(url, ['token', 'create', '--name=ci-box', '--owner-email=ci-owner@example.com']);
   const m = created.match(/token \(shown once.*\):\s*\n\s*\n\s*(spf_\S+)/s);
   assert.ok(m, created);
   const token = m[1];
@@ -24,5 +31,6 @@ test('migrate then token create prints the token once; list shows it active; rev
   assert.match(revoked, /revoked/);
   list = run(url, ['token', 'list']);
   assert.match(list, /ci-box\s+revoked/);
-  assert.throws(() => run(url, ['token', 'create']));
+  assert.throws(() => run(url, ['token', 'create', '--name=x']));       // missing --owner-email
+  assert.throws(() => run(url, ['token', 'create', '--name=x', '--owner-email=nobody@example.com'])); // unknown owner
 });
