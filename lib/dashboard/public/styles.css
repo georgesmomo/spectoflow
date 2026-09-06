@@ -1045,3 +1045,17 @@ body.booting .wf-step2 { opacity:0; animation:rise .4s cubic-bezier(.2,.8,.2,1) 
 .hub-pill:hover { filter:brightness(1.1); transform:translateY(-1px); box-shadow:0 2px 10px color-mix(in srgb,var(--signal) 45%,transparent); }
 .hub-pill[hidden] { display:none; }
 @media (max-width:640px){ .hub-pill span { display:none; } .hub-pill { padding:6px; } }
+
+/* ---- online dashboard (C1): offline read-only state + remote-mode hub page. No gradients. ---- */
+.offline-bar { display:flex; align-items:center; gap:8px; padding:7px 16px; background:var(--surface-2); border-bottom:1px solid var(--line); color:var(--ink); font-size:12.5px; }
+.offline-bar[hidden] { display:none; }
+.offline-dot { width:8px; height:8px; border-radius:50%; background:var(--s-blocked); flex-shrink:0; }
+body.is-offline .btn.primary, body.is-offline .wf-step2, body.is-offline .wf-mini { opacity:.55; pointer-events:none; }
+.hub-body.hub-remote #hubAddBtn, .hub-body.hub-remote #hubAddBtnEmpty, .hub-body.hub-remote .hub-card-remove { display:none !important; }
+.hub-card-machine { display:inline-flex; align-items:center; gap:6px; }
+.hub-dot { width:7px; height:7px; border-radius:50%; background:var(--s-blocked); display:inline-block; flex-shrink:0; }
+.hub-dot.is-on { background:var(--s-done); }
+.hub-card-online { position:absolute; top:8px; right:36px; height:22px; padding:0 9px; border-radius:999px; border:1px solid var(--line); background:var(--surface-2); color:var(--muted); font-size:11px; line-height:20px; cursor:pointer; opacity:.75; }
+.hub-card:hover .hub-card-online, .hub-card-online:focus-visible { opacity:1; }
+.hub-card-online.is-on { color:var(--s-done); border-color:var(--s-done); opacity:1; }
+.hub-body.hub-remote .hub-card-online { display:none; }
