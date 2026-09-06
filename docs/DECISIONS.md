@@ -1533,3 +1533,59 @@
   hub.html,hub.js}`, `package.json` (engines ≥ 22, version 0.25.0), `server/` (nouvelle application :
   `package.json`, `knexfile.js`, `migrations/`, `src/{db,app,auth,connector,relay,index}.js`, `cli.js`,
   `README.md`, `test/`), `test/{routes,connector,hub-remote,cli-remote,public-remote-ui}.test.js`.
+
+### D66 — 0.26.0 : nettoyage des thèmes du dashboard — zéro dégradé de couleur (sous-projet D)
+
+- **ACTÉ.** Demande explicite de l'utilisateur lors du brainstorming de C (verbatim) : « Pour l'occasion
+  on doit revoir tous les themes, et surtout sur les themes je ne veux plus aucun degradé, absolument
+  aucun, ça fait trop IA. » D était positionné juste après C1 (livré en 0.25.0) pour que les futurs
+  écrans de C2/C3 se dessinent sur le look final. Nettoyage ciblé mais poussé (choix explicite de
+  l'utilisateur), pas une refonte visuelle totale — la porte de sortie vers une vraie refonte reste
+  ouverte si un usage réel révèle que ce n'est pas suffisant. Spec écrite et approuvée
+  (`docs/dashboard-theme-redesign-design.md`, choix de langage visuel faits avec le compagnon visuel du
+  skill de brainstorming), plan en 6 tâches
+  (`docs/superpowers/plans/2026-09-06-dashboard-theme-cleanup.md`), exécuté via
+  `subagent-driven-development` sur `main`.
+  - **Inventaire précis avant tout code** : 17 usages de `gradient()` dans tout `lib/dashboard/public/`,
+    répartis en deux familles confirmées avec l'utilisateur — **famille A** (11 lignes, un vrai fondu de
+    couleur visible : barres de progression, connecteurs de workflow, l'anneau de progression, l'ancien
+    logo mort `.brand-mark`) supprimée intégralement ; **famille B** (6 lignes, une astuce de rendu CSS
+    sans fondu visible : motif de grille, pointillés, flèche de `<select>`, icône du bouton thème,
+    l'anneau conique d'Orbit) laissée volontairement intacte et désormais protégée par une liste
+    blanche explicite dans le test de non-régression.
+  - **Langage de remplacement unique** : remplissage plein `var(--signal)` partout, plus — là où il y
+    avait du mouvement — un reflet blanc translucide animé (`rgba(255,255,255,.4)`) qui balaie l'élément,
+    au lieu d'un fondu entre deux couleurs. Une seule exception documentée : le connecteur d'Orbit
+    (`.wf-conn`) garde son propre point lumineux existant et ne reçoit pas le reflet, pour ne pas cumuler
+    deux animations sur le même élément.
+  - **Typographie** : `Space Grotesk` (partagée par Orbit et Neon Command) remplacée par
+    **Bricolage Grotesque** (auto-hébergée, même politique zéro-dépendance) — cette police était
+    explicitement citée dans les guides de conception du projet comme l'un des tics typographiques les
+    plus reconnaissables d'un design généré par IA. Control Room et Mission Control, qui n'avaient
+    jusqu'ici aucune police d'affichage propre, reçoivent Bricolage Grotesque au passage.
+  - **Trouvaille en QA réelle** : la revue par tâche (CSS uniquement) ne pouvait pas voir un dégradé
+    SVG **inline** dans `index.html` (l'anneau « Global Progress » du Board, dessiné par
+    `SpectoCharts.ring()` dans `charts.js`, référençait `url(#grad)`) — trouvé et corrigé pendant la
+    QA visuelle réelle de la dernière tâche, pas par le test automatisé. Corrigé en conséquence : le
+    test de non-régression (`test/dashboard-no-gradients.test.js`) parcourt maintenant récursivement
+    tout `lib/dashboard/public/` (`.css`, `.html`, `.js`), pas seulement les 3 fichiers initialement
+    prévus — vérifié en y injectant volontairement un faux dégradé dans un fichier non couvert
+    auparavant, en confirmant que le test l'attrape, puis en le retirant.
+  - **Revue finale de branche** : un défaut Important (le périmètre du test, voir ci-dessus) et deux
+    défauts mineurs — un bloc blanc figé et non désactivé sous `prefers-reduced-motion`, et une
+    surcharge d'Orbit devenue un doublon exact de la règle de base — corrigés en une seule vague,
+    re-vérifiés indépendamment (reproduction du bug avant/après pour chacun).
+  - **Notes pour la suite** (constatées en revue, sans impact sur ce livrable) : les sélecteurs CSS
+    `.wf-conn`/`.wf-rail`/`.wf-track` se sont révélés **du CSS mort** — plus aucune vue du dashboard ne
+    les émet (le Board utilise `.wf-mini`/`.wf-arrow`, l'onglet Workflow utilise `.wf-step2`/`.wf-link`)
+    ; le reflet blanc n'est donc réellement visible que sur `.wf-arrow::after`. L'entrée D39 (« Typo
+    Space Grotesk » pour Orbit) reste inchangée par convention (DECISIONS est append-only) mais est
+    de fait remplacée par ce qui précède.
+  - **QA** : 6 tâches revues indépendamment (1 vague de correction sur la revue finale) ; suite
+    complète 312/313 (1 skip Windows préexistant), 0 échec ; QA visuelle réelle sur les 12
+    combinaisons (6 designs × clair/sombre).
+- Fichiers : `lib/dashboard/public/{styles.css,charts.js,designs.js,index.html}`,
+  `lib/dashboard/public/designs/{console.css,orbit.css}`,
+  `lib/dashboard/public/fonts/bricolage-grotesque-{400,600,700}.woff2` (nouveaux, remplacent
+  `space-grotesk-*.woff2`, supprimés), `test/dashboard-no-gradients.test.js` (nouveau), `package.json`
+  (version 0.26.0).

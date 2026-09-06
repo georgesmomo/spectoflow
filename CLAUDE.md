@@ -71,6 +71,41 @@ snapshot stayed readable via the relay forever, since only the online project *l
 `published` flag — reads didn't) — fixed and independently re-verified before merge. A real
 end-to-end test spawns an actual local hub and drives it through the real CLI over both transports.
 
+## What exists (v0.26.0 — see DECISIONS D66)
+
+**Dashboard theme cleanup — zero color-blend gradients.** Sub-project D of the "one dashboard, many
+projects" program (see `docs/dashboard-theme-redesign-design.md`; scheduled right after C1 so C2/C3's
+future screens draw on the final look). A precise audit of every `gradient()` call in
+`lib/dashboard/public/` (17 total) split them into two confirmed families: **Family A** — 11 lines
+that render a genuine color fade (progress bars, workflow connectors, the progress ring, the dead
+`.brand-mark` rule) — removed entirely; **Family B** — 6 lines using `gradient()` as a pure CSS
+rendering trick with no visible blend (a background grid/dot pattern, a `<select>` chevron, the
+theme-toggle icon, Orbit's hard-stop conic progress ring) — deliberately untouched, and now protected
+by an explicit allow-list in `test/dashboard-no-gradients.test.js`. Every removed gradient becomes a
+flat `var(--signal)` fill; wherever the original animated, a translucent white sweep
+(`rgba(255,255,255,.4)`) replaces the color fade — one exception, Orbit's `.wf-conn`, keeps only its
+pre-existing solid dot particle rather than stacking a second motion effect on it.
+
+**Typography**: `Space Grotesk` (shared by Orbit and Neon Command, and explicitly named in this
+project's own design guidance as a recognizable "AI-safe" typographic tell) is replaced project-wide
+by self-hosted **Bricolage Grotesque**; Control Room and Mission Control, which had no distinct
+display face before, get it too.
+
+Real browser QA on the last task caught what the CSS-only regression test structurally could not: an
+inline SVG `<linearGradient>` in `index.html` driving the Board's "Global Progress" ring
+(`SpectoCharts.ring()` in `charts.js`) — fixed, and `test/dashboard-no-gradients.test.js` was then
+broadened (final-review fix wave) to recursively scan every `.css`/`.html`/`.js` file under
+`lib/dashboard/public/`, not just the 3 files the original plan named, so this class of gap — and a
+future design file with its own stray gradient — can't slip through silently again. Two cosmetic
+final-review fixes rode along: a reduced-motion fallback so the white sweep doesn't freeze into a
+visible block, and a dead no-op override removed from `orbit.css`. `.wf-conn`/`.wf-rail`/`.wf-track`
+turned out to be unreferenced dead CSS, discovered during review — nothing in the current UI ever
+renders them; the sweep is genuinely visible only on `.wf-arrow::after`.
+
+Built across 6 tasks via `subagent-driven-development`, one final-review fix wave (all three findings
+independently re-reproduced before/after by the re-reviewer). Full suite 312/313 (1 pre-existing
+Windows skip), 0 failures; real QA across all 12 design × theme combinations.
+
 ## What exists (v0.24.0 — see DECISIONS D64)
 
 Direct follow-up: the user clicked the Board's read-only "workflow at a glance" strip (`.wf-mini`)
