@@ -105,3 +105,48 @@ test('announce() re-sends hello when the published set changes', async () => {
     assert.deepStrictEqual(h.projects.map((p) => p.localId), ['aaaaaa', 'bbbbbb']);
   } finally { c.stop(); await relay.close(); }
 });
+
+test('--transport=http: no upgrade attempted; auth in the first batch → auth-ok → hello; ops round-trip; upward order preserved', async () => {
+  const relay = await startFakeRelay({ pollHold: 100 }); const c = connector(relay, { transport: 'http' }); c.start();
+  try {
+    const hello = await relay.waitFor('hello');
+    assert.strictEqual(relay.upgrades, 0);
+    assert.strictEqual(hello.via, 'http');
+    assert.strictEqual(relay.frames[0].type, 'auth'); assert.strictEqual(relay.frames[0].via, 'http');
+    assert.strictEqual(c.status().transport, 'http'); assert.strictEqual(c.status().connected, true);
+    relay.send({ type: 'op', reqId: 1, p: 'aaaaaa', op: 'task.add', args: { title: 'via http' } });
+    const rep = await relay.waitFor('reply');
+    assert.deepStrictEqual(rep.result, { ok: true, p: 'aaaaaa', title: 'via http' });
+    const n = relay.frames.length;
+    for (let i = 0; i < 5; i++) c.pushEvent('aaaaaa', { type: 'run-line', chunk: String(i) });
+    await sleep(300);
+    assert.deepStrictEqual(relay.frames.slice(n).filter((f) => f.type === 'event').map((f) => f.event.chunk), ['0', '1', '2', '3', '4']);
+    assert.ok(relay.httpPolls >= 1, 'long-poll loop is running');
+  } finally { c.stop(); await relay.close(); }
+});
+
+test('WebSocket upgrade failure → HTTP fallback → back to WebSocket after wsRetryEvery', async () => {
+  const relay = await startFakeRelay({ pollHold: 100 }); relay.rejectUpgrade = true;
+  const c = connector(relay); c.start();
+  try {
+    const hello = await relay.waitFor('hello');
+    assert.strictEqual(hello.via, 'http');
+    assert.ok(relay.upgrades >= 1);
+    assert.strictEqual(c.status().transport, 'http');
+    relay.rejectUpgrade = false;
+    const n = relay.frames.length;
+    const hello2 = await relay.waitFor('hello', { after: n, timeout: 5000 });
+    assert.strictEqual(hello2.via, 'ws');
+    assert.strictEqual(c.status().transport, 'ws');
+  } finally { c.stop(); await relay.close(); }
+});
+
+test('an HTTP-mode token rejection is reported and never loops hot', async () => {
+  const relay = await startFakeRelay({ pollHold: 50 }); const c = connector(relay, { transport: 'http', token: 'spf_wrong' }); c.start();
+  try {
+    await sleep(250);
+    assert.strictEqual(c.status().connected, false);
+    assert.match(String(c.status().lastError), /token/i);
+    assert.ok(relay.httpPosts + relay.httpPolls < 20, 'backoff applies (got ' + (relay.httpPosts + relay.httpPolls) + ' requests in 250ms)');
+  } finally { c.stop(); await relay.close(); }
+});
