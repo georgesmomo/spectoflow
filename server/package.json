@@ -7,7 +7,7 @@
   "scripts": {
     "start": "node src/index.js",
     "migrate": "node cli.js migrate",
-    "test": "node --test test/**/*.test.js"
+    "test": "node --test \"test/**/*.test.js\""
   },
   "engines": { "node": ">=22" },
   "dependencies": {

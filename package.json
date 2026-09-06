@@ -41,7 +41,7 @@
   "scripts": {
     "status": "node bin/spectoflow.js status",
     "postinstall": "node bin/postinstall.js",
-    "test": "node --test test/**/*.test.js"
+    "test": "node --test \"test/**/*.test.js\""
   },
   "engines": {
     "node": ">=22"

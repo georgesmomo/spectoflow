@@ -22,10 +22,19 @@ async function createDb(databaseUrl) {
     const token = 'spf_' + randomId(32);  // printed once by the caller (cli.js)
     // Synchronous-looking API for the caller's convenience (`token create` prints it immediately).
     // A knex query builder is lazy — it only starts executing once something calls `.then()`/awaits
-    // it — so the trailing `.then(() => {})` is load-bearing: it fires the insert off right away
-    // instead of leaving it inert until (and unless) a caller awaits `.ready`. Real deployments
-    // (the admin CLI) still await the returned promise via `.ready` before printing the token.
-    const ready = knex('machines').insert({ id, name, token_hash: hash(token) }).then(() => {});
+    // it — so `ready` must be kicked off eagerly instead of sitting inert until (and unless) a
+    // caller awaits it. Naively attaching a second, separate `.catch(() => {})` directly to the
+    // query builder does NOT work here: unlike a real Promise, a knex query builder does not
+    // memoize its result — every `.then()`/`.catch()` call on it re-runs the query from scratch, so
+    // a caller who later awaits `ready` would re-execute (and, for an insert, duplicate) it.
+    // `Promise.resolve(builder)` adopts the builder's eventual state by calling its `.then()`
+    // exactly once, handing back a real, memoized Promise — safe to attach further handlers to
+    // without re-running anything. `ready.catch(() => {})` on *that* real Promise both fires the
+    // query off immediately and silences Node's unhandled-rejection warning for callers who never
+    // await `ready`; a caller who does await it (the admin CLI, before printing the token) still
+    // sees the real rejection if the insert genuinely fails.
+    const ready = Promise.resolve(knex('machines').insert({ id, name, token_hash: hash(token) }));
+    ready.catch(() => {});
     return { id, name, token, ready };
   }
   async function machineByToken(token) {
