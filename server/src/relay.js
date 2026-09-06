@@ -1,0 +1,158 @@
+'use strict';
+/*
+ * Turns a browser's HTTP request into an `op` frame for the owning machine, and a machine's upward
+ * frames into what a browser sees: the same ROUTES table the local hub uses (lib/dashboard/routes.js),
+ * so the online HTTP surface stays identical to the local one by construction (spec §2). Never
+ * requires ops.js — this process executes nothing itself.
+ */
+const { findRoute } = require('../../lib/dashboard/routes');
+
+const REPLY_TIMEOUT_MS = Number(process.env.SPECTOFLOW_RELAY_REPLY_TIMEOUT_MS) || 30000;
+
+function registerRelay(app, { db, registry }) {
+  const pending = new Map();        // reqId -> {resolve,reject,timer}
+  const sse = new Map();            // serverId -> Set<reply.raw>
+  const localIdOf = new Map();      // serverId -> {machineId, localId}
+  const chains = new Map();         // machineId -> tail promise of its frame-processing chain
+  let reqCounter = 0;
+
+  function fanoutSSE(serverId, obj) {
+    const set = sse.get(serverId);
+    if (!set) return;
+    const line = 'data: ' + JSON.stringify(obj) + '\n\n';
+    for (const res of set) res.write(line);
+  }
+
+  // registerConnector (connector.js) calls onFrame(machineId, frame) once per frame in a batch
+  // WITHOUT awaiting it, so a `hello` immediately followed by a `snapshot` in the same batch (the
+  // common real-world case — announce the project, then push its current state) would otherwise
+  // race: the snapshot's lookup of the just-announced project could run before the hello's own
+  // await chain has registered it. Serialize per machine so each frame is fully processed, in
+  // arrival order, before the next one starts — regardless of whether the caller awaits.
+  function onFrame(machineId, frame) {
+    const prev = chains.get(machineId) || Promise.resolve();
+    const next = prev.then(() => processFrame(machineId, frame), () => processFrame(machineId, frame));
+    chains.set(machineId, next);
+    return next;
+  }
+
+  async function processFrame(machineId, frame) {
+    if (frame.type === 'hello') {
+      const seen = new Set();
+      for (const p of frame.projects || []) {
+        const row = await db.upsertProject({ machineId, localId: p.localId, name: p.name, kind: p.kind || 'spectoflow' });
+        await db.setPublished(row.id, true); // a project sent in `hello` is, by construction, published
+        localIdOf.set(row.id, { machineId, localId: p.localId });
+        seen.add(p.localId);
+        registry.entry(machineId).projects = registry.entry(machineId).projects || new Map();
+        registry.entry(machineId).projects.set(p.localId, { serverId: row.id, name: p.name, kind: p.kind, stats: p.stats || null });
+      }
+      // A project that was published before but is absent from this hello (unpublished, or the
+      // machine no longer has it) is marked unpublished here — its row and last snapshot are kept.
+      for (const row of await db.listPublishedByMachine(machineId)) if (!seen.has(row.local_id)) await db.setPublished(row.id, false);
+      return;
+    }
+    const known = registry.entry(machineId).projects && registry.entry(machineId).projects.get(frame.p);
+    if (frame.type === 'event') {
+      if (!known) return; // unannounced localId — dropped, never stored/fanned out (spec §2 ordering note)
+      fanoutSSE(known.serverId, frame.event);
+      return;
+    }
+    if (frame.type === 'snapshot') {
+      if (!known) return;
+      await db.saveSnapshot(known.serverId, frame.project);
+      const cached = registry.entry(machineId).projects.get(frame.p);
+      if (cached) cached.stats = statsOf(frame.project);
+      fanoutSSE(known.serverId, { type: 'change' });
+      return;
+    }
+    if (frame.type === 'reply') {
+      const p = pending.get(frame.reqId);
+      if (!p) return;
+      pending.delete(frame.reqId); clearTimeout(p.timer);
+      p.resolve(frame);
+    }
+  }
+  function statsOf(project) {
+    if (!project || !Array.isArray(project.plans)) return null;
+    let total = 0, done = 0;
+    for (const pl of project.plans) for (const ph of pl.phases || []) for (const t of ph.tasks || []) { total++; if (t.status === 'done') done++; }
+    return { total, done };
+  }
+
+  async function ownerOf(serverId) {
+    const cached = localIdOf.get(serverId);
+    if (cached) return cached;
+    const row = await db.findProject(serverId);
+    if (!row) return null;
+    const found = { machineId: row.machine_id, localId: row.local_id };
+    localIdOf.set(serverId, found);
+    return found;
+  }
+  function sendOp(machineId, frame) {
+    return new Promise((resolve) => {
+      const timer = setTimeout(() => { pending.delete(frame.reqId); resolve({ timedOut: true }); }, REPLY_TIMEOUT_MS);
+      pending.set(frame.reqId, { resolve, timer });
+      const delivered = registry.send(machineId, frame);
+      if (!delivered) { clearTimeout(timer); pending.delete(frame.reqId); resolve({ offline: true }); }
+    });
+  }
+
+  app.get('/api/hub/projects', async () => {
+    const rows = await db.listPublic();
+    const projects = await Promise.all(rows.map(async (r) => {
+      const m = await db.knex('machines').where({ id: r.machine_id }).first();
+      const st = registry.status(r.machine_id);
+      const cached = registry.entry(r.machine_id).projects && registry.entry(r.machine_id).projects.get(r.local_id);
+      return { id: r.id, name: r.name, kind: r.kind, machine: m ? m.name : 'unknown', online: st.connected, lastSeen: st.lastSeen, stats: (cached && cached.stats) || null, lastOpened: r.snapshot_at || r.created_at };
+    }));
+    return { mode: 'remote', projects };
+  });
+
+  app.get('/api/events', async (req, reply) => {
+    const serverId = req.query.p;
+    const owner = serverId && await ownerOf(serverId);
+    if (!owner) return reply.code(404).send({ error: 'Unknown project.' });
+    reply.raw.writeHead(200, { 'Content-Type': 'text/event-stream', 'Cache-Control': 'no-cache', Connection: 'keep-alive' });
+    reply.raw.write('data: ' + JSON.stringify({ type: 'hello' }) + '\n\n');
+    if (!sse.has(serverId)) sse.set(serverId, new Set());
+    sse.get(serverId).add(reply.raw);
+    req.raw.on('close', () => { const set = sse.get(serverId); if (set) set.delete(reply.raw); });
+    return reply;
+  });
+
+  app.all('/api/*', async (req, reply) => {
+    if (req.raw.url.startsWith('/api/hub/') || req.raw.url.startsWith('/api/events')) return reply.callNotFound();
+    const serverId = req.query.p;
+    const owner = serverId && await ownerOf(serverId);
+    if (!owner) return reply.code(404).send({ error: 'Unknown project.' });
+    const route = findRoute(req.method, req.raw.url.split('?')[0]);
+    if (!route) return reply.callNotFound();
+    const [, , opName, argsFn] = route;
+    const u = new URL(req.raw.url, 'http://x');
+    const args = argsFn(u, req.body || {}, u.pathname);
+    const st = registry.status(owner.machineId);
+    // project.read always answers from the stored snapshot — never a live round trip — because the
+    // registry's `connected` flag (for an HTTP-transport machine) only means "recently touched base",
+    // not "currently blocked in a long-poll and able to answer synchronously"; a browser opening a
+    // project shouldn't have to wait out a full round trip (and possibly the reply timeout) just to
+    // read data that a `snapshot` frame already delivered. Writes still go live below, and correctly
+    // time out (504) if nobody is actually polling to receive them.
+    if (opName === 'project.read') {
+      const row = await db.findProject(serverId);
+      const snapshot = row && row.last_snapshot ? JSON.parse(row.last_snapshot) : {};
+      return { ...snapshot, online: st.connected, lastSeen: st.lastSeen };
+    }
+    if (!st.connected) return reply.code(503).send({ error: `${owner.localId} is offline (last seen ${st.lastSeen || 'never'}).` });
+    const reqId = ++reqCounter;
+    const result = await sendOp(owner.machineId, { type: 'op', reqId, p: owner.localId, op: opName, args });
+    if (result.timedOut) return reply.code(504).send({ error: 'The machine did not respond in time.' });
+    if (result.offline) return reply.code(503).send({ error: `${owner.localId} is offline.` });
+    if (result.error) return reply.code(result.error.status || 500).send({ error: result.error.message });
+    return result.result === undefined ? {} : result.result;
+  });
+
+  return { onFrame };
+}
+
+module.exports = { registerRelay };
