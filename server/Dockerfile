@@ -1,4 +1,5 @@
-# NOTE: build context is the repo root, not server/ — see the "docker build" invocation below.
+# NOTE: build context is the repo root, not server/.
+# docker build -f server/Dockerfile -t spectoflow-server .  (run from the repo root)
 # server/src/app.js (static front-end) and server/src/relay.js (route table) both intentionally
 # reach outside server/ into the repo-root lib/dashboard/ (D65: server/ shares the front-end and
 # route table with the local hub, never duplicates them) via relative requires like

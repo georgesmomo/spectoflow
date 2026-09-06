@@ -186,6 +186,10 @@ spectoflow dashboard                     # → http://localhost:4319 (or --port=
 dashboard already running on the port). `spectoflow status` tells you whether one is up. Zero
 dependencies, updates live via SSE + file watching.
 
+Want your own hosted, online dashboard instead of (or alongside) the local one? `server/` is a
+separate, self-hostable relay with a ready-made Docker deployment path — see
+[`server/docs/deploy-vps.md`](server/docs/deploy-vps.md).
+
 The header bar always shows the brand, the **active agent**, autonomy mode, language, a global-progress
 meter, a sync dot, and a **Run** quick-action. Ten tabs:
 

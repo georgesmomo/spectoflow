@@ -15,9 +15,14 @@ git clone https://github.com/georgesmomo/spectoflow.git
 cd spectoflow
 ```
 
-A full clone, not just the `server/` folder — `docker-compose.yml` (at the repo root) builds the
-`server` service from the relative path `./server`, so the compose file and `server/` need to stay
-siblings on disk exactly as they are in this repository.
+A full clone, not just the `server/` folder — `server/` isn't a self-contained deployable unit. Its
+application code (`server/src/relay.js`, `server/src/app.js`) intentionally reaches outside `server/`
+into the repo-root `lib/dashboard/` directory to reuse the exact same front-end and route table the
+local hub uses, rather than duplicating them (see `../docs/online-dashboard-connector-design.md`).
+The Docker build reflects this: its context is the whole repo root (`docker-compose.yml`'s `build:
+{context: ., dockerfile: server/Dockerfile}`), not `server/` alone, so it can `COPY` those shared
+`lib/dashboard/` paths into the image. Cloning the full repo keeps everything the build needs on disk
+together, exactly as it is in this repository.
 
 ## 3. Configure your environment
 
@@ -29,7 +34,9 @@ Edit `server/.env` and fill in every `CHANGE_ME` value:
 - `DOMAIN` and `BASE_URL` — your real domain (e.g. `dashboard.example.com` / `https://dashboard.example.com`).
   **These two must point at the same hostname** — the file's own comment explains why.
 - `MYSQL_PASSWORD` — a real, random password. Copy the exact same value into `DATABASE_URL`'s
-  connection string (replacing the `CHANGE_ME` right after `spectoflow:`).
+  connection string (replacing the `CHANGE_ME` right after `spectoflow:`). `DATABASE_URL` is parsed as
+  a URL, so use only letters and digits (no `@ : / ? #`) in the password, or percent-encode it if it
+  must contain one of those characters.
 - `SMTP_HOST`/`SMTP_PORT`/`SMTP_USER`/`SMTP_PASS`/`SMTP_FROM` — credentials from a real transactional
   email provider (e.g. Postmark, SES, Mailgun, SendGrid). Every account signup, password reset, and
   project invitation this server ever sends goes through these.
@@ -59,6 +66,10 @@ confirms Caddy's TLS handshake succeeded and the application itself is respondin
 
 Visit `https://<your-domain>/signup` and create an account — the very first account ever created on
 a fresh instance automatically becomes Platform Admin.
+
+Unless you want this instance open to public signups, go to `/admin` and set Signup mode to
+`invite_only` or `disabled` — a fresh instance defaults to `open`, meaning anyone who finds the URL
+can create an account.
 
 ## 7. Connect a machine
 

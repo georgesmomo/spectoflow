@@ -102,10 +102,14 @@ Project sharing (inviting other accounts onto a project, with roles/permissions)
 dashboard itself once a project is published, or via `/api/projects/:id/invite`; see
 `../docs/online-dashboard-accounts-design.md`.
 
-## What this does not do yet
+## Deployment
+
+Two guides, depending on what your host gives you:
+
+- **[`docs/deploy-vps.md`](docs/deploy-vps.md)** — Docker + Caddy on a VPS, with automatic HTTPS via
+  Let's Encrypt. The recommended path when you control the whole machine.
+- **[`docs/deploy-cpanel.md`](docs/deploy-cpanel.md)** — no Docker, for shared hosts like cPanel/
+  o2switch that offer a native Node.js App feature instead of container access.
 
 Cross-account project sharing and roles landed in C2 (see
-`../docs/online-dashboard-accounts-design.md`); a Docker image and a full cPanel/o2switch
-(Passenger) runbook are C4 — for now, "Setup Node.js App" pointing at `server/src/index.js` with the
-environment variables above, and a VPS running `node src/index.js` under a process manager (pm2,
-systemd) both work.
+`../docs/online-dashboard-accounts-design.md`).

@@ -87,13 +87,19 @@ Visit `https://<your-domain>/healthz` — you should see `{"ok":true}`.
 ## 8. Create the first account, then connect a machine
 
 Same as the Docker path: visit `https://<your-domain>/signup` (the first account ever created becomes
-Platform Admin automatically), then use the **Account page** (`/account`, once signed in) to create a
-machine token, then from the machine you want to publish projects from:
+Platform Admin automatically). Unless you want this instance open to public signups, go to `/admin`
+and set Signup mode to `invite_only` or `disabled` — a fresh instance defaults to `open`, meaning
+anyone who finds the URL can create an account. Then use the **Account page** (`/account`, once
+signed in) to create a machine token, then from the machine you want to publish projects from:
 
 ```bash
 spectoflow dashboard login --url=https://<your-domain> --token=<the token just created>
 spectoflow dashboard publish
 ```
+
+If the connection keeps dropping or never shows as connected, cPanel's proxy may not be passing
+WebSocket upgrades through — add `--transport=http` to the `spectoflow dashboard login` command to
+skip the WebSocket attempt entirely and use HTTP long-polling instead.
 
 ## Updating later
 
