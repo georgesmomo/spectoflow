@@ -138,6 +138,7 @@ async function registerAuth(fastify, { db, insecureDev, emailer }) {
     if (!session) return reply.code(401).send({ error: 'Sign in required.' });
     await db.touchSession(session.id);
     req.user = { id: session.userId };
+    req.sessionId = session.id;
   });
 }
 

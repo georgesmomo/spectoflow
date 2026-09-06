@@ -54,6 +54,13 @@ async function createDb(databaseUrl) {
     const n = await knex('machines').where({ id }).whereNull('revoked_at').update({ revoked_at: knex.fn.now() });
     return n > 0;
   }
+  async function listMachinesForOwner(ownerUserId) {
+    return knex('machines').where({ owner_user_id: ownerUserId }).select('id', 'name', 'created_at', 'last_seen', 'revoked_at').orderBy('created_at', 'desc');
+  }
+  async function findMachine(id) {
+    const row = await knex('machines').where({ id }).first();
+    return row || null;
+  }
 
   async function findByMachineLocal(machineId, localId) {
     const row = await knex('projects').where({ machine_id: machineId, local_id: localId }).first();
@@ -93,6 +100,7 @@ async function createDb(databaseUrl) {
   return {
     knex, migrate, createMachine, machineByToken, touchMachine, listMachines, revokeMachine,
     upsertProject, findProject, findByMachineLocal, setPublished, listPublishedByMachine, listPublic, saveSnapshot,
+    listMachinesForOwner, findMachine,
     ...usersModel,
     ...rbacModel,
     ...sessionsModel,
