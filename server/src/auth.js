@@ -38,7 +38,11 @@ async function registerAuth(fastify, { db, insecureDev, emailer }) {
     setSessionCookie(reply, session.token);
     const verifyToken = await db.createEmailVerificationToken(user.id);
     const verifyUrl = `${req.protocol}://${req.hostname}/verify-email/${verifyToken}`;
-    await emailer.sendVerificationEmail(user.email, verifyUrl);
+    try {
+      await emailer.sendVerificationEmail(user.email, verifyUrl);
+    } catch (err) {
+      fastify.log.error(err, 'failed to send verification email on signup');
+    }
     return { ok: true, userId: user.id };
   });
 
@@ -74,7 +78,11 @@ async function registerAuth(fastify, { db, insecureDev, emailer }) {
     const token = await db.createEmailVerificationToken(req.user.id);
     const user = await db.findUserById(req.user.id);
     const url = `${req.protocol}://${req.hostname}/verify-email/${token}`;
-    await emailer.sendVerificationEmail(user.email, url);
+    try {
+      await emailer.sendVerificationEmail(user.email, url);
+    } catch (err) {
+      fastify.log.error(err, 'failed to send verification email on resend');
+    }
     return { ok: true };
   });
 

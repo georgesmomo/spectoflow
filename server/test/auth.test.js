@@ -141,3 +141,18 @@ test('POST /account/resend-verification requires a session and sends a fresh ema
     assert.strictEqual(emailer.sent[1].kind, 'verify');
   } finally { await a.close(); await db.destroy(); }
 });
+
+test('POST /signup still succeeds with a working session cookie when the verification email fails to send', async () => {
+  const brokenEmailer = { sendVerificationEmail: async () => { throw new Error('SMTP is down'); } };
+  const { app: a, db } = await app({ emailer: brokenEmailer, publicDir: undefined });
+  try {
+    const r = await signup(a);
+    assert.strictEqual(r.statusCode, 200, r.body);
+    const cookie = r.cookies.find((c) => c.name === 'spf_session');
+    assert.ok(cookie);
+    const protectedOk = await a.inject({ method: 'GET', url: '/', cookies: { spf_session: cookie.value } });
+    assert.strictEqual(protectedOk.statusCode, 200);
+    const user = await db.findUserByEmail('alice@example.com');
+    assert.ok(user);
+  } finally { await a.close(); await db.destroy(); }
+});
