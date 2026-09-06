@@ -17,23 +17,31 @@ front-end and protocol, and is deployed on its own.
 cd server
 npm install
 DATABASE_URL=sqlite:./data/spectoflow.db node cli.js migrate
-DATABASE_URL=sqlite:./data/spectoflow.db node cli.js token create --name="my laptop"
-# copy the printed spf_... token
-SPECTOFLOW_ACCESS_KEY=$(node -e "console.log(require('crypto').randomBytes(16).toString('hex'))") \
-DATABASE_URL=sqlite:./data/spectoflow.db PORT=3000 node src/index.js
+BASE_URL=https://dashboard.example.com DATABASE_URL=sqlite:./data/spectoflow.db PORT=3000 node src/index.js
 ```
 
-Then, from a spectoflow project on the machine that created the token:
+Real accounts, not a shared key: open `http://localhost:3000/signup` (or `POST /signup`) and create
+the first account — it automatically becomes Platform Admin. Sign in at `/login`.
+
+Then create a machine token for the computer running your spectoflow project, either from the
+**Account page** (`/account`, once signed in — "Create token" under Machine tokens) or from the
+command line (requires the account to already exist — created via `/signup` first):
+
+```bash
+DATABASE_URL=sqlite:./data/spectoflow.db node cli.js token create --name="my laptop" --owner-email="you@example.com"
+# copy the printed spf_... token
+```
+
+Then, from a spectoflow project on that same machine:
 
 ```bash
 spectoflow dashboard login --url=http://localhost:3000 --token=spf_... --name="my laptop"
 spectoflow dashboard publish
 ```
 
-Open `http://localhost:3000/` and sign in with `SPECTOFLOW_ACCESS_KEY`'s value.
-
-For a quick local check without an access key at all: `node src/index.js --insecure-dev` (binds
-127.0.0.1 only — never use this on a reachable host).
+For a quick local check with no real domain and no email sending at all: `node src/index.js
+--insecure-dev` (binds 127.0.0.1 only, `BASE_URL` defaults to `http://127.0.0.1:<PORT>`, emails are
+logged to the console instead of sent — never use this on a reachable host).
 
 ## MySQL (the default deployment target)
 
@@ -52,10 +60,15 @@ DATABASE_URL=postgres://spectoflow:password@localhost/spectoflow node cli.js mig
 | Variable | Default | Meaning |
 |---|---|---|
 | `DATABASE_URL` | `mysql://spectoflow:spectoflow@localhost/spectoflow` | `mysql://…`, `postgres://…`, or `sqlite:<path>`/`sqlite::memory:` |
-| `SPECTOFLOW_ACCESS_KEY` | *(required)* | 16+ characters; the shared key that unlocks the web UI |
-| `SESSION_SECRET` | auto-generated to `data/session-secret` | HMAC key signing the session cookie; rotating it logs everyone out |
+| `BASE_URL` | *(required unless `--insecure-dev`)* | The public origin this server is reached at (e.g. `https://dashboard.example.com`, no trailing slash) — used to build every link this server emails out (email verification, password reset, project invitations). Never derived from a request's `Host` header, which an attacker controls. |
 | `PORT` | `3000` | HTTP port |
 | `TRUST_PROXY` | unset | set `1` behind a TLS-terminating reverse proxy |
+| `SMTP_HOST` / `SMTP_PORT` / `SMTP_USER` / `SMTP_PASS` / `SMTP_FROM` | unset | outbound mail (verification/reset/invitation emails); with `--insecure-dev` and no `SMTP_HOST`, emails are logged to the console instead of sent |
+
+There is no `SPECTOFLOW_ACCESS_KEY` or `SESSION_SECRET` — those belonged to C1's original
+single-shared-key auth, since replaced entirely by real per-user accounts and per-device sessions
+(C2). A session is just a random token looked up by its hash in the database; nothing is signed and
+there is no shared secret to rotate or lose.
 
 ## Reverse proxy (Caddy example, for TLS)
 
@@ -66,18 +79,33 @@ dashboard.example.com {
 ```
 
 Caddy obtains and renews the certificate automatically; the server itself always speaks plain HTTP.
+Set `BASE_URL=https://dashboard.example.com` and `TRUST_PROXY=1` alongside it.
 
-## Token management
+## Accounts and machine tokens
+
+Accounts are real: create one at `/signup` (or `POST /signup`), sign in at `/login`. The very first
+account ever created on a fresh database automatically becomes Platform Admin (`/admin` — signup
+mode, every account, promote/demote). Signup mode (`open` / `invite_only` / `disabled`) is managed
+there too.
+
+Every machine (a computer running `spectoflow dashboard`) needs its own token, tied to the account
+that owns it — created either from the account owner's own **Account page** (`/account`) or from the
+command line, which requires that account to already exist:
 
 ```bash
-node cli.js token create --name="a machine"   # prints the token once
+node cli.js token create --name="a machine" --owner-email="you@example.com"   # prints the token once
 node cli.js token list
 node cli.js token revoke <machine-id>
 ```
 
+Project sharing (inviting other accounts onto a project, with roles/permissions) is done from the
+dashboard itself once a project is published, or via `/api/projects/:id/invite`; see
+`../docs/online-dashboard-accounts-design.md`.
+
 ## What this does not do yet
 
-Accounts, per-user sessions, member rights and project groups are sub-projects C2/C3. A Docker image
-and a full cPanel/o2switch (Passenger) runbook are C4 — for now, "Setup Node.js App" pointing at
-`server/src/index.js` with the environment variables above, and a VPS running `node src/index.js`
-under a process manager (pm2, systemd) both work.
+Cross-account project sharing and roles landed in C2 (see
+`../docs/online-dashboard-accounts-design.md`); a Docker image and a full cPanel/o2switch
+(Passenger) runbook are C4 — for now, "Setup Node.js App" pointing at `server/src/index.js` with the
+environment variables above, and a VPS running `node src/index.js` under a process manager (pm2,
+systemd) both work.
