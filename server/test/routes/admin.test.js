@@ -72,6 +72,18 @@ test('GET /admin: the served page contains the client-side HTML-escape helper us
   } finally { await app.close(); await db.destroy(); }
 });
 
+test('GET /admin requires platform.manage_users or platform.manage_signup: an ordinary account is refused, an admin account still gets the page', async () => {
+  const { app, db, signupAndLogin } = await boot();
+  try {
+    const admin = await signupAndLogin('admin5@example.com'); // bootstrap admin, holds both permissions
+    const notAdmin = await signupAndLogin('later5@example.com'); // ordinary account, holds neither
+    const deny = await notAdmin.fetch('/admin');
+    assert.strictEqual(deny.status, 403);
+    const allow = await admin.fetch('/admin');
+    assert.strictEqual(allow.status, 200);
+  } finally { await app.close(); await db.destroy(); }
+});
+
 test('XSS: a malicious email crafted to pass EMAIL_RE (no whitespace, one @, a dot) is stored and returned raw by the JSON API (correct — it is just data), but the admin page script would escape it before ever rendering it via innerHTML', async () => {
   const { app, db, signupAndLogin } = await boot();
   try {

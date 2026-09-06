@@ -4,6 +4,17 @@ async function requirePlatformPermission(req, reply, db, permissionKey) {
   return true;
 }
 
+// Same as requirePlatformPermission, but for a route (the /admin page) that should open to a
+// caller holding EITHER of two permissions — e.g. someone who can only manage signup mode still
+// needs to reach the page, even without platform.manage_users.
+async function requireAnyPlatformPermission(req, reply, db, permissionKeys) {
+  for (const key of permissionKeys) {
+    if (await db.hasPlatformPermission(req.user.id, key)) return true;
+  }
+  reply.code(403).send({ error: 'You do not have permission to do that.' });
+  return false;
+}
+
 // The client-side script builds innerHTML from account emails, which are user-supplied and only
 // loosely validated (EMAIL_RE forbids whitespace and requires one @ plus a dot — nothing else), so
 // every interpolated email must go through esc() before it reaches innerHTML (same pattern as
@@ -67,6 +78,9 @@ async function registerAdmin(app, { db }) {
     await db.removePlatformRole(req.params.id, db.SYSTEM_ROLE_IDS.PLATFORM_ADMIN);
     return { ok: true };
   });
-  app.get('/admin', async (_req, reply) => reply.type('text/html').send(ADMIN_PAGE_HTML));
+  app.get('/admin', async (req, reply) => {
+    if (!(await requireAnyPlatformPermission(req, reply, db, ['platform.manage_users', 'platform.manage_signup']))) return;
+    return reply.type('text/html').send(ADMIN_PAGE_HTML);
+  });
 }
 module.exports = { registerAdmin };
