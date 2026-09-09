@@ -346,6 +346,46 @@ test('a project that never ran update (no .spectoflow/dashboard at all) opens no
   } finally { srv.kill(); }
 });
 
+test('GET /p/<id>/board stamps <html data-design> with that project\'s own config.design, before any client JS runs (D66 first-paint flash fix)', async () => {
+  const home = freshHome();
+  const a = project(home, 'design-orbit');
+  const cfgPath = path.join(a.path, '.spectoflow', 'config.json');
+  const cfg = JSON.parse(fs.readFileSync(cfgPath, 'utf8'));
+  cfg.design = 'orbit';
+  fs.writeFileSync(cfgPath, JSON.stringify(cfg, null, 2));
+  const port = 7450 + Math.floor(Math.random() * 40);
+  const srv = await startHub(home, port);
+  try {
+    const res = await get(port, `/p/${a.id}/board`);
+    assert.strictEqual(res.status, 200);
+    assert.match(res.body, /<html[^>]*\bdata-design="orbit"/);
+  } finally { srv.kill(); }
+});
+
+test('GET /p/<id>/board defaults <html data-design> to "console" when the project has no design saved yet', async () => {
+  const home = freshHome();
+  const a = project(home, 'design-default');
+  const port = 7500 + Math.floor(Math.random() * 40);
+  const srv = await startHub(home, port);
+  try {
+    const res = await get(port, `/p/${a.id}/board`);
+    assert.strictEqual(res.status, 200);
+    assert.match(res.body, /<html[^>]*\bdata-design="console"/);
+  } finally { srv.kill(); }
+});
+
+test('an unknown project id still 404s on the page route (no design leaks for a nonexistent project)', async () => {
+  const home = freshHome();
+  project(home, 'design-unknown-control');
+  const port = 7550 + Math.floor(Math.random() * 40);
+  const srv = await startHub(home, port);
+  try {
+    const res = await get(port, '/p/ffffff/board');
+    assert.strictEqual(res.status, 404);
+    assert.ok(!/data-design=/.test(res.body));
+  } finally { srv.kill(); }
+});
+
 test('a pre-0.24 ~/.spectoflow/projects.json is moved into the workspace on first start, projects intact', async () => {
   const home = freshHome();
   const d = fs.mkdtempSync(path.join(os.tmpdir(), 'stf-hub-legacy-'));
