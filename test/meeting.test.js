@@ -115,3 +115,26 @@ test('errors when no runner is configured for the requested agent (never spawns,
   assert.match(r.error, /No runner configured/);
   assert.strictEqual(events.length, 0);
 });
+
+// Security regression: date is concatenated straight into a file path by meetingPath(), and
+// files.writeFile()'s safePath() guard only rejects a path that resolves OUTSIDE the project root
+// entirely — it does not confine a write to .spectoflow/meetings/. Without format validation,
+// {date: '../../important'} would write to <root>/important.md.
+test('rejects a path-traversal date (never spawns, never writes anywhere)', () => {
+  const proj = installWithStub();
+  const events = [];
+  const r = runMeetingGenerate(proj, { agent: 'claude', date: '../../important' }, (e) => events.push(e));
+  assert.match(r.error, /Invalid date/);
+  assert.strictEqual(events.length, 0, 'must never spawn/emit run-start for a malformed date');
+  assert.strictEqual(fs.existsSync(path.join(proj, 'important.md')), false, 'must never write outside .spectoflow/meetings/');
+  assert.strictEqual(fs.existsSync(path.join(path.dirname(proj), 'important.md')), false, 'must never write above the project root');
+});
+
+test('rejects a non-date-shaped date string (never spawns, never writes)', () => {
+  const proj = installWithStub();
+  const events = [];
+  const r = runMeetingGenerate(proj, { agent: 'claude', date: 'not-a-date' }, (e) => events.push(e));
+  assert.match(r.error, /Invalid date/);
+  assert.strictEqual(events.length, 0);
+  assert.strictEqual(files.readFile(proj, meetingPath('not-a-date')).error, 'Not found.', 'nothing was written for the malformed date itself either');
+});
