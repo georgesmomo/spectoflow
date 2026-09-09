@@ -97,8 +97,16 @@
             <button class="vt-btn" data-view="kanban" data-i18n-title="board.viewKanban.title" title="Columns by status"><span class="tab-ico" data-icon="board"></span><span data-i18n="board.viewKanban">Kanban</span></button>
           </div>
           <button class="mini-btn" id="phaseToggleAll" data-i18n-title="board.expandAllTitle" data-i18n="board.expandAll" title="Expand or collapse all phases">Expand all</button>
+          <div class="kanban-tools" id="kanbanTools">
+            <button class="mini-btn" id="kanbanColsBtn" type="button" aria-haspopup="true" aria-expanded="false" data-i18n-title="board.kanbanColumnsTitle" data-i18n="board.kanbanColumns" title="Choose visible columns">Columns</button>
+            <div class="view-toggle" id="kanbanPageSize" role="group" data-i18n-aria="board.kanbanPageSizeTitle" aria-label="Tasks per column">
+              <button class="vt-btn active" data-size="10" type="button">10</button>
+              <button class="vt-btn" data-size="20" type="button">20</button>
+            </div>
+          </div>
           <input type="search" id="search" class="search" data-i18n-ph="board.filterPlaceholder" placeholder="Filter tasks…" autocomplete="off" />
         </div>
+        <div class="kanban-cols-pop" id="kanbanColsPop" hidden></div>
         <div class="board" id="board"></div>
       </div>
       <aside class="side" id="side">

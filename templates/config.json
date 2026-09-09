@@ -13,6 +13,8 @@
   "expandedPhases": [],
   "activeTab": "board",
   "chatOpen": false,
+  "kanbanColumns": ["todo", "in_progress", "to_validate", "to_analyze", "done", "blocked"],
+  "kanbanPageSize": 10,
   "runners": {
     "claude": "claude -p --permission-mode acceptEdits",
     "codex": "codex exec"

@@ -982,7 +982,18 @@ body.booting .wf-step2 { opacity:0; animation:rise .4s cubic-bezier(.2,.8,.2,1) 
 .journal-more { display:block; width:100%; margin-top:8px; text-align:center; }
 .mini-btn:hover { color:var(--ink); border-color:var(--cool); }
 .main:has(.board.is-kanban) #phaseToggleAll { display:none; }   /* phases are a List concept */
-.kanban-col-body { max-height:64vh; overflow-y:auto; }          /* keep columns compact on a big project */
+/* Kanban column visibility + page size controls (v0.13.4 follow-up, Sous-projet B Task 2) — only
+   meaningful in Kanban view; a fully-expanded ("show more") column intentionally has no internal
+   scrollbar/max-height any more, real pagination replaces it. */
+.main:not(:has(.board.is-kanban)) #kanbanTools { display:none; }
+.kanban-tools { display:inline-flex; align-items:center; gap:8px; flex-shrink:0; }
+.kanban-more { display:block; width:calc(100% - 20px); margin:0 10px 10px; text-align:center; }
+.kanban-cols-pop { position:fixed; z-index:60; background:var(--surface); border:1px solid var(--line); border-radius:var(--radius); box-shadow:0 10px 28px rgba(0,0,0,.2); padding:8px; min-width:190px; }
+.kcp-row { display:flex; align-items:center; gap:8px; padding:6px 6px; font-size:12.5px; color:var(--ink); border-radius:6px; cursor:pointer; }
+.kcp-row:hover { background:var(--bg); }
+.kcp-row input[type=checkbox] { accent-color:var(--signal); }
+.kcp-row.is-locked { opacity:.5; cursor:not-allowed; }
+.kcp-note { font-size:11px; color:var(--muted); padding:6px 6px 2px; max-width:220px; }
 
 /* Phase progress: cap the list so a big project (many phases) doesn't dominate the overview */
 .bars-block.scroll-cap { max-height:340px; overflow-y:auto; padding-right:6px; }

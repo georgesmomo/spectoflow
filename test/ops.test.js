@@ -79,6 +79,34 @@ test('settings.save accepts the 6 dashboard preferences (Sous-projet B) and igno
   assert.strictEqual(r2.config.chatOpen, before.chatOpen);
 });
 
+test('settings.save accepts a valid kanbanColumns subset/kanbanPageSize (Sous-projet B, Task 2) and rejects invalid values', async () => {
+  const root = project(); const c = ctx();
+  const r = await ops['settings.save'](root, { kanbanColumns: ['todo', 'done'], kanbanPageSize: 20 }, c);
+  assert.deepStrictEqual(r.config.kanbanColumns, ['todo', 'done']);
+  assert.strictEqual(r.config.kanbanPageSize, 20);
+
+  // an unknown status id anywhere in the array rejects the whole patch, not just that one entry
+  const before = JSON.parse(fs.readFileSync(path.join(root, '.spectoflow', 'config.json'), 'utf8'));
+  const r2 = await ops['settings.save'](root, { kanbanColumns: ['todo', 'not-a-status'] }, c);
+  assert.deepStrictEqual(r2.config.kanbanColumns, before.kanbanColumns);
+
+  // disabling every column (an empty array) is refused — never persist zero visible columns
+  const r3 = await ops['settings.save'](root, { kanbanColumns: [] }, c);
+  assert.deepStrictEqual(r3.config.kanbanColumns, before.kanbanColumns);
+
+  // a non-array is ignored entirely
+  const r4 = await ops['settings.save'](root, { kanbanColumns: 'todo' }, c);
+  assert.deepStrictEqual(r4.config.kanbanColumns, before.kanbanColumns);
+
+  // kanbanPageSize must be exactly 10 or 20 — no other number, no string
+  const r5 = await ops['settings.save'](root, { kanbanPageSize: 15 }, c);
+  assert.strictEqual(r5.config.kanbanPageSize, before.kanbanPageSize);
+  const r6 = await ops['settings.save'](root, { kanbanPageSize: '10' }, c);
+  assert.strictEqual(r6.config.kanbanPageSize, before.kanbanPageSize);
+  const r7 = await ops['settings.save'](root, { kanbanPageSize: 10 }, c);
+  assert.strictEqual(r7.config.kanbanPageSize, 10);
+});
+
 test('attention.add / update / promote / remove round-trip through runtime.json', async () => {
   const root = project(); const c = ctx();
   const { item } = await ops['attention.add'](root, { text: 'look at this' }, c);
