@@ -7,6 +7,12 @@
   "specsDir": null,
   "dashboard": { "autostart": true },
   "design": "console",
+  "theme": "dark",
+  "boardView": "list",
+  "sideHidden": false,
+  "expandedPhases": [],
+  "activeTab": "board",
+  "chatOpen": false,
   "runners": {
     "claude": "claude -p --permission-mode acceptEdits",
     "codex": "codex exec"

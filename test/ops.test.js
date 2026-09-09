@@ -53,6 +53,32 @@ test('settings.save refuses an agent that is not installed (400) and accepts mod
   assert.strictEqual(r.config.language, 'fr');
 });
 
+test('settings.save accepts the 6 dashboard preferences (Sous-projet B) and ignores invalid values', async () => {
+  const root = project(); const c = ctx();
+  const r = await ops['settings.save'](root, {
+    theme: 'light', boardView: 'kanban', sideHidden: true,
+    expandedPhases: ['Phase 1', 2, 'Phase 2'], activeTab: 'backlog', chatOpen: true,
+  }, c);
+  assert.strictEqual(r.config.theme, 'light');
+  assert.strictEqual(r.config.boardView, 'kanban');
+  assert.strictEqual(r.config.sideHidden, true);
+  assert.deepStrictEqual(r.config.expandedPhases, ['Phase 1', 'Phase 2']); // non-string entries filtered
+  assert.strictEqual(r.config.activeTab, 'backlog');
+  assert.strictEqual(r.config.chatOpen, true);
+
+  const before = JSON.parse(fs.readFileSync(path.join(root, '.spectoflow', 'config.json'), 'utf8'));
+  const r2 = await ops['settings.save'](root, {
+    theme: 'purple', boardView: 'grid', sideHidden: 'yes',
+    expandedPhases: 'not-an-array', activeTab: '   ', chatOpen: 'nope',
+  }, c);
+  assert.strictEqual(r2.config.theme, before.theme);
+  assert.strictEqual(r2.config.boardView, before.boardView);
+  assert.strictEqual(r2.config.sideHidden, before.sideHidden);
+  assert.deepStrictEqual(r2.config.expandedPhases, before.expandedPhases);
+  assert.strictEqual(r2.config.activeTab, before.activeTab);
+  assert.strictEqual(r2.config.chatOpen, before.chatOpen);
+});
+
 test('attention.add / update / promote / remove round-trip through runtime.json', async () => {
   const root = project(); const c = ctx();
   const { item } = await ops['attention.add'](root, { text: 'look at this' }, c);
