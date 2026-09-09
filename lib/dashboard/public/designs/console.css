@@ -166,20 +166,10 @@ html[data-design="console"] .flatlist li.run-live { padding-left:18px; }
 /* sync dot pulse (reinforces the base pulse with a cyan tint on this design) */
 html[data-design="console"] .sync-dot { box-shadow:0 0 0 0 color-mix(in srgb,var(--cool) 45%,transparent); }
 
-/* ============ WORKFLOW PIPELINE — flowing particles on enabled connectors ============ */
+/* ============ WORKFLOW PIPELINE — connector styling ============ */
 html[data-design="console"] .wf-link { position:relative; overflow:visible; }
 html[data-design="console"] .wf-link.on { background:var(--signal); }
-html[data-design="console"] .wf-link.on::after {
-  content:""; position:absolute; top:-2px; left:0; width:6px; height:6px; border-radius:50%;
-  background:var(--cool); box-shadow:0 0 8px var(--cool); opacity:0;
-  animation:cx-travel 2.2s linear infinite;
-}
 html[data-design="console"] .wf-strip .wf-arrow:not(.off) { position:relative; overflow:visible; }
-html[data-design="console"] .wf-strip .wf-arrow:not(.off)::after {
-  content:""; position:absolute; top:50%; left:0; width:5px; height:5px; margin-top:-2.5px; border-radius:50%;
-  background:var(--cool); box-shadow:0 0 6px var(--cool); opacity:0; animation:cx-travel 2s linear infinite;
-}
-@keyframes cx-travel { 0%{ left:0; opacity:0; } 10%{ opacity:1; } 90%{ opacity:1; } 100%{ left:100%; opacity:0; } }
 
 /* ============ COMMAND PALETTE (injected by console.js) ============ */
 .cx-search-btn {
@@ -223,8 +213,6 @@ html[data-design="console"][data-theme="light"] .cx-cmdk { background:rgba(15,23
   html[data-design="console"] .ocard,
   html[data-design="console"] .acard,
   html[data-design="console"] .card { animation:none; }
-  html[data-design="console"] .wf-link.on::after,
-  html[data-design="console"] .wf-strip .wf-arrow::after,
   html[data-design="console"] .flatlist li.run-live::before { animation:none; display:none; }
 }
 
