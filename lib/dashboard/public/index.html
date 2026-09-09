@@ -420,6 +420,33 @@
   <script src="/icons.js"></script>
   <script src="/designs.js"></script>
   <script src="/i18n.js"></script>
+  <!-- Vendored Prism.js (1.29.0, self-hosted, zero-npm-dependency — see lib/dashboard/public/vendor/prism/).
+       Prism.manual disables its own automatic DOMContentLoaded highlighting: app.js's Files tab calls
+       Prism.highlight() itself on every keystroke instead. Component load order follows real `extend()`
+       dependencies found in each file (clike/markup are bases; c before cpp; markup-templating before php). -->
+  <script>window.Prism = window.Prism || {}; Prism.manual = true;</script>
+  <script src="/vendor/prism/prism-core.min.js"></script>
+  <script src="/vendor/prism/prism-clike.min.js"></script>
+  <script src="/vendor/prism/prism-markup.min.js"></script>
+  <script src="/vendor/prism/prism-css.min.js"></script>
+  <script src="/vendor/prism/prism-c.min.js"></script>
+  <script src="/vendor/prism/prism-cpp.min.js"></script>
+  <script src="/vendor/prism/prism-csharp.min.js"></script>
+  <script src="/vendor/prism/prism-java.min.js"></script>
+  <script src="/vendor/prism/prism-go.min.js"></script>
+  <script src="/vendor/prism/prism-kotlin.min.js"></script>
+  <script src="/vendor/prism/prism-ruby.min.js"></script>
+  <script src="/vendor/prism/prism-rust.min.js"></script>
+  <script src="/vendor/prism/prism-swift.min.js"></script>
+  <script src="/vendor/prism/prism-sql.min.js"></script>
+  <script src="/vendor/prism/prism-bash.min.js"></script>
+  <script src="/vendor/prism/prism-yaml.min.js"></script>
+  <script src="/vendor/prism/prism-docker.min.js"></script>
+  <script src="/vendor/prism/prism-json.min.js"></script>
+  <script src="/vendor/prism/prism-markup-templating.min.js"></script>
+  <script src="/vendor/prism/prism-php.min.js"></script>
+  <script src="/vendor/prism/prism-markdown.min.js"></script>
+  <script src="/vendor/prism/prism-python.min.js"></script>
   <script src="/app.js"></script>
   <script src="/designs/console.js"></script>
   <script src="/designs/orbit.js"></script>

@@ -349,11 +349,17 @@ body { background:var(--bg); color:var(--ink); font-family:var(--sans); font-siz
 .files-code-backdrop { position:absolute; inset:0; margin:0; overflow:hidden; pointer-events:none; white-space:pre-wrap; word-break:break-word; padding:16px 20px; font-family:var(--mono); font-size:12.5px; line-height:1.6; color:var(--ink); background:transparent; font-variant-ligatures:none; font-feature-settings:"liga" 0,"calt" 0; }
 .files-code-backdrop code { font:inherit; background:none; }
 .files-code-wrap .files-code-input { position:absolute; inset:0; background:transparent; color:transparent; caret-color:var(--ink); white-space:pre-wrap; word-break:break-word; font-variant-ligatures:none; font-feature-settings:"liga" 0,"calt" 0; }
-.hl-comment { color:var(--faint); font-style:italic; }
-.hl-string { color:var(--s-done); }
-.hl-number { color:var(--cool); }
-.hl-keyword { color:var(--signal); font-weight:600; }
-.hl-tag { color:var(--s-in_progress); }
+/* Prism.js token colors — reuse this project's own CSS variables (already scoped per design-skin
+   and light/dark) rather than a packaged Prism theme, so highlighted code matches whatever design
+   is active. Roles mirror the hand-rolled tokenizer this replaced: faint/italic for comments, the
+   "done" green-ish for strings, cool for numbers, signal/bold for anything keyword-like (keywords,
+   function/class names, at-rules), and the in_progress color for tags/attribute names. Anything not
+   listed (punctuation, operators, properties, …) inherits the default text color on purpose. */
+.token.comment, .token.prolog, .token.doctype, .token.cdata { color:var(--faint); font-style:italic; }
+.token.string, .token.char, .token.attr-value { color:var(--s-done); }
+.token.number, .token.boolean { color:var(--cool); }
+.token.keyword, .token.function, .token.class-name, .token.atrule, .token.builtin, .token.important { color:var(--signal); font-weight:600; }
+.token.tag, .token.attr-name { color:var(--s-in_progress); }
 .files-iframe { flex:1; min-height:0; width:100%; border:0; background:#fff; }
 .files-md-toolbar { display:flex; gap:6px; padding:8px 14px; border-bottom:1px solid var(--line); }
 .files-md-toolbar button { font-family:var(--mono); font-size:12px; padding:4px 9px; border:1px solid var(--line); border-radius:6px; background:var(--surface-2); color:var(--ink); cursor:pointer; }
