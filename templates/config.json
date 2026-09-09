@@ -24,6 +24,7 @@
     {"id":"workflow","enabled":true},
     {"id":"team","enabled":true},
     {"id":"files","enabled":true},
+    {"id":"notes","enabled":false},
     {"id":"info","enabled":true},
     {"id":"docs","enabled":true},
     {"id":"personalize","enabled":true}

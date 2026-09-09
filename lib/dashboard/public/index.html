@@ -61,6 +61,7 @@
       <button class="tab" data-tab="workflow" data-i18n-title="nav.workflow" title="Workflow"><span class="tab-ico" data-icon="workflow"></span><span class="tab-label" data-i18n="nav.workflow">Workflow</span></button>
       <button class="tab" data-tab="team" data-i18n-title="nav.team" title="Agents &amp; Skills"><span class="tab-ico" data-icon="agents"></span><span class="tab-label" data-i18n="nav.team">Agents &amp; Skills</span></button>
       <button class="tab" data-tab="files" data-i18n-title="nav.files" title="Files"><span class="tab-ico" data-icon="files"></span><span class="tab-label" data-i18n="nav.files">Files</span></button>
+      <button class="tab" data-tab="notes" data-i18n-title="nav.notes" title="Notes"><span class="tab-ico" data-icon="backlog"></span><span class="tab-label" data-i18n="nav.notes">Notes</span></button>
       <button class="tab" data-tab="info" data-i18n-title="nav.info" title="Info"><span class="tab-ico" data-icon="info"></span><span class="tab-label" data-i18n="nav.info">Info</span></button>
       <button class="tab" data-tab="docs" data-i18n-title="nav.docs" title="Documentation"><span class="tab-ico" data-icon="docs"></span><span class="tab-label" data-i18n="nav.docs">Documentation</span></button>
       <button class="tab" data-tab="personalize" data-i18n-title="nav.settings" title="Personalize"><span class="tab-ico" data-icon="settings"></span><span class="tab-label" data-i18n="nav.settings">Personalize</span></button>
@@ -257,6 +258,20 @@
           <div class="files-content-col" id="filesContent">
             <div class="files-empty" data-i18n="files.pickFile">Select a file to view it.</div>
           </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- NOTES (Bloc note — one freeform Markdown scratchpad per project, .spectoflow/notes.md, autosaved) -->
+    <section class="panel" data-panel="notes">
+      <div class="notes-wrap">
+        <h2 class="panel-title" data-i18n="nav.notes">Notes</h2>
+        <p class="panel-sub" data-i18n="notes.sub">A freeform scratchpad for this project — Markdown, autosaved as you type. Only you (and whoever else opens this dashboard) can see it.</p>
+        <div class="note-card">
+          <div class="note-card-bar">
+            <span class="note-status" id="notesStatus"></span>
+          </div>
+          <div class="note-card-body" id="notesEditor"></div>
         </div>
       </div>
     </section>
