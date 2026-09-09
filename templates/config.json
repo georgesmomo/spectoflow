@@ -15,6 +15,19 @@
   "chatOpen": false,
   "kanbanColumns": ["todo", "in_progress", "to_validate", "to_analyze", "done", "blocked"],
   "kanbanPageSize": 10,
+  "navTabs": [
+    {"id":"board","enabled":true},
+    {"id":"chat","enabled":true},
+    {"id":"requests","enabled":true},
+    {"id":"attention","enabled":true},
+    {"id":"backlog","enabled":true},
+    {"id":"workflow","enabled":true},
+    {"id":"team","enabled":true},
+    {"id":"files","enabled":true},
+    {"id":"info","enabled":true},
+    {"id":"docs","enabled":true},
+    {"id":"personalize","enabled":true}
+  ],
   "runners": {
     "claude": "claude -p --permission-mode acceptEdits",
     "codex": "codex exec"

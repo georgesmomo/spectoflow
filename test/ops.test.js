@@ -107,6 +107,41 @@ test('settings.save accepts a valid kanbanColumns subset/kanbanPageSize (Sous-pr
   assert.strictEqual(r7.config.kanbanPageSize, 10);
 });
 
+test('settings.save accepts a valid navTabs reorder/enable-state (Sous-projet C, Task 1) and rejects an invalid one', async () => {
+  const root = project(); const c = ctx();
+  const NATIVE = ['board', 'chat', 'requests', 'attention', 'backlog', 'workflow', 'team', 'files', 'info', 'docs', 'personalize'];
+  const reordered = ['chat', 'board', 'requests', 'attention', 'backlog', 'workflow', 'team', 'files', 'info', 'docs', 'personalize']
+    .map((id) => ({ id, enabled: id !== 'requests' }));
+  const r = await ops['settings.save'](root, { navTabs: reordered }, c);
+  assert.deepStrictEqual(r.config.navTabs, reordered);
+
+  const before = JSON.parse(fs.readFileSync(path.join(root, '.spectoflow', 'config.json'), 'utf8'));
+
+  // missing one id (docs) rejects the whole patch
+  const missing = NATIVE.filter((id) => id !== 'docs').map((id) => ({ id, enabled: true }));
+  const r2 = await ops['settings.save'](root, { navTabs: missing }, c);
+  assert.deepStrictEqual(r2.config.navTabs, before.navTabs);
+
+  // a duplicate id rejects the whole patch
+  const dup = NATIVE.map((id) => ({ id: id === 'docs' ? 'board' : id, enabled: true }));
+  const r3 = await ops['settings.save'](root, { navTabs: dup }, c);
+  assert.deepStrictEqual(r3.config.navTabs, before.navTabs);
+
+  // an unknown id rejects the whole patch
+  const unknown = NATIVE.filter((id) => id !== 'docs').concat('bloc-note').map((id) => ({ id, enabled: true }));
+  const r4 = await ops['settings.save'](root, { navTabs: unknown }, c);
+  assert.deepStrictEqual(r4.config.navTabs, before.navTabs);
+
+  // setting personalize's enabled to false rejects the whole patch — it must never be lockable out
+  const lockedOut = NATIVE.map((id) => ({ id, enabled: id !== 'personalize' }));
+  const r5 = await ops['settings.save'](root, { navTabs: lockedOut }, c);
+  assert.deepStrictEqual(r5.config.navTabs, before.navTabs);
+
+  // a non-array is ignored entirely
+  const r6 = await ops['settings.save'](root, { navTabs: 'board' }, c);
+  assert.deepStrictEqual(r6.config.navTabs, before.navTabs);
+});
+
 test('attention.add / update / promote / remove round-trip through runtime.json', async () => {
   const root = project(); const c = ctx();
   const { item } = await ops['attention.add'](root, { text: 'look at this' }, c);
