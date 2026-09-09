@@ -396,6 +396,24 @@ body { background:var(--bg); color:var(--ink); font-family:var(--sans); font-siz
 .note-card-body .files-code-input { caret-color:var(--note-ink); }
 .note-card-body .files-code-backdrop .token.comment { color:color-mix(in srgb,var(--note-ink) 65%,transparent); }
 @media (max-width:820px){ .notes-wrap { height:auto; } .note-card { min-height:60vh; } }
+
+/* Daily meeting (Sous-projet C, Task 3) — laid out like the Files tab (a history rail + a filling
+   editor), reusing filesCodeEditor()'s own backdrop+textarea component and the Files tab's neutral
+   saved/error tip classes. A journal/report panel, styled consistently with the rest of the
+   dashboard — deliberately NOT the Notes tab's post-it treatment (that read is Notes-specific). */
+.meeting-wrap { padding:26px 28px 16px; max-width:1300px; height:calc(100vh - 90px); display:flex; flex-direction:column; }
+.meeting-body { flex:1; min-height:0; display:flex; gap:16px; margin-top:8px; }
+.meeting-history-col { width:220px; flex-shrink:0; display:flex; flex-direction:column; gap:8px; min-height:0; }
+.meeting-history { flex:1; min-height:0; overflow-y:auto; }
+.meeting-history li { cursor:pointer; }
+.meeting-history li.is-active { border-color:var(--signal); color:var(--ink); }
+.meeting-main { flex:1; min-width:0; display:flex; flex-direction:column; min-height:0; border:1px solid var(--line); border-radius:var(--radius); background:var(--surface); overflow:hidden; }
+.meeting-toolbar { display:flex; align-items:center; gap:10px; padding:10px 14px; border-bottom:1px solid var(--line); }
+.meeting-date { font-family:var(--mono); font-size:12.5px; color:var(--muted); }
+.meeting-confirm { display:flex; align-items:center; gap:8px; font-size:12px; color:var(--s-blocked); padding:8px 14px; border-bottom:1px solid var(--line); }
+.meeting-confirm[hidden] { display:none; } /* same fix D58 needed for .tab[hidden] — an explicit display: on the same element outranks the UA [hidden] rule */
+.meeting-editor { flex:1; min-height:0; display:flex; flex-direction:column; padding:0 4px 4px; }
+@media (max-width:820px){ .meeting-wrap { height:auto; } .meeting-body { flex-direction:column; } .meeting-history-col { width:auto; max-height:180px; } .meeting-main { min-height:60vh; } }
 .wf-diagram { display:block; margin-top:8px; }
 .wf-step { display:flex; align-items:center; }
 .wf-node { display:flex; align-items:center; gap:8px; padding:11px 15px; border:1px solid var(--line); border-radius:var(--radius); background:var(--surface); cursor:pointer; transition:border-color .18s,transform .15s,box-shadow .15s; user-select:none; }

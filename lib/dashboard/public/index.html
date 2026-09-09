@@ -62,6 +62,7 @@
       <button class="tab" data-tab="team" data-i18n-title="nav.team" title="Agents &amp; Skills"><span class="tab-ico" data-icon="agents"></span><span class="tab-label" data-i18n="nav.team">Agents &amp; Skills</span></button>
       <button class="tab" data-tab="files" data-i18n-title="nav.files" title="Files"><span class="tab-ico" data-icon="files"></span><span class="tab-label" data-i18n="nav.files">Files</span></button>
       <button class="tab" data-tab="notes" data-i18n-title="nav.notes" title="Notes"><span class="tab-ico" data-icon="backlog"></span><span class="tab-label" data-i18n="nav.notes">Notes</span></button>
+      <button class="tab" data-tab="meeting" data-i18n-title="nav.meeting" title="Daily meeting"><span class="tab-ico" data-icon="meeting"></span><span class="tab-label" data-i18n="nav.meeting">Daily meeting</span></button>
       <button class="tab" data-tab="info" data-i18n-title="nav.info" title="Info"><span class="tab-ico" data-icon="info"></span><span class="tab-label" data-i18n="nav.info">Info</span></button>
       <button class="tab" data-tab="docs" data-i18n-title="nav.docs" title="Documentation"><span class="tab-ico" data-icon="docs"></span><span class="tab-label" data-i18n="nav.docs">Documentation</span></button>
       <button class="tab" data-tab="personalize" data-i18n-title="nav.settings" title="Personalize"><span class="tab-ico" data-icon="settings"></span><span class="tab-label" data-i18n="nav.settings">Personalize</span></button>
@@ -272,6 +273,36 @@
             <span class="note-status" id="notesStatus"></span>
           </div>
           <div class="note-card-body" id="notesEditor"></div>
+        </div>
+      </div>
+    </section>
+
+    <!-- DAILY MEETING (Sous-projet C, Task 3) — one dated Markdown note per day,
+         .spectoflow/meetings/<date>.md, manually editable and agent-generatable. A journal/report
+         panel, styled like the rest of the dashboard — deliberately NOT the Notes tab's post-it look. -->
+    <section class="panel" data-panel="meeting">
+      <div class="meeting-wrap">
+        <h2 class="panel-title" data-i18n="nav.meeting">Daily meeting</h2>
+        <p class="panel-sub" data-i18n="meeting.sub">One dated note per day for this project — write it yourself, or have the active agent draft it from recent tasks and chat activity.</p>
+        <div class="meeting-body">
+          <aside class="meeting-history-col">
+            <h3 class="rail-title" data-i18n="meeting.history">History</h3>
+            <ul class="flatlist meeting-history" id="meetingHistory"></ul>
+          </aside>
+          <div class="meeting-main">
+            <div class="meeting-toolbar">
+              <span class="meeting-date" id="meetingDate"></span>
+              <button id="meetingGenBtn" class="mini-btn" type="button" data-i18n-title="meeting.generateTitle" data-i18n="meeting.generate" title="Generate today's note from recent activity">Generate</button>
+              <span class="files-saved-tip" id="meetingStatus"></span>
+            </div>
+            <div class="meeting-confirm" id="meetingConfirm" hidden>
+              <span data-i18n="meeting.overwriteWarn">This will overwrite today's note.</span>
+              <button id="meetingConfirmBtn" class="mini-btn" type="button" data-i18n="meeting.generateAnyway">Generate anyway</button>
+              <button id="meetingCancelBtn" class="mini-btn" type="button" data-i18n="files.discard">Cancel</button>
+            </div>
+            <p class="chat-status" id="meetingRunStatus" hidden><span class="spinner" aria-hidden="true"></span><span data-i18n="chat.running">Agent running…</span></p>
+            <div class="meeting-editor" id="meetingEditor"></div>
+          </div>
         </div>
       </div>
     </section>

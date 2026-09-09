@@ -109,8 +109,8 @@ test('settings.save accepts a valid kanbanColumns subset/kanbanPageSize (Sous-pr
 
 test('settings.save accepts a valid navTabs reorder/enable-state (Sous-projet C, Task 1) and rejects an invalid one', async () => {
   const root = project(); const c = ctx();
-  const NATIVE = ['board', 'chat', 'requests', 'attention', 'backlog', 'workflow', 'team', 'files', 'notes', 'info', 'docs', 'personalize'];
-  const reordered = ['chat', 'board', 'requests', 'attention', 'backlog', 'workflow', 'team', 'files', 'notes', 'info', 'docs', 'personalize']
+  const NATIVE = ['board', 'chat', 'requests', 'attention', 'backlog', 'workflow', 'team', 'files', 'notes', 'meeting', 'info', 'docs', 'personalize'];
+  const reordered = ['chat', 'board', 'requests', 'attention', 'backlog', 'workflow', 'team', 'files', 'notes', 'meeting', 'info', 'docs', 'personalize']
     .map((id) => ({ id, enabled: id !== 'requests' }));
   const r = await ops['settings.save'](root, { navTabs: reordered }, c);
   assert.deepStrictEqual(r.config.navTabs, reordered);
