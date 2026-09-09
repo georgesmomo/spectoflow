@@ -68,6 +68,9 @@
     <div class="top-right">
       <span class="sync" id="sync"><span class="sync-dot"></span><span id="syncLabel">live</span></span>
       <button class="btn primary run-btn" id="runQuickBtn" data-i18n-title="topbar.run.title" title="Open the run chat"><span class="tab-ico" data-icon="run"></span><span data-i18n="action.run">Run</span></button>
+      <button class="theme-toggle" id="sideToggle" type="button" data-i18n-title="board.hideSidebar" title="Hide sidebar">
+        <svg viewBox="0 0 18 18" width="14" height="14" fill="none" stroke="currentColor" stroke-width="1.6"><rect x="2" y="3" width="14" height="12" rx="2"/><line x1="11.5" y1="3" x2="11.5" y2="15"/></svg>
+      </button>
       <button class="theme-toggle" id="themeToggle" data-i18n-aria="topbar.theme.toggle" data-i18n-title="topbar.theme.toggle.title" aria-label="Toggle light / dark theme" title="Toggle light / dark"><span class="tab-ico" data-icon="theme"></span></button>
     </div>
   </header>
@@ -95,13 +98,13 @@
           </div>
           <button class="mini-btn" id="phaseToggleAll" data-i18n-title="board.expandAllTitle" data-i18n="board.expandAll" title="Expand or collapse all phases">Expand all</button>
           <input type="search" id="search" class="search" data-i18n-ph="board.filterPlaceholder" placeholder="Filter tasks…" autocomplete="off" />
-          <button class="mini-btn" id="sideToggle" type="button" data-i18n-title="board.hideSidebar" title="Hide sidebar">
-            <svg viewBox="0 0 18 18" width="14" height="14" fill="none" stroke="currentColor" stroke-width="1.6"><rect x="2" y="3" width="14" height="12" rx="2"/><line x1="11.5" y1="3" x2="11.5" y2="15"/></svg>
-          </button>
         </div>
         <div class="board" id="board"></div>
       </div>
       <aside class="side" id="side">
+        <button class="mini-btn side-toggle-inline" id="sideToggleInline" type="button" data-i18n-title="board.hideSidebar" title="Hide sidebar">
+          <svg viewBox="0 0 18 18" width="14" height="14" fill="none" stroke="currentColor" stroke-width="1.6"><rect x="2" y="3" width="14" height="12" rx="2"/><line x1="11.5" y1="3" x2="11.5" y2="15"/></svg>
+        </button>
         <div class="rail-block rail-block-journal">
           <h2 class="rail-title"><span data-i18n="rail.journal">Journal</span> <span class="count" id="journalCount">0</span></h2>
           <div class="journal" id="journal"></div>

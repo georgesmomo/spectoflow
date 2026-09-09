@@ -78,8 +78,9 @@ body { background:var(--bg); color:var(--ink); font-family:var(--sans); font-siz
 .side { border-left:1px solid var(--line); padding:18px 16px; display:flex; flex-direction:column; gap:22px; }
 .panel[data-panel="board"].side-hidden { grid-template-columns:1fr; }
 .panel[data-panel="board"].side-hidden .side { display:none; }
-#sideToggle { display:inline-flex; align-items:center; justify-content:center; padding:5px 9px; }
-#sideToggle[aria-pressed="true"] { color:var(--signal); border-color:var(--signal); }
+.side-toggle-inline { display:inline-flex; align-items:center; justify-content:center; padding:5px 9px; align-self:flex-start; }
+#sideToggle[aria-pressed="true"],
+#sideToggleInline[aria-pressed="true"] { color:var(--signal); border-color:var(--signal); }
 .rail-title { font-size:11px; text-transform:uppercase; letter-spacing:.1em; color:var(--faint); margin:0 0 8px; font-weight:700; display:flex; gap:8px; align-items:center; }
 .flatlist { list-style:none; margin:0; padding:0; display:flex; flex-direction:column; gap:5px; font-size:12.5px; }
 .flatlist li { background:var(--surface); border:1px solid var(--line); border-radius:7px; padding:6px 9px; color:var(--muted); }
