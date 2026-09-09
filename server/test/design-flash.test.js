@@ -16,6 +16,13 @@ const REAL_PUBLIC_DIR = path.resolve(__dirname, '..', '..', 'lib', 'dashboard', 
 function fakeEmailer() {
   return { sendVerificationEmail: async () => {}, sendPasswordResetEmail: async () => {}, sendInvitationEmail: async () => {} };
 }
+async function loginCookie(url, email, password) {
+  const res = await fetch(url + '/login', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ email, password }) });
+  return res.headers.get('set-cookie').split(';')[0];
+}
+function fetchWithCookie(url, cookie) {
+  return (p, opts = {}) => fetch(url + p, { ...opts, headers: Object.assign({}, opts.headers, { Cookie: cookie }) });
+}
 async function boot() {
   const db = await createDb('sqlite::memory:'); await db.migrate();
   const owner = await db.createUser('design-flash-test@example.com', 'a-real-password-123');
@@ -24,10 +31,9 @@ async function boot() {
   const app = await buildApp({ db, insecureDev: true, publicDir: REAL_PUBLIC_DIR, registry, emailer: fakeEmailer() });
   await app.listen({ port: 0, host: '127.0.0.1' });
   const url = `http://127.0.0.1:${app.server.address().port}`;
-  const loginRes = await fetch(url + '/login', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ email: 'design-flash-test@example.com', password: 'a-real-password-123' }) });
-  const cookie = loginRes.headers.get('set-cookie').split(';')[0];
-  function authedFetch(p, opts = {}) { return fetch(url + p, { ...opts, headers: Object.assign({}, opts.headers, { Cookie: cookie }) }); }
-  return { app, db, machine: m, url, authedFetch };
+  const cookie = await loginCookie(url, 'design-flash-test@example.com', 'a-real-password-123');
+  const authedFetch = fetchWithCookie(url, cookie);
+  return { app, db, machine: m, url, authedFetch, ownerUserId: owner.id };
 }
 async function announceWithSnapshot(url, machine, config) {
   await fetch(url + '/connector/frames', { method: 'POST', headers: { Authorization: `Bearer ${machine.token}`, 'Content-Type': 'application/json' },
@@ -69,5 +75,42 @@ test('GET /p/:id/board for an id with no cached snapshot at all still serves the
     assert.strictEqual(res.status, 200); // the SPA shell itself is served regardless — /api/project?p=... is what 404s
     const html = await res.text();
     assert.match(html, /<html[^>]*\bdata-design="console"/);
+  } finally { await app.close(); await db.destroy(); }
+});
+
+// D65 fixed this exact bug class for full project content (Critical); this closes the same gap for
+// the design-lookup path added by the theme-flash fix — an unpublished (or non-member-visible)
+// project's real config.design must never be readable via the page route either, same as it isn't
+// via GET /api/project?p=... (relay.js's ownerOf()/checkAccess() gate).
+test('an UNPUBLISHED project\'s real data-design never leaks via GET /p/:id/board — falls back to the default, indistinguishable from an unregistered id', async () => {
+  const { app, db, machine, url, authedFetch } = await boot();
+  try {
+    await announceWithSnapshot(url, machine, { design: 'orbit' });
+    const serverId = (await (await authedFetch('/api/hub/projects')).json()).projects[0].id;
+    // Sanity: published, the owner really does see the real design first.
+    const before = await (await authedFetch(`/p/${serverId}/board`)).text();
+    assert.match(before, /data-design="orbit"/);
+    await db.setPublished(serverId, false);
+    const res = await authedFetch(`/p/${serverId}/board`);
+    assert.strictEqual(res.status, 200); // the shell itself still renders — just never the real design
+    const html = await res.text();
+    assert.match(html, /<html[^>]*\bdata-design="console"/, 'must fall back to the default, not leak "orbit"');
+    assert.ok(!html.includes('data-design="orbit"'));
+  } finally { await app.close(); await db.destroy(); }
+});
+
+test('a project\'s real data-design never leaks to an authenticated user who is NOT a member of it', async () => {
+  const { app, db, machine, url, authedFetch } = await boot();
+  try {
+    await announceWithSnapshot(url, machine, { design: 'orbit' });
+    const serverId = (await (await authedFetch('/api/hub/projects')).json()).projects[0].id;
+    await db.createUser('design-flash-outsider@example.com', 'another-real-password-123');
+    const outsiderCookie = await loginCookie(url, 'design-flash-outsider@example.com', 'another-real-password-123');
+    const outsiderFetch = fetchWithCookie(url, outsiderCookie);
+    const res = await outsiderFetch(`/p/${serverId}/board`);
+    assert.strictEqual(res.status, 200); // page shell still renders for any authenticated platform user
+    const html = await res.text();
+    assert.match(html, /<html[^>]*\bdata-design="console"/, 'a non-member must not see the real design');
+    assert.ok(!html.includes('data-design="orbit"'));
   } finally { await app.close(); await db.destroy(); }
 });

@@ -235,7 +235,24 @@ function registerRelay(app, { db, registry }) {
     return result.result === undefined ? {} : result.result;
   });
 
-  return { onFrame };
+  // Read-only access to a project's cached config, gated by the exact same check the `/api/*`
+  // catch-all above applies to `project.read` (owner.published + checkAccess(..., 'project.read')) —
+  // used by app.js's page route to decide what design to stamp into the served HTML without ever
+  // exposing a project's real cached snapshot to a caller who couldn't read it via the API either.
+  // Returns null (never throws) for a nonexistent/unpublished/not-visible project — indistinguishable
+  // from an unregistered id, on purpose.
+  async function getVisibleConfig(userId, serverId) {
+    if (!serverId) return null;
+    const owner = await ownerOf(serverId);
+    if (!owner || !owner.published) return null;
+    const access = await checkAccess(userId, serverId, 'project.read');
+    if (access !== 'ok') return null;
+    const row = await db.findProject(serverId);
+    const snapshot = row && row.last_snapshot ? JSON.parse(row.last_snapshot) : null;
+    return (snapshot && snapshot.config) || {};
+  }
+
+  return { onFrame, getVisibleConfig };
 }
 
 module.exports = { registerRelay };

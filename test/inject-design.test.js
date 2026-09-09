@@ -40,3 +40,14 @@ test('sanitizeDesign accepts a real design id and rejects everything else', () =
   assert.strictEqual(sanitizeDesign('not valid!'), DEFAULT_DESIGN);
   assert.strictEqual(sanitizeDesign(123), DEFAULT_DESIGN);
 });
+
+test('sanitizeDesign rejects a shape-valid id that is not a real, registered design (stale/typo\'d/removed)', () => {
+  // 'not-a-real-design' passes the old regex-only shape check but is not in designs.js's DESIGNS —
+  // must fall back to the default, not silently produce an unstyled page.
+  assert.strictEqual(sanitizeDesign('not-a-real-design'), DEFAULT_DESIGN);
+});
+
+test('sanitizeDesign accepts every id currently registered in designs.js (stays in sync automatically)', () => {
+  const DESIGNS = require('../lib/dashboard/public/designs.js');
+  for (const d of DESIGNS) assert.strictEqual(sanitizeDesign(d.id), d.id);
+});

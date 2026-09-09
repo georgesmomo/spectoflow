@@ -43,12 +43,18 @@ async function buildApp({ db, insecureDev, publicDir, trustProxy, onFrame, regis
   // from the DB-cached last_snapshot rather than a live round trip (see relay.js) — so this reuses
   // that exact same cached snapshot (which already carries `config`, written by ops.js's
   // `project.read` on the machine) instead of needing any new plumbing to the machine.
+  //
+  // relay.getVisibleConfig() applies the EXACT same gate relay.js's own `/api/*` catch-all applies
+  // before answering `project.read` (owner.published + checkAccess(..., 'project.read')) — an
+  // unpublished project, or one the caller isn't a member of, must not leak even its design id via
+  // this page route; it falls back to the shared default instead, indistinguishable from a
+  // nonexistent/unregistered project id (D65 fixed this exact bug class — full content leaking past
+  // an unpublish — as Critical; this is the same class, scoped to a theme id).
   app.get('/p/:id/*', async (req, reply) => {
     let design;
     try {
-      const row = await db.findProject(req.params.id);
-      const snapshot = row && row.last_snapshot ? JSON.parse(row.last_snapshot) : null;
-      design = snapshot && snapshot.config && snapshot.config.design;
+      const cfg = await relay.getVisibleConfig(req.user.id, req.params.id);
+      design = cfg && cfg.design;
     } catch (_) { /* fall through to the shared default */ }
     const html = await fs.readFile(path.join(PUBLIC_DIR, 'index.html'), 'utf8');
     reply.type('text/html; charset=utf-8').send(injectDesign(html, design));
