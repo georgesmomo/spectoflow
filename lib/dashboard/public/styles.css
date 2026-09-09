@@ -958,7 +958,10 @@ body.booting .wf-step2 { opacity:0; animation:rise .4s cubic-bezier(.2,.8,.2,1) 
 /* the status chips are redundant in Kanban (columns already are the statuses) */
 .main:has(.board.is-kanban) #statusChips { display:none; }
 
-.kanban { display:grid; grid-auto-flow:column; grid-auto-columns:minmax(228px,1fr); gap:12px; overflow-x:auto; padding:4px 2px 14px; align-items:start; }
+.kanban { display:grid; grid-auto-flow:column; grid-auto-columns:minmax(228px,1fr); gap:12px; overflow-x:auto; padding:4px 2px 14px; align-items:start; scrollbar-width:thin; scrollbar-color:var(--line) transparent; }
+.kanban::-webkit-scrollbar { height:8px; }
+.kanban::-webkit-scrollbar-thumb { background:var(--line); border-radius:8px; }
+.kanban::-webkit-scrollbar-track { background:transparent; }
 .kanban-col { background:var(--surface); border:1px solid var(--line); border-radius:var(--radius); display:flex; flex-direction:column; min-height:84px; }
 .kanban-col-head { display:flex; align-items:center; gap:8px; padding:11px 13px; border-bottom:1px solid var(--line); border-radius:var(--radius) var(--radius) 0 0; }
 .kanban-dot { width:8px; height:8px; border-radius:50%; flex-shrink:0; }
