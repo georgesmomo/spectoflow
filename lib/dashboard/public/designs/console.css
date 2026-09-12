@@ -1,4 +1,4 @@
-/* Spectral Console — dark-first bento control room. Amber accent (--signal), cyan flow (--cool).
+/* Spectral Console — dark-first bento control room. Violet accent (--signal), cyan flow (--cool).
    Scoped entirely under html[data-design="console"] so other designs are untouched.
    Fonts (self-hosted, declared once in ../styles.css @font-face rules — reused here by family name):
    Sora (display), IBM Plex Sans (sans), JetBrains Mono (mono). No external font requests. */
@@ -8,12 +8,12 @@ html[data-design="console"] {
   --bg:#0b1220; --surface:#111a2b; --surface-2:#172236; --surface-3:#1d2a42;
   --line:#223049; --line-2:#2c3c5a;
   --ink:#e8eef8; --muted:#8a9bb5; --faint:#5f6f8a;
-  --signal:#e6a54b; --cool:#38c5d9; --on-accent:#1a1206;
+  --signal:#7c5cff; --cool:#38c5d9; --on-accent:#ffffff;
   --s-todo:#6b7a90; --s-in_progress:#4f8cff; --s-to_validate:#ff9b3d; --s-to_analyze:#ff5fd2;
   --s-done:#3fbf7f; --s-blocked:#ff5c5c;
   --radius:14px; --shadow:0 12px 40px rgba(0,0,0,.45), 0 1px 0 rgba(255,255,255,.04) inset;
   --display:'Sora',var(--sans); --sans:'IBM Plex Sans',system-ui,sans-serif; --mono:'JetBrains Mono',ui-monospace,Menlo,Consolas,monospace;
-  --cx-glow-signal:0 0 0 1px rgba(230,165,75,.35), 0 0 32px rgba(230,165,75,.18);
+  --cx-glow-signal:0 0 0 1px rgba(124,92,255,.35), 0 0 32px rgba(124,92,255,.20);
   --cx-glow-cool:0 0 0 1px rgba(56,197,217,.35), 0 0 32px rgba(56,197,217,.16);
   --cx-grid:rgba(255,255,255,.035);
   --cx-rail-w:72px;
@@ -22,11 +22,11 @@ html[data-design="console"][data-theme="light"] {
   --bg:#f3f5f9; --surface:#ffffff; --surface-2:#eef2f8; --surface-3:#e4eaf4;
   --line:#dbe2ee; --line-2:#c9d3e3;
   --ink:#0f1728; --muted:#55657f; --faint:#8593ab;
-  --signal:#b8781f; --cool:#0e8fa3; --on-accent:#fff8ec;
+  --signal:#5b3fc4; --cool:#0e8fa3; --on-accent:#ffffff;
   --s-todo:#7c8aa3; --s-in_progress:#2f6fe0; --s-to_validate:#d97a17; --s-to_analyze:#c93fae;
   --s-done:#1f9c5c; --s-blocked:#d93a3a;
   --shadow:0 10px 30px rgba(20,30,60,.10), 0 1px 0 rgba(255,255,255,.6) inset;
-  --cx-glow-signal:0 0 0 1px rgba(184,120,31,.35), 0 0 28px rgba(184,120,31,.14);
+  --cx-glow-signal:0 0 0 1px rgba(91,63,196,.35), 0 0 28px rgba(91,63,196,.16);
   --cx-glow-cool:0 0 0 1px rgba(14,143,163,.35), 0 0 28px rgba(14,143,163,.14);
   --cx-grid:rgba(15,23,40,.06);
 }
