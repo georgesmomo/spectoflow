@@ -5,6 +5,66 @@ framework with a real-time local control plane. This file orients you to **build
 (it is not a spectoflow-managed project). Read `docs/` before making changes:
 `docs/ARCHITECTURE.md`, `docs/DECISIONS.md` (the full rationale, D1–D23), `docs/ROADMAP.md` (what's next).
 
+## What exists (v0.27.0 — see DECISIONS D70)
+
+**Dashboard personalization pass + a slash-command system.** One release gathering a wave of
+real-usage feedback, all client-facing dashboard work (`server/` untouched). Highlights:
+
+**Slash commands (`/`) in the chat.** A reusable prompt-macro system, agent-agnostic by
+construction. A command is `{trigger, description, instruction, enabled}`; typing `/` in either chat
+surface (floating widget + Chat tab) opens an autocomplete menu (keyboard ↑/↓/Enter/Tab/Esc + mouse,
+filtered as you type), and on send the invocation is **expanded client-side** — the agent never sees
+the `/`, it receives the full `instruction` (with an optional `{{input}}` placeholder for the trailing
+text, else the tail is appended). The logic is one pure, unit-tested module
+(`lib/dashboard/public/commands.js`: `BUILTIN_COMMANDS`, `effectiveCommands`, `validateTrigger`,
+`matchCommands`, `parseInvocation`, `expandCommand` — same UMD-ish pattern as `stats.js`, the single
+source of truth for the 5 shipped built-ins `/spec /plan /revue /resume /rapport_jour`). Commands
+persist through the **existing** `writeConfig()` → `config.json` mechanism (new `commands` field,
+validated/deduped/clamped with the reject-whole-patch safety of `kanbanColumns`/`navTabs`) — so it
+works in both the local hub and the online relay with no new schema. Triggers are lowercase-canonical
+and validated identically client- and server-side. The runner gained an optional `display` field so
+the chat log shows the short invocation (`/rapport_jour focus bugs`) while the agent gets the expanded
+prompt. Managed from a new **Commands** card in Personalize (add/edit/delete/toggle/restore, inline
+form + validation, no native `prompt()`), i18n across all 6 languages. Built via
+subagent-driven-development (5 tasks, each independently reviewed; a whole-branch review + fix wave
+caught a Critical stale-edit-index crash and a trigger-casing client/server mismatch before merge);
+full suite green (`test/commands.test.js` 9/9 + `ops`/`runner` extensions), real browser QA of the
+menu, editor, and the config.json round-trip.
+
+**Configurable pages (sub-project C).** Nav tabs are enable/disable/reorder-able from Personalize
+(`config.navTabs`, an ordered `{id,enabled}` array, `personalize` locked-on so you can never lock
+yourself out; `applyNavTabs()` hides/reorders the shared `#tabs` DOM, so it works across all 6 design
+skins with no per-design code). Two new tabs, disabled by default: **Bloc note** (a per-project
+post-it Markdown scratchpad, stored via `files.read`/`files.write`) and **Daily meeting** (dated notes
+under `.spectoflow/meetings/<date>.md`, manual + agent-generated via `meeting.js`'s `runMeetingGenerate`
+paralleling `summarize.js`; `date` is `^\d{4}-\d{2}-\d{2}$`-validated before any path construction —
+a security fix caught in review). `NATIVE_TABS` stays mirrored in `ops.js` + `app.js` + `ROUTES`.
+
+**Kanban customization (sub-project B).** Columns are enable/disable-able (never the last one) and
+each column paginates at 10 (with a +20 "show more") instead of an inner scrollbar
+(`config.kanbanColumns`/`kanbanPageSize`).
+
+**Settings persistence generalized off localStorage.** Seven per-viewer preferences that were
+localStorage-backed (theme/boardView/sideHidden/expandedPhases/activeTab/chatOpen/…) now persist
+server-side through `saveSetting(patch)` → `POST /api/settings` → `writeConfig()` (debounced ~400ms,
+UI updates instantly) — so a preference survives a refresh/reconnect and lives in `config.json`
+locally / the DB online, per the project's own "no localStorage for persistent settings" rule. The
+one deliberate exception is `hub.js`'s pre-project landing page, which has no project `config.json`.
+
+**Files-tab syntax highlighting via self-hosted Prism.js** (sub-project A). The hand-rolled
+tokenizer is replaced by vendored Prism 1.29.0 (22 static files under `public/vendor/prism/`,
+zero-npm-dependency, `Prism.manual=true`), token classes styled with the existing 5 CSS variables
+(not a packaged theme) so it matches every design skin.
+
+**Look & feel.** Console theme accent switched **amber → violet/indigo** (`--signal`, dark + light).
+**Personalize redesigned**: the three settings cards no longer stretch to the tallest sibling
+(`align-items:start`), Navigation tabs spans full width in a 2-column grid. Plus smaller fixes: a
+server-side `<html data-design>` stamp (no first-paint theme flash, in the online relay too), the
+Board sidebar toggle moved into the topbar with a synced inline copy, a themed scrollbar on the
+Kanban strip, and the Console workflow-connector traveling particle removed.
+
+`demo/` refreshed via `update` (0.24.0 → 0.27.0).
+
 ## What exists (v0.24.0 — see DECISIONS D64)
 
 **The dashboard leaves the projects.** Sub-project A of the "one dashboard, many projects" program

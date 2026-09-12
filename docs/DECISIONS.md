@@ -1783,3 +1783,66 @@
   du dépôt), `server/.env.example`, `server/docs/{deploy-vps,deploy-cpanel}.md`, `server/README.md`,
   `README.md` (racine), `.dockerignore` (racine), `server/.gitignore`.
 
+### D70 — 0.27.0 : personnalisation du dashboard + système de commandes `/`
+
+- **Contexte.** Une vague de retours d'usage réels sur le dashboard, tous côté client (`server/` non
+  touché), regroupée en une seule release. Principe transverse repris partout : **aucune préférence
+  persistante en localStorage** — tout passe par le mécanisme existant `saveSetting(patch)` →
+  `POST /api/settings` → op `settings.save` → `writeConfig(root, patch)` (liste blanche par champ,
+  écriture de `.spectoflow/config.json`), partagé verbatim entre le hub local et le relais en ligne,
+  donc extensible dans les deux modes sans nouveau schéma de BDD.
+- **Commandes `/` (le point fort).** Un système de macros de prompt réutilisables, agent-agnostique
+  par construction. Une commande = `{trigger, description, instruction, enabled}` ; taper `/` dans
+  l'une des deux surfaces de chat (widget flottant + onglet Chat) ouvre un menu d'autocomplétion
+  (clavier ↑/↓/Entrée/Tab/Échap + souris, filtré à la frappe), et à l'envoi l'invocation est
+  **développée côté client** — l'agent ne voit jamais le `/`, il reçoit l'`instruction` complète (avec
+  un placeholder optionnel `{{input}}` pour le texte saisi, sinon le texte est ajouté à la fin). La
+  logique tient dans un module pur testable en `node --test` (`lib/dashboard/public/commands.js` :
+  `BUILTIN_COMMANDS`, `effectiveCommands`, `validateTrigger`, `matchCommands`, `parseInvocation`,
+  `expandCommand` — même patron UMD que `stats.js`, source unique des 5 built-ins livrés
+  `/spec /plan /revue /resume /rapport_jour`). Persistance via un nouveau champ `commands` dans
+  `writeConfig()` (validation trigger `^[a-z0-9][a-z0-9_-]{0,39}$` minuscule, dedup insensible à la
+  casse, clamp description/instruction, rejet du patch entier si malformé — même sûreté que
+  `kanbanColumns`/`navTabs`). Le trigger est canonique minuscule et validé identiquement côté client
+  (`validateTrigger` normalise l'entrée avant le test) et serveur. Nouveau champ optionnel `display`
+  dans le runner (`startRun`/op `run.start`) : le journal du chat affiche l'invocation courte
+  (`/rapport_jour focus bugs`) tandis que l'agent reçoit le prompt développé. Édition depuis une
+  nouvelle carte **Commandes** dans Personalize (ajout/édition/suppression/activation/restauration,
+  formulaire inline + validation, jamais de `prompt()` natif qui bloque le SSE), i18n sur les
+  6 langues. Construit en subagent-driven-development (5 tâches revues indépendamment ; la revue
+  whole-branch + une vague de correction ont attrapé un Critical — index d'édition périmé crashant la
+  boucle de rendu — et une incohérence de casse client/serveur, avant merge). Tests : `commands.test.js`
+  9/9 + extensions `ops`/`runner` ; QA navigateur réelle du menu, de l'éditeur et de l'aller-retour
+  `config.json`.
+- **Pages configurables (sous-projet C).** Onglets de navigation activables/désactivables/réordonnables
+  depuis Personalize (`config.navTabs`, tableau ordonné `{id,enabled}` ; `personalize` verrouillé actif
+  pour ne jamais s'auto-exclure ; `applyNavTabs()` masque/réordonne le DOM partagé `#tabs`, donc valable
+  pour les 6 skins sans code par design). Deux nouveaux onglets, désactivés par défaut : **Bloc note**
+  (bloc-notes post-it Markdown par projet, via `files.read`/`files.write`) et **Daily meeting** (notes
+  datées sous `.spectoflow/meetings/<date>.md`, manuelles + générées par l'agent via `meeting.js`
+  `runMeetingGenerate`, calqué sur `summarize.js` ; `date` validée `^\d{4}-\d{2}-\d{2}$` avant toute
+  construction de chemin — faille corrigée en revue). `NATIVE_TABS` reste synchronisé dans `ops.js` +
+  `app.js` + `ROUTES`.
+- **Kanban personnalisable (sous-projet B).** Colonnes activables/désactivables (jamais la dernière) ;
+  chaque colonne pagine à 10 (bouton +20 « voir plus ») au lieu d'un ascenseur interne
+  (`config.kanbanColumns`/`kanbanPageSize`).
+- **Persistance des settings généralisée hors localStorage.** Sept préférences par-viewer qui étaient
+  en localStorage (theme/boardView/sideHidden/expandedPhases/activeTab/chatOpen/…) persistent désormais
+  côté serveur (débounce ~400 ms, UI instantanée) — une préférence survit à un refresh/reconnexion et
+  vit dans `config.json` en local / la BDD en ligne. Exception délibérée : la page d'accueil du hub
+  (`hub.js`), sans `config.json` de projet.
+- **Coloration syntaxique de l'onglet Files via Prism.js auto-hébergé (sous-projet A).** Le tokenizer
+  fait main est remplacé par Prism 1.29.0 vendorisé (22 fichiers statiques sous `public/vendor/prism/`,
+  zéro dépendance npm, `Prism.manual=true`), classes de tokens stylées avec les 5 variables CSS
+  existantes (pas un thème packagé) pour coller à chaque skin.
+- **Aspect.** Accent du thème Console basculé **ambre → violet/indigo** (`--signal`, sombre + clair).
+  **Personalize redesignée** : les trois cartes de réglages ne s'étirent plus à la hauteur de la plus
+  grande (`align-items:start`), « Navigation tabs » occupe toute la largeur en grille 2 colonnes. Plus
+  des correctifs plus petits : stamp `<html data-design>` côté serveur (pas de flash de thème au
+  premier rendu, relais en ligne inclus), bouton de repli de la sidebar Board déplacé dans la topbar
+  avec copie inline synchronisée, ascenseur thématisé sur le bandeau Kanban, particule voyageuse
+  retirée des connecteurs de workflow du thème Console.
+- **Fichiers principaux :** `lib/dashboard/public/{commands.js,app.js,index.html,styles.css,i18n.js,designs.js,designs/console.css}`,
+  `lib/dashboard/{ops.js,runner.js,meeting.js}`, `lib/dashboard/public/vendor/prism/**`,
+  `test/{commands,ops,runner,meeting}.test.js`. `demo/` rafraîchi via `update` (0.24.0 → 0.27.0).
+
