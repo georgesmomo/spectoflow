@@ -401,6 +401,15 @@
             <h3 class="settings-card-title" data-i18n="settings.group.navTabs">Navigation tabs</h3>
             <div class="nav-tabs-list" id="navTabsList"></div>
           </div>
+          <div class="settings-card settings-card--wide">
+            <h3 class="settings-card-title" data-i18n="settings.commands.title">Commands</h3>
+            <p class="settings-card-note" data-i18n="settings.commands.note">Slash commands you can type in the chat. Use {{input}} in the instruction to place your text.</p>
+            <div class="cmd-editor" id="commandsList"></div>
+            <div class="cmd-editor-actions">
+              <button type="button" id="cmdAddBtn" class="btn primary" data-i18n="settings.commands.add">+ Add command</button>
+              <button type="button" id="cmdRestoreBtn" class="btn" data-i18n="settings.commands.restore">Restore defaults</button>
+            </div>
+          </div>
         </div>
         <div class="settings-saved" id="settingsSaved" data-i18n="settings.saved" hidden>✓ saved</div>
         <div class="settings-readonly" id="settingsReadonly"></div>

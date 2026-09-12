@@ -712,6 +712,22 @@ body.booting .ring-svg circle:last-of-type { transform-origin:center; animation:
 .settings-select:focus { outline:2px solid var(--signal); outline-offset:1px; }
 .settings-field-hint { font-size:12px; }
 .settings-field-hint.is-empty { color:var(--s-blocked); }
+.settings-card-note { color:var(--muted); font-size:12.5px; margin:2px 0 10px; }
+.cmd-editor { display:flex; flex-direction:column; gap:6px; }
+.cmd-row { display:flex; align-items:center; gap:10px; padding:6px 8px; border:1px solid var(--line); border-radius:8px; }
+.cmd-row input[type="checkbox"] { width:16px; height:16px; accent-color:var(--signal); cursor:pointer; flex-shrink:0; }
+.cmd-row-label { display:flex; align-items:baseline; gap:8px; flex:1; min-width:0; }
+.cmd-row-label .cmd-trigger { font-family:var(--mono); color:var(--signal); font-weight:600; }
+.cmd-row-label .cmd-desc { color:var(--muted); font-size:12.5px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+.cmd-row-acts { display:flex; gap:6px; flex-shrink:0; }
+.cmd-row-acts .btn { font-size:12px; padding:5px 10px; }
+.cmd-editor-actions { display:flex; gap:8px; margin-top:10px; }
+.cmd-form { display:flex; flex-direction:column; gap:6px; margin-top:8px; padding:10px; border:1px dashed var(--line); border-radius:8px; }
+.cmd-form label { font-size:12px; color:var(--muted); }
+.cmd-form input, .cmd-form textarea { font:inherit; font-size:13px; padding:8px 10px; border:1px solid var(--line); border-radius:8px; background:var(--surface-2); color:var(--ink); box-sizing:border-box; }
+.cmd-form textarea.chat-ta { min-height:90px; resize:vertical; }
+.cmd-form-btns { display:flex; gap:8px; }
+.cmd-error { color:var(--s-blocked); font-size:12.5px; min-height:1em; }
 .docs-grid { grid-template-columns:1fr; } /* the built-in tables are wide — full width beats 2-up */
 .docs-grid .backlog-table a { color:var(--signal); text-decoration:none; }
 .docs-grid .backlog-table a:hover { text-decoration:underline; }
