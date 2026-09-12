@@ -31,6 +31,15 @@ function runOnce(proj, prompt) {
     if (r.error) resolve([{ type: 'error', error: r.error }]);
   });
 }
+// Run one agent to completion with an optional display text for the chat bubble.
+function runOnceWithDisplay(proj, prompt, display) {
+  return new Promise((resolve) => {
+    const events = [];
+    const emit = (e) => { events.push(e); if (e.type === 'run-end') resolve(events); };
+    const r = startRun(proj, { prompt, agent: 'claude', display }, emit);
+    if (r.error) resolve([{ type: 'error', error: r.error }]);
+  });
+}
 
 test('the user prompt is logged as a message before the agent runs', async () => {
   const proj = installWithStub();
@@ -101,4 +110,20 @@ test('resolveRunnerCommand returns null for a non-headless agent (kimi) even if 
   fs.writeFileSync(path.join(bindir, 'kimi'), '');
   const opts = { env: { PATH: bindir }, platform: 'linux' };
   assert.strictEqual(resolveRunnerCommand(proj, cfg, 'kimi', opts), null, 'kimi has no runner regardless of install status');
+});
+
+test('display, when given, is what the user bubble shows (the agent still gets the full prompt)', async () => {
+  const proj = installWithStub();
+  await runOnceWithDisplay(proj, 'FULL EXPANDED INSTRUCTION', '/rapport_jour focus bugs');
+  const msgs = store.readRuntime(proj).messages;
+  assert.strictEqual(msgs[0].role, 'user');
+  assert.strictEqual(msgs[0].text, '/rapport_jour focus bugs');
+  assert.ok(!msgs.some((m) => m.role === 'user' && m.text === 'FULL EXPANDED INSTRUCTION'),
+    'the long expanded prompt is never shown as the user bubble');
+});
+
+test('without display, the user bubble is the prompt (unchanged behavior)', async () => {
+  const proj = installWithStub();
+  await runOnceWithDisplay(proj, 'add login', undefined);
+  assert.strictEqual(store.readRuntime(proj).messages[0].text, 'add login');
 });
