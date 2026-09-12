@@ -462,6 +462,9 @@
     <p class="chat-status" id="widgetChatStatus" hidden><span class="spinner" aria-hidden="true"></span><span data-i18n="chat.running">Agent running…</span></p>
   </div>
 
+  <!-- Slash-command autocomplete popover, reused by both #runPrompt and #tabRunPrompt (app.js) -->
+  <div id="cmdMenu" class="cmd-menu" role="listbox" aria-label="Commands" hidden></div>
+
   <div class="drawer" id="drawer" aria-hidden="true">
     <div class="drawer-scrim" id="drawerScrim"></div>
     <div class="drawer-panel" role="dialog"><button class="drawer-close" id="drawerClose">×</button><div id="drawerBody"></div></div>

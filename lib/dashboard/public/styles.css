@@ -1151,3 +1151,16 @@ body.is-offline .btn.primary, body.is-offline .wf-step2, body.is-offline .wf-min
 .hub-card:hover .hub-card-online, .hub-card-online:focus-visible { opacity:1; }
 .hub-card-online.is-on { color:var(--s-done); border-color:var(--s-done); opacity:1; }
 .hub-body.hub-remote .hub-card-online { display:none; }
+
+/* ---- slash-command autocomplete popover (chat input, Sous-projet C Task 4). No gradients. ---- */
+.cmd-menu{ position:fixed; z-index:120; background:var(--surface); border:1px solid var(--line);
+  border-radius:10px; box-shadow:0 12px 32px rgba(0,0,0,.28); max-height:260px; overflow-y:auto;
+  padding:4px; scrollbar-width:thin; scrollbar-color:var(--line) transparent; }
+.cmd-menu::-webkit-scrollbar{ width:8px; }
+.cmd-menu::-webkit-scrollbar-thumb{ background:var(--line); border-radius:8px; }
+.cmd-menu::-webkit-scrollbar-track{ background:transparent; }
+.cmd-item{ display:flex; align-items:baseline; gap:8px; padding:7px 10px; border-radius:7px; cursor:pointer; }
+.cmd-item.is-sel{ background:rgba(127,127,127,.14); }
+.cmd-item .cmd-trigger{ font-family:var(--mono); color:var(--signal); font-weight:600; white-space:nowrap; }
+.cmd-item .cmd-desc{ color:var(--muted); font-size:12.5px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+.cmd-empty{ padding:9px 10px; color:var(--muted); font-size:12.5px; }
