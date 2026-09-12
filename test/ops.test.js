@@ -142,6 +142,48 @@ test('settings.save accepts a valid navTabs reorder/enable-state (Sous-projet C,
   assert.deepStrictEqual(r6.config.navTabs, before.navTabs);
 });
 
+test('settings.save persists a valid commands array (trimmed, clamped, enabled coerced, deduped)', async () => {
+  const root = project(); const c = ctx();
+  const r = await ops['settings.save'](root, { commands: [
+    { trigger: 'rapport_jour', description: '  daily  ', instruction: '  do it  ' },
+    { trigger: 'Rapport_Jour', description: 'dupe', instruction: 'ignored' }, // case-insensitive dupe → dropped
+    { trigger: 'off', description: 'x', instruction: 'y', enabled: false },
+  ] }, c);
+  assert.strictEqual(r.config.commands.length, 2);
+  assert.deepStrictEqual(r.config.commands[0], { trigger: 'rapport_jour', description: 'daily', instruction: 'do it', enabled: true });
+  assert.strictEqual(r.config.commands[1].enabled, false);
+});
+
+test('settings.save accepts an empty commands array', async () => {
+  const root = project(); const c = ctx();
+  const r = await ops['settings.save'](root, { commands: [] }, c);
+  assert.deepStrictEqual(r.config.commands, []);
+});
+
+test('settings.save rejects the whole commands patch when structurally malformed', async () => {
+  const root = project(); const c = ctx();
+  const r0 = await ops['settings.save'](root, { commands: [{ trigger: 'ok', description: '', instruction: 'x' }] }, c);
+  assert.strictEqual(r0.config.commands.length, 1);
+  // not an array
+  const r1 = await ops['settings.save'](root, { commands: 'nope' }, c);
+  assert.strictEqual(r1.config.commands.length, 1);
+  // bad trigger
+  const r2 = await ops['settings.save'](root, { commands: [{ trigger: 'bad space', instruction: 'x' }] }, c);
+  assert.strictEqual(r2.config.commands.length, 1);
+  // empty instruction
+  const r3 = await ops['settings.save'](root, { commands: [{ trigger: 'good', instruction: '   ' }] }, c);
+  assert.strictEqual(r3.config.commands.length, 1);
+});
+
+test('settings.save clamps commands description to 120 and instruction to 4000 chars', async () => {
+  const root = project(); const c = ctx();
+  const r = await ops['settings.save'](root, { commands: [
+    { trigger: 'big', description: 'd'.repeat(200), instruction: 'i'.repeat(5000) },
+  ] }, c);
+  assert.strictEqual(r.config.commands[0].description.length, 120);
+  assert.strictEqual(r.config.commands[0].instruction.length, 4000);
+});
+
 test('attention.add / update / promote / remove round-trip through runtime.json', async () => {
   const root = project(); const c = ctx();
   const { item } = await ops['attention.add'](root, { text: 'look at this' }, c);
