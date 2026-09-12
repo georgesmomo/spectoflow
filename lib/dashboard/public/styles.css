@@ -702,8 +702,9 @@ body.booting .ring-svg circle:last-of-type { transform-origin:center; animation:
 
 /* Settings tab */
 .settings-wrap { max-width:1120px; margin:0 auto; padding:20px 22px; }
-.settings-groups { display:grid; grid-template-columns:repeat(auto-fit,minmax(320px,1fr)); gap:16px; margin:14px 0; }
+.settings-groups { display:grid; grid-template-columns:repeat(auto-fit,minmax(320px,1fr)); gap:16px; margin:14px 0; align-items:start; }
 .settings-card { background:var(--surface); border:1px solid var(--line); border-radius:var(--radius); padding:18px; display:flex; flex-direction:column; gap:16px; margin:0; }
+.settings-card--wide { grid-column:1 / -1; }
 .settings-card-title { margin:0; font-size:12px; font-weight:700; text-transform:uppercase; letter-spacing:.06em; color:var(--muted); }
 .settings-field { display:flex; flex-direction:column; gap:6px; }
 .settings-field-label { font-size:11px; text-transform:uppercase; letter-spacing:.05em; color:var(--muted); }
@@ -727,8 +728,14 @@ body.booting .ring-svg circle:last-of-type { transform-origin:center; animation:
 .settings-ro-k { color:var(--muted); font-size:13px; }
 .settings-ro-v { font-family:var(--mono); font-size:12.5px; color:var(--ink); }
 
-/* Navigation tabs (Sous-projet C, Task 1): enable/disable + reorder the native nav tabs */
-.nav-tabs-list { display:flex; flex-direction:column; gap:6px; }
+/* Navigation tabs (Sous-projet C, Task 1): enable/disable + reorder the native nav tabs.
+   2-up grid + a capped, themed-scrollbar height so a long tab list stays compact instead of
+   forcing the whole settings row to stretch (matches .kanban's own scrollbar pattern). */
+.nav-tabs-list { display:grid; grid-template-columns:repeat(2,1fr); gap:6px; max-height:420px; overflow-y:auto; padding-right:4px; scrollbar-width:thin; scrollbar-color:var(--line) transparent; }
+.nav-tabs-list::-webkit-scrollbar { width:8px; }
+.nav-tabs-list::-webkit-scrollbar-thumb { background:var(--line); border-radius:8px; }
+.nav-tabs-list::-webkit-scrollbar-track { background:transparent; }
+@media (max-width:640px) { .nav-tabs-list { grid-template-columns:1fr; } }
 .nav-tabs-row { display:flex; align-items:center; gap:10px; padding:7px 9px; border:1px solid var(--line); border-radius:9px; background:var(--surface-2); }
 .nav-tabs-row.is-locked { opacity:.7; }
 .nav-tabs-row .nav-tabs-label { flex:1; font-size:13px; color:var(--ink); display:flex; align-items:center; gap:6px; }
