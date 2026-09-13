@@ -88,7 +88,7 @@ async function startFakeRelay({ token = 'spf_test', pollHold = 150, authOk = tru
   });
   server.on('upgrade', (req, socket) => {
     relay.upgrades++;
-    if (req.url !== '/connector/ws' || relay.rejectUpgrade) { socket.write('HTTP/1.1 404 Not Found\r\nConnection: close\r\nContent-Length: 0\r\n\r\n'); socket.destroy(); return; }
+    if (req.url !== '/connector/ws' || relay.rejectUpgrade) { socket.end('HTTP/1.1 404 Not Found\r\nConnection: close\r\nContent-Length: 0\r\n\r\n'); return; }
     const accept = crypto.createHash('sha1').update(req.headers['sec-websocket-key'] + GUID).digest('base64');
     socket.write(`HTTP/1.1 101 Switching Protocols\r\nUpgrade: websocket\r\nConnection: Upgrade\r\nSec-WebSocket-Accept: ${accept}\r\n\r\n`);
     let authedWs = false, buf = Buffer.alloc(0);
