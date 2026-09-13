@@ -6,7 +6,7 @@
 const { startFakeRelay } = require('../test/helpers/fake-relay');
 const { createConnector } = require('../lib/dashboard/connector');
 
-const fast = { backoffMin: 30, backoffMax: 60, dropWindow: 60000, dropLimit: 3, wsRetryEvery: 300, pollTimeout: 5000 };
+const fast = { backoffMin: 30, backoffMax: 60, dropWindow: 60000, dropLimit: 3, wsRetryEvery: 300, pollTimeout: 5000, wsOpenTimeout: 200 };
 const PUB = [{ localId: 'aaaaaa', name: 'alpha', kind: 'spectoflow', stats: { total: 2, done: 1 } }];
 function stubs() {
   return {
