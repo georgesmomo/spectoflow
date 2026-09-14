@@ -186,9 +186,65 @@ spectoflow dashboard                     # → http://localhost:4319 (or --port=
 dashboard already running on the port). `spectoflow status` tells you whether one is up. Zero
 dependencies, updates live via SSE + file watching.
 
-Want your own hosted, online dashboard instead of (or alongside) the local one? `server/` is a
-separate, self-hostable relay with a ready-made Docker deployment path — see
-[`server/docs/deploy-vps.md`](server/docs/deploy-vps.md).
+### One hub, every project
+
+There is only ever **one dashboard process on your machine**, no matter how many projects you have.
+`spectoflow dashboard`, run from *any* initialized project, does two things: it registers that
+project, and it makes sure the hub is running — starting it if it's the first one to ask, or simply
+joining an already-running hub otherwise. So the very first `spectoflow dashboard` you ever run
+starts the hub; every one after that (from other projects) just adds a card to the same page.
+
+```
+  $ spectoflow dashboard              (in todo-list-v2/)
+      no hub found → starts one → http://localhost:4319
+                                          │
+                                          └── card: "todo-list-v2"
+
+  $ spectoflow dashboard              (in my-other-app/, later, or another day)
+      hub already running → just joins it
+                                          │
+                                          └── card: "my-other-app"
+
+  → open http://localhost:4319 in your browser: both projects, one page
+```
+
+That's the whole local setup — no login, no token, nothing to configure. **The rest of this section
+is entirely optional.**
+
+### Going online (optional): local hub vs. relay server
+
+`spectoflow dashboard login/publish` are for one specific, separate need: opening a project's
+dashboard from **another device**, or sharing it with someone else. They talk to `server/` — a
+different application in this repo, not part of the local hub — that you (or someone) hosts
+somewhere reachable (see [`server/docs/deploy-vps.md`](server/docs/deploy-vps.md), or run it
+locally to try it, per [`server/README.md`](server/README.md)). Nothing about your local hub changes;
+it grows one extra, optional connection outward:
+
+```
+  YOUR MACHINE                                    THE RELAY SERVER (server/)
+  local hub · localhost:4319                      hosted by you or someone else
+
+  [todo-list-v2]   ── published ──────────────►    only "published" projects
+  [my-other-app]   ── NOT published, stays local    ever show up here
+
+           ▲
+           │  one-time, per machine:
+           │  $ spectoflow dashboard login --url=<relay-url> --token=<spf_…>
+           │
+     the token is minted ON THE RELAY, not by you:
+     $ node server/cli.js token create   (run by whoever administers it)
+
+  once logged in and published → any browser, anywhere, can open it
+```
+
+| Command | Runs where | What it does |
+| --- | --- | --- |
+| `spectoflow dashboard` | your machine | start/join the local hub, register the current project |
+| `node server/cli.js token create` | on the relay server | mint a login token for a machine |
+| `spectoflow dashboard login --url=… --token=…` | your machine | link this machine to that relay (once) |
+| `spectoflow dashboard publish` | your machine | make the *current* project visible through the relay |
+| `spectoflow dashboard unpublish` | your machine | take it back offline |
+| `spectoflow dashboard logout` | your machine | unlink the machine entirely |
 
 The header bar always shows the brand, the **active agent**, autonomy mode, language, a global-progress
 meter, a sync dot, and a **Run** quick-action. Thirteen tabs — and **which ones you see, and in what
