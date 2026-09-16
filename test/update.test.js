@@ -138,3 +138,15 @@ test('--dry-run reports actions but writes nothing to disk', () => {
   assert.strictEqual(read(sfp(sf, 'AGENTS.md')), before, 'file untouched in dry-run');
   assert.strictEqual(manifest.readManifest(sf).version, beforeVer, 'manifest untouched in dry-run');
 });
+
+test('update links an existing root AGENTS.md that never got the spectoflow pointer', () => {
+  const { proj, newKit } = install();
+  fs.writeFileSync(path.join(proj, 'AGENTS.md'), '# Team conventions\n');
+  const dry = runUpdate({ projectRoot: proj, templatesDir: newKit, version: '9.9.9', dryRun: true });
+  assert.deepStrictEqual(dry.pointers, ['AGENTS.md']);
+  assert.strictEqual(read(path.join(proj, 'AGENTS.md')), '# Team conventions\n', 'dry-run writes nothing');
+  const report = runUpdate({ projectRoot: proj, templatesDir: newKit, version: '9.9.9' });
+  assert.deepStrictEqual(report.pointers, ['AGENTS.md']);
+  assert.match(read(path.join(proj, 'AGENTS.md')), /^# Team conventions\n\n<!-- spectoflow:start -->/);
+  assert.deepStrictEqual(runUpdate({ projectRoot: proj, templatesDir: newKit, version: '9.9.9' }).pointers, [], 'second run: nothing to do');
+});

@@ -117,7 +117,14 @@ detected it falls back to claude + codex.
 
 **Empty project** → your agent asks what to build and runs Intake (brainstorm → analysis → spec → plan).
 **Existing project** → an existing `CLAUDE.md` is preserved as `CLAUDE.md.tomerge` (merged on first run);
-existing `plans/*.md` tasks are given stable ids.
+an existing `AGENTS.md` or `GEMINI.md` is kept as-is and gets a short, delimited spectoflow section
+appended (`<!-- spectoflow:start -->` … `<!-- spectoflow:end -->`) pointing to `.spectoflow/AGENTS.md` —
+`spectoflow update` adds it too to a project installed before that; existing `plans/*.md` tasks are given
+stable ids.
+
+**Two `AGENTS.md`, on purpose.** The one at your project root is a thin pointer, in the place each agent
+reads natively. The real brain (intent router, workflow, rules) is `.spectoflow/AGENTS.md`, owned by the
+framework and refreshed by `spectoflow update`.
 
 ## Update
 

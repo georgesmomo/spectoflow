@@ -1846,3 +1846,24 @@
   `lib/dashboard/{ops.js,runner.js,meeting.js}`, `lib/dashboard/public/vendor/prism/**`,
   `test/{commands,ops,runner,meeting}.test.js`. `demo/` rafraîchi via `update` (0.24.0 → 0.27.0).
 
+
+### D71 — 0.27.2 : un `AGENTS.md`/`GEMINI.md` existant reçoit un pointeur au lieu d'être ignoré
+
+- **Contexte.** Trouvé en répondant à une question d'usage (« que fait le framework si le fichier agent
+  existe déjà ? »). `init` traitait `CLAUDE.md` (renommé en `CLAUDE.md.tomerge`, fusionné par l'agent au
+  premier lancement) mais écrivait tous les autres fichiers d'entrée avec `writeIfAbsent` : un
+  `AGENTS.md` déjà présent — fichier d'entrée de 10 des 13 agents, très courant dans un projet existant —
+  était laissé tel quel, **sans le pointeur vers `.spectoflow/AGENTS.md` et sans aucun message**. Ces
+  agents ne découvraient donc jamais spectoflow. `update` ne gérant pas les fichiers racine, un projet
+  déjà installé restait cassé indéfiniment.
+- **ACTÉ.** Pour `AGENTS.md`, `GEMINI.md` et `CLAUDE.md` : si le fichier existe et ne mentionne pas déjà
+  `.spectoflow/AGENTS.md`, on **ajoute à la fin** une section délimitée
+  (`<!-- spectoflow:start -->` … `<!-- spectoflow:end -->`), le contenu de l'utilisateur restant intact
+  et en premier. Idempotent (la présence de `.spectoflow/AGENTS.md` suffit, y compris un lien écrit à la
+  main). `init` le signale dans ses notes ; `update` répare les projets existants (ligne `linked`),
+  respecte `--dry-run`, et ne crée jamais un fichier absent.
+- **Pourquoi ajouter plutôt que renommer comme `CLAUDE.md`.** `AGENTS.md` est partagé entre outils et
+  souvent maintenu par l'équipe : le renommer le retirerait à tous les autres outils et humains jusqu'à ce
+  qu'un agent fasse la fusion. L'ajout fonctionne immédiatement, sans dépendre d'une exécution d'agent.
+  `CLAUDE.md` garde son mécanisme `.tomerge` à l'`init` (inchangé).
+- **Fichiers :** `lib/{adapters,init,update}.js`, `bin/spectoflow.js`, `test/{adapters,update}.test.js`, `README.md`.

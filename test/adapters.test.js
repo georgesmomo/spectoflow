@@ -10,7 +10,7 @@ const tmp = () => fs.mkdtempSync(path.join(os.tmpdir(), 'stf-adapt-'));
 
 test('generate writes the gemini entry file (GEMINI.md)', () => {
   const proj = tmp();
-  const written = adapters.generate(proj, ['gemini']);
+  const { written } = adapters.generate(proj, ['gemini']);
   assert.ok(written.includes('GEMINI.md'));
   assert.ok(fs.existsSync(path.join(proj, 'GEMINI.md')));
   assert.match(fs.readFileSync(path.join(proj, 'GEMINI.md'), 'utf8'), /\.spectoflow\/AGENTS\.md/);
@@ -18,13 +18,13 @@ test('generate writes the gemini entry file (GEMINI.md)', () => {
 
 test('generate writes the shared AGENTS.md once for codex + cursor', () => {
   const proj = tmp();
-  const written = adapters.generate(proj, ['codex', 'cursor']);
+  const { written } = adapters.generate(proj, ['codex', 'cursor']);
   assert.deepStrictEqual(written, ['AGENTS.md'], 'shared file written a single time');
 });
 
 test('generate writes claude shims: CLAUDE.md and the slash command', () => {
   const proj = tmp();
-  const written = adapters.generate(proj, ['claude']);
+  const { written } = adapters.generate(proj, ['claude']);
   assert.ok(written.includes('CLAUDE.md'));
   assert.ok(written.includes('.claude/commands/spectoflow.md'));
 });
@@ -38,7 +38,7 @@ test('defaultRunners returns a runner command per known agent', () => {
 
 test('generate writes the shared AGENTS.md once for opencode + kiro + antigravity', () => {
   const proj = tmp();
-  const written = adapters.generate(proj, ['opencode', 'kiro', 'antigravity']);
+  const { written } = adapters.generate(proj, ['opencode', 'kiro', 'antigravity']);
   assert.deepStrictEqual(written, ['AGENTS.md'], 'shared file written a single time');
   assert.match(fs.readFileSync(path.join(proj, 'AGENTS.md'), 'utf8'), /\.spectoflow\/AGENTS\.md/);
 });
@@ -88,7 +88,7 @@ test('copilot never uses .github as a detect dir (false-positive risk: any CI pr
 
 test('generate writes the shared AGENTS.md once for copilot + amazon-q + droid + auggie + goose', () => {
   const proj = tmp();
-  const written = adapters.generate(proj, ['copilot', 'amazon-q', 'droid', 'auggie', 'goose']);
+  const { written } = adapters.generate(proj, ['copilot', 'amazon-q', 'droid', 'auggie', 'goose']);
   assert.deepStrictEqual(written, ['AGENTS.md'], 'shared file written a single time');
 });
 
@@ -100,4 +100,40 @@ test('the September 2026 wave (copilot, amazon-q, droid, auggie, goose) are all 
     assert.ok(a.runner && a.runner.length, `${id} has a runner`);
     assert.match(a.docsUrl, /^https:\/\//, `${id} has a docs URL`);
   }
+});
+
+test('an existing AGENTS.md is kept and gets a spectoflow pointer section appended', () => {
+  const proj = tmp();
+  const own = '# Team conventions\n\nUse pnpm. Never commit to main.\n';
+  fs.writeFileSync(path.join(proj, 'AGENTS.md'), own);
+  const { written, appended } = adapters.generate(proj, ['codex', 'cursor']);
+  assert.deepStrictEqual(written, []);
+  assert.deepStrictEqual(appended, ['AGENTS.md'], 'shared file appended a single time');
+  const text = fs.readFileSync(path.join(proj, 'AGENTS.md'), 'utf8');
+  assert.ok(text.startsWith(own.trimEnd()), 'the user content is untouched, and stays first');
+  assert.match(text, /<!-- spectoflow:start -->[\s\S]*\.spectoflow\/AGENTS\.md[\s\S]*<!-- spectoflow:end -->\n$/);
+});
+
+test('appending the pointer is idempotent, and a file that already points to the brain is left alone', () => {
+  const proj = tmp();
+  fs.writeFileSync(path.join(proj, 'GEMINI.md'), '# mine\n');
+  adapters.generate(proj, ['gemini']);
+  const once = fs.readFileSync(path.join(proj, 'GEMINI.md'), 'utf8');
+  assert.deepStrictEqual(adapters.generate(proj, ['gemini']).appended, []);
+  assert.strictEqual(fs.readFileSync(path.join(proj, 'GEMINI.md'), 'utf8'), once);
+  assert.strictEqual((once.match(/spectoflow:start/g) || []).length, 1);
+
+  const manual = '# mine\nSee .spectoflow/AGENTS.md for everything.\n';
+  fs.writeFileSync(path.join(proj, 'AGENTS.md'), manual);
+  assert.deepStrictEqual(adapters.ensurePointers(proj), []);
+  assert.strictEqual(fs.readFileSync(path.join(proj, 'AGENTS.md'), 'utf8'), manual);
+});
+
+test('ensurePointers repairs existing memory files only, never creates one, and honours dryRun', () => {
+  const proj = tmp();
+  fs.writeFileSync(path.join(proj, 'AGENTS.md'), '# mine\n');
+  assert.deepStrictEqual(adapters.ensurePointers(proj, true), ['AGENTS.md'], 'dry-run reports');
+  assert.strictEqual(fs.readFileSync(path.join(proj, 'AGENTS.md'), 'utf8'), '# mine\n', 'dry-run writes nothing');
+  assert.deepStrictEqual(adapters.ensurePointers(proj), ['AGENTS.md']);
+  assert.ok(!fs.existsSync(path.join(proj, 'GEMINI.md')) && !fs.existsSync(path.join(proj, 'CLAUDE.md')), 'absent files are never created');
 });

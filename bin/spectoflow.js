@@ -133,7 +133,7 @@ async function update() {
   const r = require('../lib/update').runUpdate({ projectRoot: root, templatesDir: TPL, version: VERSION, dryRun, force });
 
   const from = r.fromVersion || 'unknown';
-  const changed = r.refreshed.length + r.created.length + r.adopted.length + r.newSidecar.length + r.forced.length + r.removed.length + r.migration.movedViews.length;
+  const changed = r.refreshed.length + r.created.length + r.adopted.length + r.newSidecar.length + r.forced.length + r.removed.length + r.migration.movedViews.length + r.pointers.length;
   const row = (sym, label, list, painter, note) => {
     if (!list.length) return;
     const n = c.dim(String(list.length).padStart(2));
@@ -150,6 +150,7 @@ async function update() {
   row(c.y('!'), '.new', r.newSidecar, c.y, 'you edited these — new version saved as *.new, merge by hand (or re-run with --force)');
   row(c.dim('−'), 'removed', r.removed, c.dim, 'no longer part of the kit (the dashboard lives in the spectoflow package now)');
   row(c.y('!'), 'kept', r.kept, c.y, 'you modified these and they are no longer part of the kit — delete them yourself when ready');
+  row(c.cy('+'), 'linked', r.pointers, c.cy, `${r.pointers.join(', ')} existed without a pointer — a spectoflow section was appended`);
   if (r.migration.movedViews.length) console.log(`  ${c.cy('→')}  ${c.cy('views'.padEnd(9))} ${c.dim(String(r.migration.movedViews.length).padStart(2))}   ${c.dim('custom views moved to .spectoflow/dashboards/')}`);
   r.migration.conflicts.forEach((f) => console.log(`  ${c.y('!')}  ${c.y('conflict'.padEnd(9))}      ${c.dim(`dashboards/${f} already exists — the old copy stays in dashboard/custom/ for you to merge`)}`));
   if (r.legacyLeftovers.length) console.log(`  ${c.y('!')}  ${c.dim('this project has no install manifest, so nothing was deleted. Safe to remove by hand: ' + r.legacyLeftovers.map((p) => '.spectoflow/' + p).join(', '))}`);
@@ -611,7 +612,8 @@ const HELP = {
   ${c.dim('copilot, amazon-q, droid, auggie, goose, kimi')}) and writes their entry shims; override
   with ${c.g('--agent=claude,codex')}. Also wires ${c.bold('Playwright MCP')} into the project's
   ${c.dim('.mcp.json')} (idempotent — never touches an existing entry).
-  ${c.dim('An existing CLAUDE.md is preserved as CLAUDE.md.tomerge for you to merge on first run.')}
+  ${c.dim('An existing CLAUDE.md is preserved as CLAUDE.md.tomerge for you to merge on first run;')}
+  ${c.dim('an existing AGENTS.md/GEMINI.md is kept and gets a spectoflow pointer section appended.')}
   ${c.dim('Full list with docs links: the dashboard\'s Documentation tab, or the README.')}`,
   update: `${c.bold('spectoflow update')} ${c.dim('[--dry-run] [--force|-f]')}\n
   Refresh framework-owned files (engine, default agents & skills, AGENTS.md, policy…)
