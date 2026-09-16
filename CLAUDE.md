@@ -5,6 +5,15 @@ framework with a real-time local control plane. This file orients you to **build
 (it is not a spectoflow-managed project). Read `docs/` before making changes:
 `docs/ARCHITECTURE.md`, `docs/DECISIONS.md` (the full rationale, D1–D23), `docs/ROADMAP.md` (what's next).
 
+## What exists (v0.30.0 — see DECISIONS D74)
+
+**The hub answers this machine only.** It launches agents and writes project files, and it used to listen on
+every interface with no check (LAN machines and any web page could drive it: a cross-site `no-cors` POST really
+created a task). `lib/dashboard/hub-server.js` now listens on `127.0.0.1` (+ `::1` best effort) and gates EVERY
+request through `isLocalRequest` (`handlers.js`): loopback socket, local `Host`, no cross-site/same-site
+`Sec-Fetch-Site`, `Origin` equal to the host → else 403. Only a top-level cross-site GET navigation passes the
+hub gate (a link clicked elsewhere); ops stay strict (`ctx.remote`). Remote access = the online dashboard.
+
 ## What exists (v0.29.0 — see DECISIONS D73)
 
 **The second brain.** What spectoflow learns about the user (profile, preferences, working style, things to
@@ -21,8 +30,7 @@ connector ops AND any HTTP request that is not loopback + local Host + same Orig
 online; the hub's brain-file watcher pushes a `brain` SSE event to local tabs only. An independent review before
 publish found 2 Critical + 6 Important issues (brain facts reaching the relay via the chat log; online members
 writing into the owner's brain; Codex TOML duplication; hand-edit loss; LAN exposure of the brain…) — all fixed
-and re-verified. Still open, reported: the hub listens on all interfaces, so the rest of the dashboard stays
-LAN-reachable as before.
+and re-verified.
 
 ## What exists (v0.28.0 — see DECISIONS D71, D72)
 

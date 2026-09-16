@@ -400,3 +400,33 @@ test('a pre-0.24 ~/.spectoflow/projects.json is moved into the workspace on firs
     assert.ok(!fs.existsSync(path.join(home, 'projects.json')));
   } finally { srv.kill(); }
 });
+
+test('the hub answers this machine only: loopback interfaces, a local Host, no cross-site requests (D74)', async () => {
+  const home = freshHome();
+  const a = project(home, 'sec');
+  const port = 5700 + Math.floor(Math.random() * 100);
+  const srv = await startHub(home, port);
+  const call = ({ host = '127.0.0.1', method = 'GET', path: p = `/api/project?p=${a.id}`, headers = {} } = {}) => new Promise((resolve) => {
+    const r = http.request({ host, port, path: p, method, headers, timeout: 2000 }, (res) => { res.resume(); resolve(res.statusCode); });
+    r.on('error', (e) => resolve(e.code));
+    r.on('timeout', () => { r.destroy(); resolve('TIMEOUT'); });
+    r.end();
+  });
+  try {
+    assert.strictEqual(await call(), 200, 'this machine, plain request');
+    assert.strictEqual(await call({ headers: { Host: `localhost:${port}` } }), 200, 'Host localhost');
+    assert.strictEqual(await call({ headers: { Host: `evil.example:${port}` } }), 403, 'DNS rebinding: foreign Host on a loopback socket');
+    assert.strictEqual(await call({ headers: { Host: 'my-tunnel.ngrok.app' } }), 403, 'a tunnel or proxy on this machine');
+    assert.strictEqual(await call({ method: 'POST', path: `/api/task?p=${a.id}`, headers: { Origin: 'https://evil.example', 'Content-Type': 'application/json' } }), 403, 'cross-site POST');
+    assert.strictEqual(await call({ headers: { 'Sec-Fetch-Site': 'cross-site', 'Sec-Fetch-Mode': 'cors' } }), 403, 'cross-site fetch');
+    assert.strictEqual(await call({ headers: { 'Sec-Fetch-Site': 'same-site', 'Sec-Fetch-Mode': 'cors', Origin: 'http://localhost:3000' } }), 403, 'another local port');
+    assert.strictEqual(await call({ method: 'POST', path: `/api/task?p=${a.id}`, headers: { 'Sec-Fetch-Site': 'cross-site', 'Sec-Fetch-Mode': 'navigate' } }), 403, 'a cross-site form POST is not a harmless navigation');
+    assert.strictEqual(await call({ path: `/p/${a.id}/board`, headers: { 'Sec-Fetch-Site': 'cross-site', 'Sec-Fetch-Mode': 'navigate', 'Sec-Fetch-Dest': 'document' } }), 200, 'a link to the dashboard clicked on another site still opens it');
+    assert.strictEqual(await call({ headers: { Origin: `http://127.0.0.1:${port}`, 'Sec-Fetch-Site': 'same-origin' } }), 200, 'the dashboard tab itself');
+
+    const hasV6Loopback = Object.values(os.networkInterfaces()).flat().some((i) => i && i.internal && i.family === 'IPv6' && i.address === '::1');
+    if (hasV6Loopback) assert.strictEqual(await call({ host: '::1', headers: { Host: `[::1]:${port}` } }), 200, 'IPv6 loopback served too');
+    const lan = Object.values(os.networkInterfaces()).flat().find((i) => i && !i.internal && i.family === 'IPv4');
+    if (lan) assert.ok(['ECONNREFUSED', 'EHOSTUNREACH', 'TIMEOUT'].includes(await call({ host: lan.address })), `not reachable on ${lan.address}`);
+  } finally { srv.kill(); }
+});

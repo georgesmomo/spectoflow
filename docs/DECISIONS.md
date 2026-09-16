@@ -1976,3 +1976,35 @@
   `templates/{SPECTOFLOW.md,README.md,config.json}`, `server/src/relay.js` (commentaire), tests
   `test/{brain,brain-setup,mcp-server,ops-brain}.test.js` + `runner`/`ops`/`routes`, `server/test/relay.test.js`,
   `README.md`, `docs/second-brain-design.md`.
+
+### D74 — 0.30.0 : le hub ne répond plus qu'à cette machine
+
+- **Contexte.** Signalé pendant la relecture du second brain (D73) et validé par l'utilisateur : le hub
+  écoutait sur **toutes les interfaces** sans aucune vérification, alors qu'il lance des agents et écrit les
+  fichiers des projets. N'importe quelle machine du réseau local pouvait donc le piloter, et n'importe quelle
+  page web aussi : un `POST` inter-sites « silencieux » (`no-cors`) créait bel et bien une tâche, et une page
+  utilisant le DNS rebinding pouvait tout lire. D73 n'avait protégé que le second brain.
+- **ACTÉ.**
+  - **Écoute sur la boucle locale seulement** : `127.0.0.1`, et `::1` en best effort (`localhost` peut
+    résoudre vers IPv6 en premier ; sans `::1` sur la machine, IPv4 suffit). Une autre machine du réseau ne
+    peut plus se connecter.
+  - **Chaque requête est vérifiée** (`isLocalRequest`, `handlers.js`, désormais appelée en tête du serveur du
+    hub) : socket loopback, `Host` local (`localhost`, `127.0.0.1`, `[::1]`), `Sec-Fetch-Site` ni `cross-site`
+    ni `same-site`, et `Origin` (quand le navigateur l'envoie) égal à ce même hôte. Sinon : **403** avec un
+    message qui indique l'adresse locale. Cela bloque le DNS rebinding, les tunnels/proxys de la même
+    machine (qui arrivent par 127.0.0.1 avec un `Host` public), les `fetch`/`POST` inter-sites et les
+    formulaires.
+  - **Exception** : une navigation `GET`/`HEAD` de premier niveau venant d'un autre site passe (un lien vers
+    le dashboard cliqué ailleurs) — la page d'origine ne peut pas lire ce qu'elle ouvre. Les ops, elles, ne
+    font jamais cette exception (`ctx.remote` reste strict pour le second brain et l'apprentissage).
+- **Conséquence assumée, choisie par l'utilisateur** : on ne peut plus ouvrir le dashboard depuis un autre
+  appareil du réseau local. L'accès à distance, c'est le dashboard en ligne (`server/`). Version **mineure**
+  plutôt qu'un patch : une mise à jour automatique ne doit pas retirer cet usage sans le signaler.
+- **Vérifié** : test d'intégration sur un vrai hub (`test/hub-server.test.js` : hôte étranger, tunnel, POST
+  et fetch inter-sites, autre port local, formulaire POST, lien cliqué depuis un autre site autorisé, IPv6
+  loopback servi, adresse réseau local refusée) ; `ss` : écoute sur `127.0.0.1:4399` et `[::1]:4399`
+  seulement ; en vrai Chrome, une page d'un autre site : `fetch` en lecture bloqué, `POST no-cors` refusé
+  (aucune tâche créée — elle l'aurait été avant), formulaire vers le second brain refusé, lien vers le
+  dashboard ouvert normalement ; QA navigateur du dashboard 29/29 ; suite 431/432 (le seul échec est le test
+  connu qui détecte le hub réel de l'utilisateur sur 4319), serveur 117/117.
+- **Fichiers :** `lib/dashboard/{hub-server,handlers}.js`, `test/{hub-server,ops-brain}.test.js`, `README.md`.

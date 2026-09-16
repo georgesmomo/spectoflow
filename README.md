@@ -198,6 +198,12 @@ spectoflow dashboard                     # → http://localhost:4319 (or --port=
 dashboard already running on the port). `spectoflow status` tells you whether one is up. Zero
 dependencies, updates live via SSE + file watching.
 
+**It only answers this machine.** The hub can launch agents and write your project files, so it listens
+on the loopback interfaces only (`127.0.0.1`, `::1`) and refuses any request whose `Host` isn't local or
+that another website sent — a malicious page, a DNS-rebinding trick, or a tunnel/proxy you run on the same
+machine can't drive it. Clicking a link to it from another site still opens it. To reach your projects from
+another device, use the online dashboard ([below](#going-online-optional-local-hub-vs-relay-server)).
+
 ### One hub, every project
 
 There is only ever **one dashboard process on your machine**, no matter how many projects you have.
@@ -388,7 +394,7 @@ agents then read and grow your second brain through that server: nothing is copi
   that output also carries command output and file contents, so a line hidden in a repository can't slip
   in unseen.
 - **Private:** the Second brain tab and its API answer this machine only — not the online dashboard
-  (`server/` refuses them for everyone, the project owner included), and not other machines on your network.
+  (`server/` refuses them for everyone, the project owner included), and not other machines or websites.
   A run started from either of those can't write into it, and a learned fact never goes into a project's chat
   log.
 

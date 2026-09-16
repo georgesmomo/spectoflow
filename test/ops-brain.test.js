@@ -102,7 +102,9 @@ test('a run or an orchestration started by a remote caller cannot write into the
 test('the hub marks connector ops remote, and its brain watcher only ever writes to local SSE clients', () => {
   const src = fs.readFileSync(path.join(__dirname, '..', 'lib', 'dashboard', 'hub-server.js'), 'utf8');
   assert.match(src, /return ops\[op\]\(proj\.root, args \|\| \{\}, \{ emit: proj\.emit, remote: true \}\);/);
-  const watch = src.slice(src.indexOf('function watchBrain'), src.indexOf('server.listen'));
+  const start = src.indexOf('function watchBrain');
+  const watch = src.slice(start, src.indexOf('\n}\n', start) + 3);
+  assert.ok(watch.includes('fs.watch'), 'sliced the whole watchBrain function');
   assert.ok(watch.includes('proj.clients') && !/connector|proj\.emit|emit\(/.test(watch), 'brain events go to local tabs only');
   const handlers = require('../lib/dashboard/handlers');
   for (const a of ['127.0.0.1', '::1', '::ffff:127.0.0.1', '127.0.1.1']) assert.strictEqual(handlers.isLoopback(a), true, a);
