@@ -5,6 +5,25 @@ framework with a real-time local control plane. This file orients you to **build
 (it is not a spectoflow-managed project). Read `docs/` before making changes:
 `docs/ARCHITECTURE.md`, `docs/DECISIONS.md` (the full rationale, D1–D23), `docs/ROADMAP.md` (what's next).
 
+## What exists (v0.29.0 — see DECISIONS D73)
+
+**The second brain.** What spectoflow learns about the user (profile, preferences, working style, things to
+avoid), shared by all their projects, in ONE file: `~/.spectoflow/brain.md` (`lib/brain.js` — fidelity-first
+parser: untouched lines written back byte for byte, stable derived ids, cross-process lock). Never copied into
+a project. Agents reach it through `spectoflow mcp` (`lib/mcp-server.js`, zero-dep stdio MCP: `brain_read`,
+`brain_learn`, confirmed entries in `initialize` → `instructions`, framed as data, not commands), registered at
+USER level per agent by `spectoflow brain setup [--dry-run]` (`lib/brain-setup.js`; paths researched per agent,
+see `docs/second-brain-design.md`). Headless dashboard runs that refuse MCP tools fall back to a
+`::spectoflow learn` line (`runner.js`) which ALWAYS lands in "To confirm", never in the chat log, and is ignored
+for runs a remote caller started. Setting `brain.autoAdd` (global config, default true) applies to MCP learns.
+Dashboard tab **Second brain** (`NATIVE_TABS` now 14), local only: `brain.*` ops refuse `ctx.remote` (set for
+connector ops AND any HTTP request that is not loopback + local Host + same Origin, `handlers.js`), absent from the relay's `OP_PERMISSIONS`, tab hidden
+online; the hub's brain-file watcher pushes a `brain` SSE event to local tabs only. An independent review before
+publish found 2 Critical + 6 Important issues (brain facts reaching the relay via the chat log; online members
+writing into the owner's brain; Codex TOML duplication; hand-edit loss; LAN exposure of the brain…) — all fixed
+and re-verified. Still open, reported: the hub listens on all interfaces, so the rest of the dashboard stays
+LAN-reachable as before.
+
 ## What exists (v0.28.0 — see DECISIONS D71, D72)
 
 **The brain is `.spectoflow/SPECTOFLOW.md`** (was `.spectoflow/AGENTS.md`, too easy to confuse with the

@@ -28,6 +28,7 @@
     {"id":"meeting","enabled":false},
     {"id":"info","enabled":true},
     {"id":"docs","enabled":true},
+    {"id":"brain","enabled":true},
     {"id":"personalize","enabled":true}
   ],
   "runners": {

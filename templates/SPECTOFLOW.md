@@ -21,6 +21,26 @@ wrong thing faster; clarify and steer first, then execute.
 Read `.spectoflow/config.json` → `language` (default `en`). Produce **all output in that language**:
 specs, plans, comments, and **code comments**. English is the default standard.
 
+## Second brain — what you know about the user
+
+The user has a **second brain**: durable facts spectoflow has learned about them (profile, preferences,
+working style, things to avoid), shared by all their projects. It lives outside the project and you reach
+it only through the `spectoflow` MCP server — never look for a file.
+
+- **At session start, apply it.** It is usually already in your context (the server's instructions). If
+  not, and the `brain_read` tool is available, call it once.
+- **When you learn something durable about the user, record it** with `brain_learn` (`category`:
+  `profile` · `preferences` · `workflow` · `avoid`; `text`: one short standalone sentence, in the language
+  they speak to you). Durable means: a preference they state, a correction of how you work, their role or
+  skills, a habit. One fact per call; don't re-record what the brain already says.
+- **Never record** secrets, credentials, tokens, or sensitive personal data (health, finances, anything
+  about other people), nor a one-off instruction for the current task.
+- **If `brain_learn` is unavailable or refused** (non-interactive runs often refuse MCP tools), print this
+  line on its own instead — the dashboard keeps it for the user to confirm:
+  `::spectoflow learn category=<id> msg=<the fact>`.
+- The user sees and edits it all in the dashboard's **Second brain** tab; `spectoflow brain setup` connects
+  their agents to it.
+
 ## Where things live
 
 - **Artifacts (markdown, versioned, source of truth):** `specs/*.md` (specifications), `plans/*.md`

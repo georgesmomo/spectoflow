@@ -91,6 +91,9 @@ spectoflow dashboard init [--path=<dir>]       create/move the dashboard workspa
 spectoflow dashboard validate <file>           check a custom-view JSON against the block schema
 spectoflow config [get|set <key> [<value>]]    global defaults + dashboard URL/path (~/.spectoflow/config.json)
 
+spectoflow brain                               your second brain: entries, and which agents can reach it
+spectoflow brain setup [--dry-run]             connect your installed agents to it (once per machine)
+
 spectoflow skill create "..." | --auto         generate a project skill
 spectoflow agent create "..." | --auto         generate a project agent
 
@@ -256,7 +259,7 @@ it grows one extra, optional connection outward:
 | `spectoflow dashboard logout` | your machine | unlink the machine entirely |
 
 The header bar always shows the brand, the **active agent**, autonomy mode, language, a global-progress
-meter, a sync dot, and a **Run** quick-action. Thirteen tabs — and **which ones you see, and in what
+meter, a sync dot, and a **Run** quick-action. Fourteen tabs — and **which ones you see, and in what
 order, is up to you** (Personalize → *Navigation tabs*: enable / disable / reorder; two of them ship
 off by default):
 
@@ -279,6 +282,8 @@ off by default):
 - **Info** — a project-at-a-glance summary.
 - **Documentation** — the live supported-agents table (your own install status + links) plus the CLI
   command reference.
+- **Second brain** — what spectoflow has learned about you, shared by all your projects: read, add, fix,
+  confirm (see [Second brain](#second-brain)). Local only.
 - **Personalize** — autonomy mode, language, design, the active agent, **navigation tabs**, **slash
   commands**, and **Extend spectoflow** (see *Customize* below).
 
@@ -342,6 +347,50 @@ spectoflow skill create "reviews PRs for accessibility"      # or: --auto to pro
 spectoflow agent create "owns accessibility review"          # or: --auto
 spectoflow dashboard create "a KPI overview for support"     # or: --auto
 ```
+
+## Second brain
+
+spectoflow learns about **you** as you work, and remembers it across all your projects: your role, your
+preferences, how you like to work, what to avoid. Every agent session starts with it, whatever the agent.
+
+```
+  you work, in any project, with any agent
+        │  "commit messages in English, always"
+        ▼
+  the agent records it ── brain_learn ──►  ~/.spectoflow/brain.md   (one file, yours, never in a repo)
+                                                   │
+        ┌──────────────────────────────────────────┼─────────────────────────────┐
+        ▼                                          ▼                             ▼
+  next session, any project:             dashboard → Second brain tab:   you can edit the file
+  the agent starts with it               read, add, fix, confirm         by hand, too
+```
+
+**One-time setup, per machine:**
+
+```bash
+spectoflow brain setup --dry-run   # see what it would change
+spectoflow brain setup             # connect every coding agent installed on this machine
+```
+
+It registers a small MCP server, `spectoflow mcp`, in each installed agent's **user-level** config (Claude
+Code, Codex, Cursor, Gemini, OpenCode, Kiro, Antigravity, Copilot, Amazon Q, Droid, Auggie, Kimi; Goose
+gets a snippet to paste). It never touches an existing entry and never rewrites a file it can't parse. The
+agents then read and grow your second brain through that server: nothing is copied into your projects.
+
+- **Four categories:** Profile, Preferences, Working style, Avoid.
+- **Facts an agent records through MCP are added directly by default.** To review them first, untick *Add what the agent learns
+  directly* on the page, or run `spectoflow config set brain.autoAdd false`: new facts then wait in
+  *To confirm*.
+- **What gets recorded:** durable facts only. Never secrets, credentials or sensitive personal data, never
+  a one-off instruction. The rule is written in every agent's instructions and in the MCP tools themselves.
+- **Runs launched from the dashboard:** non-interactive agents often refuse MCP tools, so the agent prints a
+  `::spectoflow learn category=… msg=…` line instead. Those always wait in *To confirm*, whatever the setting:
+  that output also carries command output and file contents, so a line hidden in a repository can't slip
+  in unseen.
+- **Private:** the Second brain tab and its API answer this machine only — not the online dashboard
+  (`server/` refuses them for everyone, the project owner included), and not other machines on your network.
+  A run started from either of those can't write into it, and a learned fact never goes into a project's chat
+  log.
 
 ## Agents vs skills
 

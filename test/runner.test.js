@@ -127,3 +127,53 @@ test('without display, the user bubble is the prompt (unchanged behavior)', asyn
   await runOnceWithDisplay(proj, 'add login', undefined);
   assert.strictEqual(store.readRuntime(proj).messages[0].text, 'add login');
 });
+
+test('parseLearnLine reads category and msg; anything else is not a learn line', () => {
+  const { parseLearnLine } = require('../lib/dashboard/runner');
+  assert.deepStrictEqual(parseLearnLine('  ::spectoflow learn category=profile msg=Scrum master and dev  '), { category: 'profile', text: 'Scrum master and dev' });
+  assert.deepStrictEqual(parseLearnLine('::spectoflow learn msg=no category=here'), { category: undefined, text: 'no category=here' }, 'category is only read before msg=');
+  assert.strictEqual(parseLearnLine('::spectoflow learn category=profile msg=   '), null);
+  assert.strictEqual(parseLearnLine('::spectoflow attention msg=x'), null);
+});
+
+test('a `::spectoflow learn` line lands in "To confirm" (whatever brain.autoAdd says), never in the chat log, never as raw output', async () => {
+  const prevHome = process.env.SPECTOFLOW_HOME;
+  process.env.SPECTOFLOW_HOME = fs.mkdtempSync(path.join(os.tmpdir(), 'stf-runner-brain-'));
+  try {
+    const proj = installWithStub();
+    const cfgPath = path.join(proj, '.spectoflow', 'config.json');
+    const cfg = JSON.parse(fs.readFileSync(cfgPath, 'utf8'));
+    cfg.runners = { claude: `node ${path.join(KIT, 'test', 'fixtures', 'learn-agent.js').split(path.sep).join('/')}` };
+    fs.writeFileSync(cfgPath, JSON.stringify(cfg, null, 2) + '\n');
+    assert.strictEqual(require('../lib/brain').autoAdd(), true, 'autoAdd is on');
+    const events = await runOnce(proj, 'go');
+    const text = fs.readFileSync(path.join(process.env.SPECTOFLOW_HOME, 'brain.md'), 'utf8');
+    assert.match(text, /## To confirm\n- \[avoid\] Never publish without asking <!-- id:\S+ by:agent/);
+    const raw = events.filter((e) => e.type === 'run-line').map((e) => e.chunk).join('');
+    assert.ok(!raw.includes('::spectoflow learn') && !raw.includes('Never publish'), 'not streamed raw');
+    const log = JSON.stringify(store.readRuntime(proj).messages);
+    assert.ok(!log.includes('Never publish') && !/second brain/i.test(log), 'the fact never reaches the chat log (it is part of project.read → the relay snapshot)');
+    assert.ok(!JSON.stringify(events).includes('Never publish'), 'nor any emitted event (they are teed to the connector)');
+  } finally {
+    if (prevHome === undefined) delete process.env.SPECTOFLOW_HOME; else process.env.SPECTOFLOW_HOME = prevHome;
+  }
+});
+
+test('a run started with learn:false (a remote caller) never writes into the second brain', async () => {
+  const prevHome = process.env.SPECTOFLOW_HOME;
+  process.env.SPECTOFLOW_HOME = fs.mkdtempSync(path.join(os.tmpdir(), 'stf-runner-brain-'));
+  try {
+    const proj = installWithStub();
+    const cfgPath = path.join(proj, '.spectoflow', 'config.json');
+    const cfg = JSON.parse(fs.readFileSync(cfgPath, 'utf8'));
+    cfg.runners = { claude: `node ${path.join(KIT, 'test', 'fixtures', 'learn-agent.js').split(path.sep).join('/')}` };
+    fs.writeFileSync(cfgPath, JSON.stringify(cfg, null, 2) + '\n');
+    const events = await new Promise((resolve) => {
+      const ev = []; startRun(proj, { prompt: 'go', agent: 'claude', learn: false }, (e) => { ev.push(e); if (e.type === 'run-end') resolve(ev); });
+    });
+    assert.ok(!fs.existsSync(path.join(process.env.SPECTOFLOW_HOME, 'brain.md')), 'nothing written');
+    assert.ok(!JSON.stringify(events).includes('Never publish'), 'and the line is still not echoed');
+  } finally {
+    if (prevHome === undefined) delete process.env.SPECTOFLOW_HOME; else process.env.SPECTOFLOW_HOME = prevHome;
+  }
+});

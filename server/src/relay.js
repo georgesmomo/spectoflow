@@ -13,6 +13,8 @@ const REPLY_TIMEOUT_MS = Number(process.env.SPECTOFLOW_RELAY_REPLY_TIMEOUT_MS) |
 // defines (server/src/relay.js never hardcodes a second copy of that table; this maps each of ITS
 // names to the ONE permission that gates it, kept in sync with routes.js by the fact that an
 // unrecognized op name below fails closed — see checkAccess's `required` lookup).
+// The second brain's `brain.*` routes are deliberately NOT listed: they are the machine owner's personal
+// data, never a project's, so they must fail closed here for everyone, the project owner included.
 const OP_PERMISSIONS = {
   'project.read': 'project.read', 'agentfile.read': 'project.read', 'files.tree': 'project.read', 'files.read': 'project.read',
   'files.write': 'project.write', 'files.mkdir': 'project.write', 'task.add': 'project.write', 'task.update': 'project.write',

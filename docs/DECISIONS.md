@@ -1900,3 +1900,79 @@
   `lib/{adapters,init,update}.js`, `bin/spectoflow.js`, `lib/dashboard/public/{i18n.js,index.html,app.js}`,
   `test/{adapters,update,cli-update,ownership}.test.js`, `README.md`, `docs/ARCHITECTURE.md`. `demo/`
   migré via `update` (0.27.0 → 0.28.0).
+
+### D73 — 0.29.0 : le second brain — ce que spectoflow apprend sur l'utilisateur, via MCP
+
+- **Contexte.** Demande de l'utilisateur : une page qui contient ce qu'on apprend sur lui au fil du travail
+  (faits, préférences…), qu'il peut enrichir lui-même, et qui est chargée dans le contexte de l'agent. Design
+  complet : `docs/second-brain-design.md` (approuvé en deux révisions).
+- **ACTÉ — choix de l'utilisateur.** Un second brain **personnel, partagé par tous ses projets**, dans un seul
+  fichier `~/.spectoflow/brain.md` (jamais dans un projet). **4 catégories** (Profil, Préférences, Façon de
+  travailler, À éviter). **Ajout direct par défaut**, réglage `brain.autoAdd` (config globale) pour exiger la
+  validation. **Aucune copie du fichier** : la révision 1 (copie en lecture seule par projet + inbox +
+  synchro) a été refusée par l'utilisateur.
+- **ACTÉ — accès des agents par MCP.** `spectoflow mcp` : serveur MCP stdio zéro-dépendance, outils
+  `brain_read`/`brain_learn`, et le contenu confirmé dans les `instructions` d'`initialize`. Raison : beaucoup
+  d'agents ne peuvent ni écrire ni lire hors du projet sans permission (sandbox Codex…), alors qu'un serveur
+  MCP est lancé par l'hôte hors de cette restriction ; ça couvre aussi les sessions en terminal. Recherche
+  agent par agent dans leurs docs officielles (et le code source quand la doc se taisait) : l'enregistrement
+  **au niveau utilisateur** est le seul fiable pour les 13 (le niveau projet exige la confiance dans Codex,
+  est ignoré par Antigravity — bug ouvert —, absent de Goose et Kimi). Vérifié en direct : Claude Code reçoit
+  le second brain au démarrage via `instructions`, sans appel d'outil (et a appliqué la préférence « répond en
+  français »).
+- **ACTÉ — `spectoflow brain setup [--dry-run]`**, commande explicite (elle modifie des fichiers du dossier
+  personnel, donc jamais un effet caché d'`init`, qui se contente de la signaler) : entrée `spectoflow` dans la
+  config utilisateur de chaque agent installé ; jamais une entrée existante touchée, jamais un fichier
+  illisible réécrit ; Claude Code via `claude mcp add --scope user` (il réécrit `~/.claude.json` en
+  permanence) ; Goose (YAML) et toute mention ambiguë dans le TOML de Codex → bloc à coller, jamais d'ajout ;
+  `node` + chemin absolu sur Windows (un shim `.cmd` ne se lance pas sans shell).
+- **ACTÉ — mode automatique du dashboard.** Les agents non interactifs refusent souvent les outils MCP
+  (Claude `-p`, `codex exec` — bug openai/codex#24135 —, `agy -p`, `droid exec`). Repli : l'agent affiche
+  `::spectoflow learn category=… msg=…`, le runner l'enregistre. Un rappel de 4 lignes dans les fichiers
+  racine (`CLAUDE.md`/`AGENTS.md`/`GEMINI.md`), comme pour le réflexe Clarify (D31) : test réel à l'appui, sur
+  une réponse courte Claude Code n'ouvrait pas `SPECTOFLOW.md` et n'enregistrait rien.
+- **Page** : onglet **Second brain** (activé par défaut, `NATIVE_TABS` → 14), à confirmer en tête, une carte
+  par catégorie (ajout/édition/suppression en ligne), réglage en haut, état de connexion des agents, rafraîchi
+  en direct par un événement SSE `brain` que le hub émet quand le fichier change (page, MCP ou run). i18n ×6,
+  6 designs.
+- **Relecture indépendante (avant publication) : 2 critiques, 6 importants, tous corrigés et re-vérifiés.**
+  - *C1* : le fait appris passait dans le journal du chat (« Added to your second brain: … »), donc dans
+    `project.read`, donc dans le snapshot envoyé au relais pour un projet publié → plus aucun texte de fait
+    dans le journal ni dans un événement émis.
+  - *C2* : un membre en ligne pouvait lancer un run et lui faire afficher une ligne `learn`, écrivant dans le
+    second brain du propriétaire (injection durable, rechargée dans toutes ses sessions) → `learn: false`
+    pour tout run/orchestration venu du relais ou d'une autre machine, et un fait issu d'une ligne `learn`
+    arrive **toujours en « À confirmer »** quel que soit `brain.autoAdd` (la sortie brute porte aussi les
+    sorties de commandes et le contenu de fichiers : une ligne cachée dans un dépôt ne doit pas passer).
+  - *I1* : `brain setup` pouvait dupliquer la table `spectoflow` du TOML de Codex (vérifié : Codex refuse
+    alors toute sa config) ; *I2* : ordre des arguments `claude mcp add` faux dès que `SPECTOFLOW_HOME` est
+    défini, `CLAUDE_CONFIG_DIR` ignoré, guillemets Windows ; *I3* : commande Windows non lançable ; *I4* : toute
+    écriture perdait des modifications manuelles du fichier (titre, lignes vides, blocs de code, ordre des
+    sections, commentaires) → réécriture du parseur, fidèle à l'octet près pour ce qui n'est pas modifié, ids
+    stables par occurrence, verrou inter-processus ; *I5* : les `instructions` présentent maintenant les
+    entrées comme des données, jamais des consignes qui lèveraient une protection ; *I6* : le hub écoute sur
+    toutes les interfaces, donc le second brain était lisible/modifiable depuis le réseau local → une requête
+    n'est « locale » que si les trois tiennent : socket loopback, `Host` local, et `Origin` (quand le
+    navigateur l'envoie) égal à ce même hôte. La re-vérification du reviewer a montré pourquoi le socket seul
+    ne suffit pas : une page utilisant le DNS rebinding, un POST inter-sites, ou un tunnel/proxy sur la même
+    machine (ngrok, Caddy) arrivent eux aussi par 127.0.0.1.
+  - Re-vérification (même reviewer) : tout confirmé corrigé, plus deux points traités dans la foulée — un
+    `mcp_servers = { … }` en table inline dans le TOML de Codex (qu'un en-tête `[mcp_servers.x]` casse aussi →
+    bloc à coller) et le commentaire d'une ligne écrite à la main, qui n'est plus envoyé à l'agent. Limite
+    acceptée : si deux écrivains reprennent au même instant le verrou d'un écrivain planté (> 10 s), l'un
+    peut écraser l'autre.
+- **Signalé à l'utilisateur, non changé** : le reste du dashboard (runs, fichiers) reste joignable depuis le
+  réseau local et exposé aux mêmes requêtes inter-sites qu'avant — seul le second brain (et l'apprentissage
+  depuis un run) est désormais protégé ; durcir tout le dashboard est une décision à part.
+- **Vérifié** : suite 428/429 (le seul échec est le test connu qui détecte un hub réel sur le port 4319),
+  serveur 117/117 (dont les 6 routes → 404 en ligne, même pour le propriétaire) ; QA navigateur réelle en
+  Chrome headless sur un hub isolé (29/29 : ajout, doublon, confirmation, édition, rejet, suppression,
+  réglage, mise à jour en direct via un vrai `spectoflow mcp`, 6 designs, 400 px, fr) ; Claude Code réel en
+  MCP (lecture au démarrage, `brain_learn`) et en run dashboard (ligne `learn` → « À confirmer ») ; requêtes
+  réseau local → 404.
+- **Fichiers :** `lib/{brain,brain-setup,mcp-server,mcp,global-config,adapters,init}.js`,
+  `lib/dashboard/{runner,ops,routes,handlers,hub-server,orchestrator}.js`,
+  `lib/dashboard/public/{app.js,index.html,styles.css,i18n.js,icons.js}`, `bin/spectoflow.js`,
+  `templates/{SPECTOFLOW.md,README.md,config.json}`, `server/src/relay.js` (commentaire), tests
+  `test/{brain,brain-setup,mcp-server,ops-brain}.test.js` + `runner`/`ops`/`routes`, `server/test/relay.test.js`,
+  `README.md`, `docs/second-brain-design.md`.

@@ -374,6 +374,40 @@ function configCmd() {
   } catch (e) { console.log(`${c.y('!')} ${e.message}`); process.exitCode = 1; }
 }
 
+// ---- brain: the user's second brain (~/.spectoflow/brain.md), shared by every project ----
+function brainCmd() {
+  const brain = require('../lib/brain');
+  const brainSetup = require('../lib/brain-setup');
+  const tilde = (p) => (p.startsWith(os.homedir()) ? '~' + p.slice(os.homedir().length) : p);
+  if (argv[1] === 'setup') {
+    const dryRun = argv.includes('--dry-run');
+    const rows = brainSetup.setup({ binPath: __filename, dryRun });
+    console.log(wordmark());
+    console.log(`  ${c.bold('spectoflow brain setup')}${dryRun ? c.dim('   (dry-run)') : ''}   ${c.dim('registers the spectoflow MCP server in each installed agent (user level, once per machine)')}\n`);
+    if (!rows.length) { console.log(`  ${c.y('!')} No supported coding agent found on PATH.\n`); return; }
+    const w = Math.max(...rows.map((r) => r.label.length));
+    const sym = { created: c.cy('+'), added: c.g('✓'), exists: c.dim('·'), skipped: c.y('!'), manual: c.y('!'), failed: c.y('✗') };
+    for (const r of rows) {
+      console.log(`  ${sym[r.status] || '?'}  ${r.label.padEnd(w)}  ${r.status.padEnd(8)}  ${c.dim(r.via || tilde(r.file))}`);
+      if (r.status === 'skipped') console.log(c.dim(`       couldn't parse this file (comments?) — left untouched; add a "spectoflow" server running: spectoflow mcp`));
+      if (r.status === 'manual') console.log(c.dim(r.id === 'goose' ? `       YAML isn't edited automatically — add this to ${tilde(r.file)}:\n` : `       this file already mentions spectoflow in a form we can't read safely — check it, and add this if it's missing:\n`) + r.manual.split('\n').map((l) => '         ' + l).join('\n'));
+      if (r.status === 'failed') console.log(c.dim(`       ${r.detail || 'failed'}${r.manual ? `\n       run it yourself: ${r.manual}` : ''}`));
+    }
+    const changed = rows.filter((r) => ['created', 'added'].includes(r.status)).length;
+    console.log(`\n  ${dryRun ? c.dim('(dry-run — nothing was written)') : changed ? c.g(`✓ ${changed} agent(s) wired`) + c.dim(' — start a new agent session to load it') : c.dim('Nothing to change')}\n`);
+    return;
+  }
+  const r = brain.read();
+  console.log(wordmark());
+  console.log(`  ${c.bold('Second brain')}   ${c.dim(tilde(brain.brainPath()))}`);
+  console.log(`  ${r.entries.length} entr${r.entries.length === 1 ? 'y' : 'ies'}${r.pending.length ? c.y(` · ${r.pending.length} to confirm`) : ''}   ${c.dim('learned facts: ' + (r.autoAdd ? 'added directly' : 'wait for your confirmation') + ' (spectoflow config set brain.autoAdd true|false)')}\n`);
+  const agents = brainSetup.status();
+  if (!agents.length) console.log(`  ${c.y('!')} No supported coding agent found on PATH.`);
+  agents.forEach((a) => console.log(`  ${a.wired ? c.g('●') : c.dim('○')} ${a.label}${a.wired ? '' : c.dim('  not wired')}`));
+  if (agents.some((a) => !a.wired)) console.log(`\n  ${c.dim('wire them:')} ${c.g('spectoflow brain setup')} ${c.dim('[--dry-run]')}`);
+  console.log('');
+}
+
 // ---- Customize: `spectoflow skill/agent/dashboard create` — the CLI mirror of the dashboard's
 // Settings → Customize UI. Both surfaces build the same natural-language prompt (customize-prompts.js)
 // and post it through the same pipeline (runner.js's startRun — the function /api/run itself calls),
@@ -589,6 +623,10 @@ ${c.bold('Dashboard')}
   ${c.g('dashboard login')} ${c.dim('--url=<u> --token=<t>')}  connect this machine to an online dashboard ${c.dim('(logout · publish · unpublish)')}
   ${c.g('projects')} ${c.dim('[remove <id>]')}     list every project seen so far
 
+${c.bold('Second brain')} ${c.dim('— what spectoflow learns about you, shared by all your projects')}
+  ${c.g('brain')}                       what it holds, and which agents can reach it
+  ${c.g('brain setup')} ${c.dim('[--dry-run]')}   register the spectoflow MCP server in your installed agents
+
 ${c.bold('Customize')} ${c.dim('— same as Settings → Customize, from the terminal')}
   ${c.g('skill create')} ${c.dim('"<description>" | --auto')}      generate a project skill
   ${c.g('agent create')} ${c.dim('"<description>" | --auto')}      generate a project agent
@@ -662,6 +700,14 @@ const HELP = {
   agents: `${c.bold('spectoflow agents')}\n  List the stable team personas (name · capability · role).`,
   skills: `${c.bold('spectoflow skills')}\n  List the evolving procedures (name · capability · what it does).`,
   workflow: `${c.bold('spectoflow workflow')}\n  Show the pipeline steps, marking which are enabled (●) or disabled (○).`,
+  brain: `${c.bold('spectoflow brain')} ${c.dim('[setup [--dry-run]]')}\n
+  Your second brain — what spectoflow has learned about you (profile, preferences, working style,
+  things to avoid), in ${c.dim('~/.spectoflow/brain.md')}, shared by all your projects and editable in the
+  dashboard's ${c.bold('Second brain')} tab. Agents read and grow it through the ${c.g('spectoflow mcp')} server.
+    ${c.g('brain')}          show it: entries, entries to confirm, and which installed agents are wired
+    ${c.g('brain setup')}    register the MCP server in each installed agent's USER-level config (once
+                   per machine; never touches an existing entry; Goose gets a snippet to paste)
+  Learned facts are added directly by default: ${c.g('spectoflow config set brain.autoAdd false')} to confirm them first.`,
   stop: `${c.bold('spectoflow stop')}\n  Stop the running dashboard (alias for ${c.g('spectoflow dashboard stop')}).`,
   config: `${c.bold('spectoflow config')} ${c.dim('[get <key> | set <key> <value>]')}\n
   Global settings that apply to every project on this machine, stored in ${c.dim('~/.spectoflow/config.json')}:
@@ -677,6 +723,8 @@ const fns = {
   init, update, dashboard, stop: stopDashboard, status, list: listAll, help, version,
   projects: projectsCmd,
   config: configCmd,
+  mcp: () => require('../lib/mcp-server').serve({ version: VERSION }),
+  brain: brainCmd,
   agents: () => { console.log(wordmark()); printAgents(false); },
   skills: () => { console.log(wordmark()); printSkills(false); },
   workflow: () => { console.log(wordmark()); printWorkflow(false); },

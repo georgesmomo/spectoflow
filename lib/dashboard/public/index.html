@@ -65,6 +65,7 @@
       <button class="tab" data-tab="meeting" data-i18n-title="nav.meeting" title="Daily meeting"><span class="tab-ico" data-icon="meeting"></span><span class="tab-label" data-i18n="nav.meeting">Daily meeting</span></button>
       <button class="tab" data-tab="info" data-i18n-title="nav.info" title="Info"><span class="tab-ico" data-icon="info"></span><span class="tab-label" data-i18n="nav.info">Info</span></button>
       <button class="tab" data-tab="docs" data-i18n-title="nav.docs" title="Documentation"><span class="tab-ico" data-icon="docs"></span><span class="tab-label" data-i18n="nav.docs">Documentation</span></button>
+      <button class="tab" data-tab="brain" data-i18n-title="nav.brain" title="Second brain"><span class="tab-ico" data-icon="brain"></span><span class="tab-label" data-i18n="nav.brain">Second brain</span><span class="tab-badge" id="brainBadge" hidden>0</span></button>
       <button class="tab" data-tab="personalize" data-i18n-title="nav.settings" title="Personalize"><span class="tab-ico" data-icon="settings"></span><span class="tab-label" data-i18n="nav.settings">Personalize</span></button>
     </nav>
     <div class="top-right">
@@ -274,6 +275,24 @@
           </div>
           <div class="note-card-body" id="notesEditor"></div>
         </div>
+      </div>
+    </section>
+
+    <!-- SECOND BRAIN — what spectoflow has learned about the user, shared by all their projects.
+         Lives in ~/.spectoflow/brain.md (never in a project); agents reach it through `spectoflow mcp`. -->
+    <section class="panel" data-panel="brain">
+      <div class="brain-wrap">
+        <h2 class="panel-title"><span data-i18n="nav.brain">Second brain</span> <span class="count" id="brainCount">0</span></h2>
+        <p class="panel-sub" data-i18n="brain.sub">What spectoflow has learned about you, shared by all your projects and given to your agent in every session. Add or fix anything.</p>
+        <div class="brain-bar">
+          <label class="brain-auto"><input type="checkbox" id="brainAutoAdd"> <span data-i18n="brain.autoAdd">Add what the agent learns directly</span></label>
+          <span class="brain-auto-hint" id="brainAutoHint"></span>
+        </div>
+        <div class="brain-agents" id="brainAgents"></div>
+        <div class="brain-notice" id="brainNotice" hidden></div>
+        <div class="brain-pending" id="brainPending" hidden></div>
+        <div class="brain-grid" id="brainGrid"></div>
+        <p class="brain-path" id="brainPath"></p>
       </div>
     </section>
 

@@ -18,6 +18,10 @@ sit at the project root and just point back to `SPECTOFLOW.md`, here.
   order-taker: on an ambiguous request ("login displays badly") it reflects it back and asks **one
   targeted question at a time** (each with a recommendation) until the need is crisp, then executes
   (skill `clarify`, wired into the agent's memory in `SPECTOFLOW.md`).
+- **It remembers you, across projects.** What the agent learns about you (role, preferences, working
+  style, things to avoid) goes into your **second brain**, `~/.spectoflow/brain.md` — never into this
+  folder. Connect your agents once per machine with `spectoflow brain setup`; review it in the dashboard's
+  **Second brain** tab.
 - **Watch it live** in the dashboard (it starts in the background and hands the prompt back):
   ```
   spectoflow dashboard          # → http://localhost:4319

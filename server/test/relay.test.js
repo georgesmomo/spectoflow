@@ -168,6 +168,32 @@ test('a frame whose processing throws never crashes the process (no unhandledRej
   }
 });
 
+test('the second brain is never reachable online: brain routes 404 even for the owner, and no op reaches the machine', async () => {
+  const { app, db, machine, registry, url, authedFetch } = await boot();
+  try {
+    await fetch(url + '/connector/frames', { method: 'POST', headers: { Authorization: `Bearer ${machine.token}`, 'Content-Type': 'application/json' },
+      body: JSON.stringify([{ type: 'auth', token: machine.token }, { type: 'hello', machineName: 'laptop', projects: [{ localId: 'aaaaaa', name: 'Alpha', kind: 'spectoflow', stats: null }] }]) });
+    const serverId = (await (await authedFetch('/api/hub/projects')).json()).projects[0].id;
+    const sock = fakeSocket();
+    registry.markWsConnected(machine.id, sock);
+    const json = { 'Content-Type': 'application/json' };
+    const attempts = [
+      authedFetch(`/api/brain?p=${serverId}`),
+      authedFetch(`/api/brain?p=${serverId}`, { method: 'POST', headers: json, body: JSON.stringify({ category: 'profile', text: 'x' }) }),
+      authedFetch(`/api/brain/settings?p=${serverId}`, { method: 'POST', headers: json, body: JSON.stringify({ autoAdd: false }) }),
+      authedFetch(`/api/brain/b1/confirm?p=${serverId}`, { method: 'POST', headers: json, body: '{}' }),
+      authedFetch(`/api/brain/b1?p=${serverId}`, { method: 'PATCH', headers: json, body: JSON.stringify({ text: 'y' }) }),
+      authedFetch(`/api/brain/b1?p=${serverId}`, { method: 'DELETE' }),
+    ];
+    // The routes exist in the shared table (so the 404s below come from the relay refusing them, not from a missing route).
+    const { findRoute } = require('../../lib/dashboard/routes');
+    assert.deepStrictEqual([['GET', '/api/brain'], ['POST', '/api/brain'], ['POST', '/api/brain/settings'], ['POST', '/api/brain/b1/confirm'], ['PATCH', '/api/brain/b1'], ['DELETE', '/api/brain/b1']].map(([mm, pp]) => (findRoute(mm, pp) || [])[2]), ['brain.read', 'brain.add', 'brain.settings', 'brain.confirm', 'brain.update', 'brain.remove']);
+    for (const res of await Promise.all(attempts)) assert.strictEqual(res.status, 404);
+    await new Promise((r) => setTimeout(r, 50));
+    assert.deepStrictEqual(sock.sent.filter((f) => f.type === 'op'), [], 'nothing was relayed to the machine');
+  } finally { await app.close(); await db.destroy(); }
+});
+
 test('a Viewer member can read but gets 403 on a write; a non-member gets 404 (indistinguishable from unpublished)', async () => {
   const { app, db, machine, url, authedFetch, ownerUserId } = await boot();
   try {
