@@ -118,18 +118,20 @@ detected it falls back to claude + codex.
 **Empty project** → your agent asks what to build and runs Intake (brainstorm → analysis → spec → plan).
 **Existing project** → an existing `CLAUDE.md` is preserved as `CLAUDE.md.tomerge` (merged on first run);
 an existing `AGENTS.md` or `GEMINI.md` is kept as-is and gets a short, delimited spectoflow section
-appended (`<!-- spectoflow:start -->` … `<!-- spectoflow:end -->`) pointing to `.spectoflow/AGENTS.md` —
+appended (`<!-- spectoflow:start -->` … `<!-- spectoflow:end -->`) pointing to `.spectoflow/SPECTOFLOW.md` —
 `spectoflow update` adds it too to a project installed before that; existing `plans/*.md` tasks are given
 stable ids.
 
-**Two `AGENTS.md`, on purpose.** The one at your project root is a thin pointer, in the place each agent
-reads natively. The real brain (intent router, workflow, rules) is `.spectoflow/AGENTS.md`, owned by the
-framework and refreshed by `spectoflow update`.
+**Entry files vs. the brain.** `CLAUDE.md`, `AGENTS.md` and `GEMINI.md` at your project root are thin
+pointers, in the place each agent reads natively. The real brain (intent router, workflow, rules) is
+`.spectoflow/SPECTOFLOW.md`, owned by the framework and refreshed by `spectoflow update`. (Before 0.28 it
+was named `.spectoflow/AGENTS.md`, easy to confuse with the root one — `update` renames it, keeping any
+edits you made, and rewrites the old path in your entry files.)
 
 ## Update
 
 `init` is idempotent (it never overwrites), so it can't refresh an installed project. `spectoflow
-update` refreshes **framework-owned** files (engine, `AGENTS.md`, `capabilities.md`, `policy.md`,
+update` refreshes **framework-owned** files (engine, `SPECTOFLOW.md`, `capabilities.md`, `policy.md`,
 default agents & skills) to the CLI's version — retiring the project's own vendored dashboard folder
 along the way for anyone updating from before v0.24 — while **preserving your work** —
 `config.json`, `workflow.md`, `specs/`, `plans/`, and any agent/skill you created or edited are never
@@ -353,7 +355,7 @@ INVEST, Playwright E2E, Conventional Commits, and more — not generic one-liner
 ### Clarify before acting
 
 spectoflow is an **expert analyst, not an order-taker**. When a request is vague ("login displays
-badly, users can't sign in"), an always-on **Clarify reflex** — in the agent's memory (`AGENTS.md`)
+badly, users can't sign in"), an always-on **Clarify reflex** — in the agent's memory (`SPECTOFLOW.md`)
 and backed by the `clarify` skill — reflects it back and asks **one targeted question at a time**,
 each with a recommendation anchored in the project's goals and best practices, until the need is
 crisp; then it runs the normal workflow. It's additive: it feeds the router, never replaces it, and

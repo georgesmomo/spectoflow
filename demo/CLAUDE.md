@@ -1,6 +1,6 @@
 # CLAUDE.md — spectoflow
 
-This project uses **spectoflow**. **Read `.spectoflow/AGENTS.md` and follow it** as your operating
+This project uses **spectoflow**. **Read `.spectoflow/SPECTOFLOW.md` and follow it** as your operating
 instructions (intent router, workflow, standing rules).
 
 > If `CLAUDE.md.tomerge` exists next to this file, it is your previous CLAUDE.md, preserved on

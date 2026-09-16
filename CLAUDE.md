@@ -5,6 +5,19 @@ framework with a real-time local control plane. This file orients you to **build
 (it is not a spectoflow-managed project). Read `docs/` before making changes:
 `docs/ARCHITECTURE.md`, `docs/DECISIONS.md` (the full rationale, D1–D23), `docs/ROADMAP.md` (what's next).
 
+## What exists (v0.28.0 — see DECISIONS D71, D72)
+
+**The brain is `.spectoflow/SPECTOFLOW.md`** (was `.spectoflow/AGENTS.md`, too easy to confuse with the
+project-root `AGENTS.md` pointer). Root entry files (`CLAUDE.md`, `AGENTS.md`, `GEMINI.md`,
+`.claude/commands/spectoflow.md`) are thin pointers to it. `spectoflow update` migrates an installed
+project: the brain is *moved* (manifest baseline follows, so user edits survive and the kit version lands
+as `.new`), and the old path is rewritten in place in entry files and in non-kit agents/skills markdown.
+Since 0.27.2 (D71), an entry file that already exists is never silently skipped: it gets a delimited
+`<!-- spectoflow:start -->` pointer section appended (idempotent), at `init` and at `update` — previously
+an existing `AGENTS.md` (the entry file of 10 of the 13 agents) never learned spectoflow existed.
+`lib/adapters.js` owns this (`generate`, `ensurePointers`, `BRAIN`/`LEGACY_BRAIN`); `lib/update.js` owns the
+brain move (`moveBrain`, `repointUserFiles`). `demo/` migrated via `update` (0.27.0 → 0.28.0).
+
 ## What exists (v0.27.0 — see DECISIONS D70)
 
 **Dashboard personalization pass + a slash-command system.** One release gathering a wave of

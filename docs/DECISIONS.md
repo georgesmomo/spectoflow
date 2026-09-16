@@ -1867,3 +1867,36 @@
   qu'un agent fasse la fusion. L'ajout fonctionne immédiatement, sans dépendre d'une exécution d'agent.
   `CLAUDE.md` garde son mécanisme `.tomerge` à l'`init` (inchangé).
 - **Fichiers :** `lib/{adapters,init,update}.js`, `bin/spectoflow.js`, `test/{adapters,update}.test.js`, `README.md`.
+
+### D72 — 0.28.0 : le cerveau `.spectoflow/AGENTS.md` devient `.spectoflow/SPECTOFLOW.md`
+
+- **Contexte.** Retour d'usage direct, juste après D71 : deux fichiers nommés `AGENTS.md` (le pointeur à
+  la racine du projet et le cerveau dans `.spectoflow/`) prêtaient à confusion — l'utilisateur lui-même
+  ne savait plus lequel faisait quoi. Or ils n'ont pas le même rôle : `AGENTS.md` est une convention que
+  les outils chargent d'eux-mêmes à la racine, alors que le cerveau n'est lu que parce qu'un pointeur le
+  demande. Le nom n'avait aucune raison de les confondre.
+- **ACTÉ.** Le cerveau s'appelle `SPECTOFLOW.md` (`templates/SPECTOFLOW.md`, donc
+  `.spectoflow/SPECTOFLOW.md` dans un projet). Tous les pointeurs (`CLAUDE.md`, `AGENTS.md`, `GEMINI.md`
+  racine, `/spectoflow`), la section ajoutée par D71, les skills, le README du kit, les textes du dashboard
+  et la doc suivent. Version **mineure** (0.28.0), pas un patch : le chemin que lisent tous les projets
+  installés change.
+- **Migration (`spectoflow update`) — un déplacement, jamais « supprimer + créer ».**
+  - Si le kit livre `SPECTOFLOW.md`, que le projet a `.spectoflow/AGENTS.md` et pas encore
+    `SPECTOFLOW.md` : le fichier est **renommé**, et sa ligne de manifest (hash de référence) suit le
+    nouveau nom. La matrice habituelle s'applique ensuite normalement : non modifié → rafraîchi ; modifié
+    par l'utilisateur → ses modifications restent dans `SPECTOFLOW.md`, la version du kit arrive en
+    `SPECTOFLOW.md.new`. Sans ce déplacement, un cerveau modifié aurait été « gardé » sous l'ancien nom
+    pendant qu'un cerveau neuf sans ses règles était créé à côté.
+  - **Pointeurs** : dans les fichiers d'entrée existants, l'ancien chemin est **réécrit sur place**
+    (pas de seconde section ajoutée). Idem dans le markdown **non-kit** de `.spectoflow/agents/` et
+    `.spectoflow/skills/` (agents/skills générés) ; les fichiers du kit sont exclus, la matrice s'en
+    charge, et les réécrire les ferait passer pour modifiés.
+  - `--dry-run` rapporte tout (renommé / repointé) sans rien déplacer ni écrire ; un second passage ne
+    fait plus rien. `init` réécrit aussi un ancien pointeur trouvé dans un fichier d'entrée existant.
+- **Vérifié** sur `demo/` (vrai projet 0.27.0) : cerveau renommé, 3 pointeurs réécrits, aucune référence
+  à l'ancien chemin restante, second `update` → « Already up to date ». Tests : déplacement non modifié,
+  déplacement modifié + `.new`, dry-run, réécriture des pointeurs et d'une skill utilisateur, idempotence.
+- **Fichiers :** `templates/SPECTOFLOW.md` (renommé), `templates/{README.md,capabilities.md,skills/clarify/SKILL.md,skills/generate-agent/SKILL.md}`,
+  `lib/{adapters,init,update}.js`, `bin/spectoflow.js`, `lib/dashboard/public/{i18n.js,index.html,app.js}`,
+  `test/{adapters,update,cli-update,ownership}.test.js`, `README.md`, `docs/ARCHITECTURE.md`. `demo/`
+  migré via `update` (0.27.0 → 0.28.0).

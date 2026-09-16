@@ -6,7 +6,7 @@
 - **Project Memory** — the SDD artifacts: specs, plans, workflow, policy, ADRs.
 - **Execution** — the local agent runtime (Claude Code / Codex / …), which reads memory and does work.
 
-The framework's "intelligence" is **instructions an agent reads** (`.spectoflow/AGENTS.md` + workflow +
+The framework's "intelligence" is **instructions an agent reads** (`.spectoflow/SPECTOFLOW.md` + workflow +
 skills), not a runtime engine. That is what makes it agent-agnostic and low-token.
 
 ## Storage model (D8)
@@ -51,10 +51,10 @@ lib/
 **The project (`.spectoflow/`) — the framework only, versioned with the project's own code.**
 
 ```
-<project>/CLAUDE.md  AGENTS.md  .claude/commands/spectoflow.md   (generated shims → .spectoflow/AGENTS.md)
+<project>/CLAUDE.md  AGENTS.md  .claude/commands/spectoflow.md   (generated shims → .spectoflow/SPECTOFLOW.md)
 <project>/specs/  plans/                                         (markdown artifacts)
 <project>/.spectoflow/
-  AGENTS.md README.md workflow.md capabilities.md policy.md config.json
+  SPECTOFLOW.md README.md workflow.md capabilities.md policy.md config.json
   agents/  skills/
   dashboards/          user-generated custom views, one <id>.json per file
   lib/spec-drift.js    run in place by the audit-source skill and the Stop hook
@@ -166,7 +166,7 @@ unit-testable without agents or HTTP. State persists to `runtime.orchestration` 
 widget's group-chat gets an **Orchestrate** trigger and **Approve/Cancel** on pending steps. See
 DECISIONS D20.
 
-## The router (in AGENTS.md)
+## The router (in SPECTOFLOW.md)
 
 Intake → Classify (Quick/Standard/Major on scope·risk·ambiguity·novelty, highest wins) → Gate (by mode;
 semi always confirms Major) → Load (only the enabled workflow steps + needed skills) → Run (policy gates

@@ -7,17 +7,17 @@ workflow, and tracks everything as **markdown artifacts** you can diff and own.
 
 Everything the framework needs lives here in `.spectoflow/`, so your project root stays clean and the
 framework is swappable/updatable. Your per-agent entry files (`CLAUDE.md`, `AGENTS.md`, `GEMINI.md`)
-sit at the project root and just point back here.
+sit at the project root and just point back to `SPECTOFLOW.md`, here.
 
 ## How you use it
 
 - **Just say what you want** to your agent ("add a login feature", "fix T-042"). The router in
-  `AGENTS.md` classifies it (quick / standard / major), gates it by your **mode** and **policy**, and
+  `SPECTOFLOW.md` classifies it (quick / standard / major), gates it by your **mode** and **policy**, and
   runs the matching workflow — no ceremonial command.
 - **When your ask is vague, it clarifies first.** spectoflow behaves like an expert analyst, not an
   order-taker: on an ambiguous request ("login displays badly") it reflects it back and asks **one
   targeted question at a time** (each with a recommendation) until the need is crisp, then executes
-  (skill `clarify`, wired into the agent's memory in `AGENTS.md`).
+  (skill `clarify`, wired into the agent's memory in `SPECTOFLOW.md`).
 - **Watch it live** in the dashboard (it starts in the background and hands the prompt back):
   ```
   spectoflow dashboard          # → http://localhost:4319
@@ -58,7 +58,7 @@ Your **artifacts are markdown, and they live at the project root, not in here**:
 
 | Path | What it is |
 |------|------------|
-| `AGENTS.md` | **The brain** — the intent router, the modes, and the standing rules your agent follows. |
+| `SPECTOFLOW.md` | **The brain** — the intent router, the modes, and the standing rules your agent follows. |
 | `workflow.md` | The **single** workflow definition (the pipeline steps and their capability/skill). |
 | `capabilities.md` | The capability palette (intake, analysis, planning, implementation, testing, quality, security, governance…) and how it adapts to the project type. |
 | `policy.md` | **Non-negotiable gates** — actions that need explicit human approval regardless of mode (prod deploy, destructive migration, security change, spend, source-of-truth drift at done/Major). |

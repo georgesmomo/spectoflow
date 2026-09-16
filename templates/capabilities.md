@@ -12,7 +12,7 @@ surfaces drift to the Attention tab; it gates only at `done`/Major (see `policy.
 `clarify` is a **reflex under `intake`, not a workflow step** either: on *any* ambiguous request the
 agent reflects it back and asks **one targeted question at a time** (each with a recommendation) until
 the need is crisp, then proceeds — it feeds the workflow, never replaces it. See `skills/clarify` and
-the Clarify step in `AGENTS.md`.
+the Clarify step in `SPECTOFLOW.md`.
 
 `customization` is also **not a workflow step** — it is triggered explicitly, either from the
 dashboard's Settings → Customize page or by a direct request ("add a dashboard for…", "create a skill

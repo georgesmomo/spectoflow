@@ -27,20 +27,20 @@ test('update just after init reports everything up to date and writes no .new', 
 test('update --force overwrites a diverged file and clears the manifest divergence', () => {
   const proj = install();
   const sf = path.join(proj, '.spectoflow');
-  fs.writeFileSync(path.join(sf, 'AGENTS.md'), 'DRIFTED — not the kit content');
+  fs.writeFileSync(path.join(sf, 'SPECTOFLOW.md'), 'DRIFTED — not the kit content');
   run(proj, ['update', '--force']);
-  assert.ok(!fs.existsSync(path.join(sf, 'AGENTS.md.new')), 'no .new sidecar left behind');
-  const kitContent = fs.readFileSync(path.join(__dirname, '..', 'templates', 'AGENTS.md'), 'utf8');
-  assert.strictEqual(fs.readFileSync(path.join(sf, 'AGENTS.md'), 'utf8'), kitContent);
+  assert.ok(!fs.existsSync(path.join(sf, 'SPECTOFLOW.md.new')), 'no .new sidecar left behind');
+  const kitContent = fs.readFileSync(path.join(__dirname, '..', 'templates', 'SPECTOFLOW.md'), 'utf8');
+  assert.strictEqual(fs.readFileSync(path.join(sf, 'SPECTOFLOW.md'), 'utf8'), kitContent);
 });
 
 test('update -f is the short form of --force', () => {
   const proj = install();
   const sf = path.join(proj, '.spectoflow');
-  fs.writeFileSync(path.join(sf, 'AGENTS.md'), 'DRIFTED');
+  fs.writeFileSync(path.join(sf, 'SPECTOFLOW.md'), 'DRIFTED');
   const out = run(proj, ['update', '-f']);
   assert.match(out, /force/i);
-  assert.ok(!fs.existsSync(path.join(sf, 'AGENTS.md.new')));
+  assert.ok(!fs.existsSync(path.join(sf, 'SPECTOFLOW.md.new')));
 });
 
 // Spawns real hub-server processes end to end (like other spawn-a-real-server tests in this suite)
@@ -73,7 +73,7 @@ test('update reloads this project in the running hub WITHOUT restarting it or di
   await fetch(`http://localhost:${port}/api/project?p=${entryA.id}`);
   await fetch(`http://localhost:${port}/api/project?p=${entryB.id}`);
   try {
-    fs.writeFileSync(path.join(sfA, 'AGENTS.md'), 'DRIFTED'); // force `changed` to be non-zero
+    fs.writeFileSync(path.join(sfA, 'SPECTOFLOW.md'), 'DRIFTED'); // force `changed` to be non-zero
     const out = execFileSync('node', [BIN, 'update', '--force'], { cwd: projA, env, encoding: 'utf8' });
     assert.match(out, /reloaded this project/i);
     // The hub process itself must NOT have restarted -- same pid, same lock, the whole point of a
@@ -96,7 +96,7 @@ test('update reloads this project in the running hub WITHOUT restarting it or di
 test('update --dry-run leaves the manifest untouched', () => {
   const proj = install();
   const sf = path.join(proj, '.spectoflow');
-  fs.writeFileSync(path.join(sf, 'AGENTS.md'), 'DRIFTED'); // force a would-be action
+  fs.writeFileSync(path.join(sf, 'SPECTOFLOW.md'), 'DRIFTED'); // force a would-be action
   const before = JSON.stringify(manifest.readManifest(sf));
   const out = run(proj, ['update', '--dry-run']);
   assert.match(out, /dry-run/i);

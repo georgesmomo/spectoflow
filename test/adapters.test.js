@@ -13,7 +13,7 @@ test('generate writes the gemini entry file (GEMINI.md)', () => {
   const { written } = adapters.generate(proj, ['gemini']);
   assert.ok(written.includes('GEMINI.md'));
   assert.ok(fs.existsSync(path.join(proj, 'GEMINI.md')));
-  assert.match(fs.readFileSync(path.join(proj, 'GEMINI.md'), 'utf8'), /\.spectoflow\/AGENTS\.md/);
+  assert.match(fs.readFileSync(path.join(proj, 'GEMINI.md'), 'utf8'), /\.spectoflow\/SPECTOFLOW\.md/);
 });
 
 test('generate writes the shared AGENTS.md once for codex + cursor', () => {
@@ -40,7 +40,7 @@ test('generate writes the shared AGENTS.md once for opencode + kiro + antigravit
   const proj = tmp();
   const { written } = adapters.generate(proj, ['opencode', 'kiro', 'antigravity']);
   assert.deepStrictEqual(written, ['AGENTS.md'], 'shared file written a single time');
-  assert.match(fs.readFileSync(path.join(proj, 'AGENTS.md'), 'utf8'), /\.spectoflow\/AGENTS\.md/);
+  assert.match(fs.readFileSync(path.join(proj, 'AGENTS.md'), 'utf8'), /\.spectoflow\/SPECTOFLOW\.md/);
 });
 
 test('defaultRunners covers opencode, kiro and antigravity with their real headless flags', () => {
@@ -111,7 +111,7 @@ test('an existing AGENTS.md is kept and gets a spectoflow pointer section append
   assert.deepStrictEqual(appended, ['AGENTS.md'], 'shared file appended a single time');
   const text = fs.readFileSync(path.join(proj, 'AGENTS.md'), 'utf8');
   assert.ok(text.startsWith(own.trimEnd()), 'the user content is untouched, and stays first');
-  assert.match(text, /<!-- spectoflow:start -->[\s\S]*\.spectoflow\/AGENTS\.md[\s\S]*<!-- spectoflow:end -->\n$/);
+  assert.match(text, /<!-- spectoflow:start -->[\s\S]*\.spectoflow\/SPECTOFLOW\.md[\s\S]*<!-- spectoflow:end -->\n$/);
 });
 
 test('appending the pointer is idempotent, and a file that already points to the brain is left alone', () => {
@@ -123,17 +123,39 @@ test('appending the pointer is idempotent, and a file that already points to the
   assert.strictEqual(fs.readFileSync(path.join(proj, 'GEMINI.md'), 'utf8'), once);
   assert.strictEqual((once.match(/spectoflow:start/g) || []).length, 1);
 
-  const manual = '# mine\nSee .spectoflow/AGENTS.md for everything.\n';
+  const manual = '# mine\nSee .spectoflow/SPECTOFLOW.md for everything.\n';
   fs.writeFileSync(path.join(proj, 'AGENTS.md'), manual);
-  assert.deepStrictEqual(adapters.ensurePointers(proj), []);
+  assert.deepStrictEqual(adapters.ensurePointers(proj), { appended: [], repointed: [] });
   assert.strictEqual(fs.readFileSync(path.join(proj, 'AGENTS.md'), 'utf8'), manual);
 });
 
 test('ensurePointers repairs existing memory files only, never creates one, and honours dryRun', () => {
   const proj = tmp();
   fs.writeFileSync(path.join(proj, 'AGENTS.md'), '# mine\n');
-  assert.deepStrictEqual(adapters.ensurePointers(proj, true), ['AGENTS.md'], 'dry-run reports');
+  assert.deepStrictEqual(adapters.ensurePointers(proj, true).appended, ['AGENTS.md'], 'dry-run reports');
   assert.strictEqual(fs.readFileSync(path.join(proj, 'AGENTS.md'), 'utf8'), '# mine\n', 'dry-run writes nothing');
-  assert.deepStrictEqual(adapters.ensurePointers(proj), ['AGENTS.md']);
+  assert.deepStrictEqual(adapters.ensurePointers(proj).appended, ['AGENTS.md']);
   assert.ok(!fs.existsSync(path.join(proj, 'GEMINI.md')) && !fs.existsSync(path.join(proj, 'CLAUDE.md')), 'absent files are never created');
+});
+
+test('a pointer to the pre-0.28 brain (.spectoflow/AGENTS.md) is rewritten in place, never duplicated', () => {
+  const proj = tmp();
+  const legacyShim = '# AGENTS.md — spectoflow\n\nRead `.spectoflow/AGENTS.md` and follow it. See the Clarify reflex in `.spectoflow/AGENTS.md`.\n';
+  fs.writeFileSync(path.join(proj, 'AGENTS.md'), legacyShim);
+  fs.mkdirSync(path.join(proj, '.claude', 'commands'), { recursive: true });
+  fs.writeFileSync(path.join(proj, '.claude', 'commands', 'spectoflow.md'), 'Read `.spectoflow/AGENTS.md` first.\n');
+  assert.deepStrictEqual(adapters.ensurePointers(proj), { appended: [], repointed: ['AGENTS.md', '.claude/commands/spectoflow.md'] });
+  const text = fs.readFileSync(path.join(proj, 'AGENTS.md'), 'utf8');
+  assert.ok(!text.includes('.spectoflow/AGENTS.md'), 'no legacy path left');
+  assert.strictEqual((text.match(/\.spectoflow\/SPECTOFLOW\.md/g) || []).length, 2, 'both references rewritten');
+  assert.ok(!text.includes('spectoflow:start'), 'rewritten, not given a second pointer section');
+  assert.strictEqual(fs.readFileSync(path.join(proj, '.claude', 'commands', 'spectoflow.md'), 'utf8'), 'Read `.spectoflow/SPECTOFLOW.md` first.\n');
+  assert.deepStrictEqual(adapters.ensurePointers(proj), { appended: [], repointed: [] }, 'idempotent');
+});
+
+test('generate reports a repointed legacy entry file at init too', () => {
+  const proj = tmp();
+  fs.writeFileSync(path.join(proj, 'GEMINI.md'), 'See .spectoflow/AGENTS.md\n');
+  const r = adapters.generate(proj, ['gemini']);
+  assert.deepStrictEqual(r, { written: [], appended: [], repointed: ['GEMINI.md'] });
 });

@@ -96,7 +96,7 @@ list.
 
 ### 6. Resolve capability collisions explicitly
 
-`.spectoflow/AGENTS.md`'s routing assumes one agent per capability unless a `priority` is set (see the
+`.spectoflow/SPECTOFLOW.md`'s routing assumes one agent per capability unless a `priority` is set (see the
 front-matter rules in `docs/agents-skills-standard.md`). If the chosen capability already has an
 agent, either pick a different, more precise capability for this role, or set `priority` deliberately
 and tell the user which agent now wins ties — never leave two agents silently competing for the same

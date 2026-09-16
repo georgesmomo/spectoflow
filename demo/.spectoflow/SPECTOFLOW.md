@@ -1,7 +1,7 @@
 # spectoflow — project brain (read fully at session start)
 
-> Agent-agnostic. Any agent reading this — Claude Code (`CLAUDE.md` points here), Codex/Cursor
-> (`AGENTS.md`), etc. — knows how to behave. Keep it lean; details live in the files it points to.
+> Agent-agnostic. Any agent reading this — Claude Code (`CLAUDE.md` points here), Codex/Cursor and most
+> others (the project-root `AGENTS.md` points here), etc. — knows how to behave. Keep it lean; details live in the files it points to.
 
 ## What spectoflow is
 

@@ -12,7 +12,7 @@ test('listFrameworkFiles includes the brain, agents and skills, but not the dash
   assert.ok(files.includes('package.json'), 'the type:commonjs pin (D62)');
   assert.ok(!files.some((f) => f.startsWith('dashboard/')), 'the dashboard no longer ships into projects (D64)');
   assert.ok(!files.includes('lib/store.js'), 'the storage engine lives in the package now');
-  assert.ok(files.includes('AGENTS.md'), 'brain');
+  assert.ok(files.includes('SPECTOFLOW.md'), 'brain');
   assert.ok(files.includes('capabilities.md'), 'capabilities');
   assert.ok(files.includes('policy.md'), 'policy');
   assert.ok(files.some((f) => f.startsWith('agents/')), 'default agents');

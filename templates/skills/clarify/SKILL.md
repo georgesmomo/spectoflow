@@ -10,7 +10,7 @@ standard: requirements elicitation
 
 Turn a vague request into a crisp, agreed need **before** classifying or acting — the way a good
 analyst does: reflect, ask the sharpest question, listen, repeat. This is a **reflex**, always in the
-agent's memory (see the Clarify step in `AGENTS.md`), not a workflow stage — it fires on *any*
+agent's memory (see the Clarify step in `SPECTOFLOW.md`), not a workflow stage — it fires on *any*
 request, including bug reports and change requests on an existing project ("the login page doesn't
 display well, users can't sign in").
 
