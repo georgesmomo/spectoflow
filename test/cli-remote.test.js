@@ -10,13 +10,15 @@ const workspace = require('../lib/workspace');
 
 const BIN = path.resolve(__dirname, '..', 'bin', 'spectoflow.js');
 const home = () => fs.mkdtempSync(path.join(os.tmpdir(), 'stf-cli-remote-'));
+const FREE_PORT = 45000 + Math.floor(Math.random() * 5000);
 // A real (non-blocking) child spawn, awaited — never spawnSync: several of these tests spawn the
 // CLI while a fake relay server listens in *this same process*; spawnSync would freeze this
 // process's event loop until the child exits, so the relay could never answer the child's request
 // (a self-deadlock broken only by the child's own fetch timeout). Async spawn keeps this process's
 // event loop free to service the relay while we await the child's exit.
 const run = (h, args, opts = {}) => new Promise((resolve) => {
-  const child = spawn('node', [BIN, ...args], { env: { ...process.env, SPECTOFLOW_HOME: h }, stdio: ['ignore', 'pipe', 'pipe'], ...opts });
+  // A port nothing listens on: "hub not running here" must not depend on a real hub running on the default 4319.
+  const child = spawn('node', [BIN, ...args], { env: { ...process.env, SPECTOFLOW_HOME: h, SPECTOFLOW_PORT: String(FREE_PORT) }, stdio: ['ignore', 'pipe', 'pipe'], ...opts });
   let stdout = '', stderr = '';
   child.stdout.on('data', (d) => { stdout += d; });
   child.stderr.on('data', (d) => { stderr += d; });
@@ -66,7 +68,7 @@ test('logout removes remote.json and resets dashboard.url to the local default',
     const r = await run(h, ['dashboard', 'logout']);
     assert.strictEqual(r.status, 0); assert.match(r.stdout, /logged out/i);
     assert.ok(!fs.existsSync(remoteFile(h)));
-    assert.strictEqual((await run(h, ['config', 'get', 'dashboard.url'])).stdout.trim(), 'http://localhost:4319');
+    assert.strictEqual((await run(h, ['config', 'get', 'dashboard.url'])).stdout.trim(), `http://localhost:${FREE_PORT}`, 'reset to the local hub on the configured port');
     assert.match((await run(h, ['dashboard', 'logout'])).stdout, /not logged in/i);
   } finally { await relay.close(); }
 });

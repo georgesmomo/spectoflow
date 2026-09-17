@@ -659,6 +659,10 @@ body.booting .ring-svg circle:last-of-type { transform-origin:center; animation:
 .attn-edit { width:100%; min-height:64px; font-family:inherit; font-size:14px; padding:8px; border:1px solid var(--cool); border-radius:8px; background:var(--surface-2); color:var(--ink); box-sizing:border-box; }
 .attn-actions { display:flex; flex-wrap:wrap; gap:8px; margin-top:11px; }
 
+/* ---- Project framework older than the installed spectoflow (D77) ---- */
+.update-bar { display:flex; flex-wrap:wrap; align-items:center; gap:6px 10px; padding:7px 22px; font-size:12.5px; background:color-mix(in srgb,var(--signal) 12%,var(--surface)); border-bottom:1px solid var(--line); color:var(--ink); }
+.update-bar[hidden] { display:none; }
+
 /* ---- Custom agent commands awaiting the user's OK (D76) ---- */
 .runner-trust { border:1px solid color-mix(in srgb,var(--s-blocked) 45%,var(--line)); border-radius:var(--radius); padding:10px 12px; display:flex; flex-direction:column; gap:8px; }
 .runner-trust[hidden] { display:none; }

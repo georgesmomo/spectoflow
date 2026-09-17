@@ -178,3 +178,35 @@ test('a run started with learn:false (a remote caller) never writes into the sec
     if (prevHome === undefined) delete process.env.SPECTOFLOW_HOME; else process.env.SPECTOFLOW_HOME = prevHome;
   }
 });
+
+test('a stuck run can be stopped: its process is killed, the run ends as "stopped"', async () => {
+  const { stopRuns } = require('../lib/dashboard/runner');
+  const proj = installWithStub();
+  const cfgPath = path.join(proj, '.spectoflow', 'config.json');
+  const cfg = JSON.parse(fs.readFileSync(cfgPath, 'utf8'));
+  cfg.runners = { claude: `node ${path.join(KIT, 'test', 'fixtures', 'slow-agent.js').split(path.sep).join('/')}` };
+  fs.writeFileSync(cfgPath, JSON.stringify(cfg, null, 2) + '\n'); allowRunners(proj);
+  const events = [];
+  const ended = new Promise((resolve) => startRun(proj, { prompt: 'go', agent: 'claude' }, (e) => { events.push(e); if (e.type === 'run-end') resolve(e); }));
+  await new Promise((r) => setTimeout(r, 400));
+  assert.strictEqual(stopRuns(proj), 1);
+  const end = await ended;
+  assert.strictEqual(end.type, 'run-end');
+  const rt = store.readRuntime(proj);
+  assert.strictEqual(rt.agents[rt.agents.length - 1].status, 'stopped');
+  assert.strictEqual(rt.messages[rt.messages.length - 1].text, 'stopped');
+  assert.strictEqual(stopRuns(proj), 0, 'nothing left to stop');
+});
+
+test('at boot, runs still recorded as running after a crash become "interrupted"', () => {
+  const { reconcileRunsOnBoot } = require('../lib/dashboard/runner');
+  const proj = installWithStub();
+  const rt = store.readRuntime(proj);
+  rt.agents = [{ id: 'r1', status: 'running' }, { id: 'r2', status: 'done' }];
+  store.writeRuntime(proj, rt);
+  assert.strictEqual(reconcileRunsOnBoot(proj), 1);
+  const after = store.readRuntime(proj).agents;
+  assert.deepStrictEqual(after.map((a) => a.status), ['interrupted', 'done']);
+  assert.ok(after[0].endedAt);
+  assert.strictEqual(reconcileRunsOnBoot(proj), 0);
+});

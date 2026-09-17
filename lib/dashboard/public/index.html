@@ -79,6 +79,7 @@
   </header>
 
   <div class="offline-bar" id="offlineBar" hidden><span class="offline-dot"></span><span id="offlineText"></span></div>
+  <div class="update-bar" id="updateBar" hidden><span id="updateText"></span> <button class="btn btn-xs" id="updateBtn" type="button" data-i18n="update.button">Update the project</button></div>
 
   <main class="stage">
     <!-- BOARD -->
@@ -358,7 +359,7 @@
           </div>
         </div>
         <p class="chat-warn" data-i18n-html="chat.warn">⚠ Launches a real agent (<code>config.json → runners</code>) that can modify files &amp; run commands.</p>
-        <p class="chat-status" id="tabChatStatus" hidden><span class="spinner" aria-hidden="true"></span><span data-i18n="chat.running">Agent running…</span></p>
+        <p class="chat-status" id="tabChatStatus" hidden><span class="spinner" aria-hidden="true"></span><span data-i18n="chat.running">Agent running…</span> <button class="btn btn-xs chat-stop" type="button" data-i18n="chat.stop">Stop</button></p>
       </div>
     </section>
 
@@ -499,7 +500,7 @@
       <button id="orchBtn" class="btn chat-send" data-i18n-title="chat.orchestrateTitle" data-i18n="action.orchestrate" title="Walk the enabled workflow">Orchestrate</button>
     </div>
     <p class="chat-warn" data-i18n-html="chat.warn">⚠ Launches a real agent (<code>config.json → runners</code>) that can modify files &amp; run commands.</p>
-    <p class="chat-status" id="widgetChatStatus" hidden><span class="spinner" aria-hidden="true"></span><span data-i18n="chat.running">Agent running…</span></p>
+    <p class="chat-status" id="widgetChatStatus" hidden><span class="spinner" aria-hidden="true"></span><span data-i18n="chat.running">Agent running…</span> <button class="btn btn-xs chat-stop" type="button" data-i18n="chat.stop">Stop</button></p>
   </div>
 
   <!-- Slash-command autocomplete popover, reused by both #runPrompt and #tabRunPrompt (app.js) -->

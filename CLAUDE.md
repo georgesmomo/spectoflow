@@ -5,6 +5,16 @@ framework with a real-time local control plane. This file orients you to **build
 (it is not a spectoflow-managed project). Read `docs/` before making changes:
 `docs/ARCHITECTURE.md`, `docs/DECISIONS.md` (the full rationale, D1–D23), `docs/ROADMAP.md` (what's next).
 
+## What exists (v0.32.0 — see DECISIONS D77)
+
+**Foundations, kept simple** (see the "What we deliberately don't do" section of `docs/ROADMAP.md`, rewritten):
+Stop button for a stuck agent (`run.stop`; `runner.js` tracks agent processes per project; `reconcileRunsOnBoot`
+marks crash-leftover runs `interrupted`); the hub lock records its version and `spectoflow dashboard` restarts an
+older hub; an older project shows an update banner (`project.update`, local only); `runtime.json` capped (500
+messages, 100 runs) with unique temp names; browser notifications when a run ends or a step awaits approval (tab
+in background only); README quick start. Windows `.cmd` spawning deferred: `cmd.exe` would expose the prompt to
+shell interpretation.
+
 ## What exists (v0.31.1 — see DECISIONS D76)
 
 **Security fix: agent commands.** `config.json → runners` is committed and was writable online through the Files

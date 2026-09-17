@@ -2086,3 +2086,38 @@
   la commande s'exécute). Les tests qui lancent un faux agent l'autorisent désormais comme un utilisateur, dans
   un `SPECTOFLOW_HOME` temporaire (`test/helpers/allow-runners.js`). Suite 450/451 (échec connu : hub réel sur
   4319), serveur 117/117.
+
+### D77 — 0.32.0 : fondations — arrêter un agent, versions en retard, runtime borné, notifications, feuille de route
+
+- **Contexte.** Premier lot issu de l'analyse des manques (concurrents + audit interne), filtré par le principe
+  rappelé par l'utilisateur : **éviter la lourdeur des autres frameworks, rester simple**. Chaque correction
+  est la plus petite qui règle le problème, sans nouveau réglage.
+- **ACTÉ.**
+  - **Arrêter un agent bloqué** : bouton *Arrêter* à côté de « Agent en cours… » (`run.stop`), qui tue les
+    processus d'agent en cours du projet (runs, résumés, réunions — suivis dans `runner.js`). La fin est
+    enregistrée comme `stopped`. Au démarrage du hub, les runs restés `running` après un crash passent en
+    `interrupted`. Pas de timeout : un agent peut légitimement travailler longtemps.
+  - **Versions en retard** : le verrou du hub enregistre sa version ; `spectoflow dashboard` redémarre un hub
+    lancé par une version plus ancienne (c'était le « update puis restart » à penser seul). Un projet dont le
+    framework est plus ancien que spectoflow installé affiche un bandeau avec **Mettre à jour le projet**
+    (`project.update`, même logique que `spectoflow update`, local uniquement).
+  - **`runtime.json` borné** : 500 messages et 100 runs (les plus récents). L'audit craignait aussi des pertes
+    d'écritures concurrentes : vérifié, les écritures étaient déjà atomiques et, dans le hub, chaque
+    lecture-modification-écriture est synchrone — pas de verrou ajouté. Seul le nom du fichier temporaire est
+    rendu unique (la CLI et le hub peuvent écrire au même instant).
+  - **Notifications natives du navigateur** quand un agent termine ou qu'une étape attend une approbation,
+    uniquement si l'onglet n'est pas au premier plan ; permission demandée au clic qui lance le travail.
+    Aucun service externe, aucun réglage.
+  - **Test dépendant de la machine corrigé** (`cli-remote` utilisait le vrai port 4319) : la suite passe
+    maintenant sans exception en local.
+  - **README** : démarrage rapide en 3 commandes en tête. **`docs/ROADMAP.md` réécrite** (elle s'arrêtait à la
+    0.12) : état actuel, lots suivants, et une section **« Ce qu'on ne fera pas »** qui fixe le principe de
+    simplicité (pas de cérémonie obligatoire, pas de vocabulaire propre au framework, pas de zoo de commandes,
+    pas d'enfermement, pas d'automatisation cachée).
+- **Reporté, avec une raison** : Windows (lancer les CLI installées comme shims `.cmd`). La correction évidente
+  — passer par `cmd.exe` — rendrait le texte du prompt (qui peut venir d'un membre en ligne) interprétable par
+  le shell Windows : risque d'injection. À traiter avec une vraie CI Windows et une solution sans shell.
+- **Vérifié** : tests (arrêt d'un agent qui ne finit jamais, réconciliation au démarrage, runtime borné, hub
+  ancien redémarré de bout en bout par la CLI, mise à jour refusée à distance et appliquée en local, relais :
+  `project.update` → 404 en ligne) ; QA navigateur (bandeau de version, mise à jour en un clic, bouton Arrêter
+  qui libère le chat). Suite 456/456, serveur 117/117.

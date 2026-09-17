@@ -24,6 +24,17 @@ An **agent-agnostic** spec-driven development framework with a **real-time local
 You speak in plain language; the framework classifies your intent and runs the right workflow. No
 ceremonial command to start.
 
+## Quick start
+
+```bash
+npm install -g spectoflow
+cd my-project && spectoflow init     # fits the workflow to your project, detects your agents
+spectoflow dashboard                 # → http://localhost:4319
+```
+
+Then just tell your coding agent what you want to build. Optional, once per machine:
+`spectoflow brain setup` so your agents remember you across projects.
+
 **Works with whichever coding agent you have.** `init` auto-detects what's installed; the dashboard's
 topbar always shows the **active agent**, front and center, with a switcher — pick another and it's
 verified as genuinely installed before activating (a red **"No agent found"** if none is), never

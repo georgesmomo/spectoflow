@@ -37,3 +37,19 @@ test('appendMessage stamps id + at and persists to runtime.messages', () => {
   assert.strictEqual(rt.messages.length, 2);
   assert.strictEqual(rt.messages[1].kind, 'status');
 });
+
+test('runtime.json stays bounded: only the newest 500 messages and 100 runs are kept', () => {
+  const store = require('../lib/store');
+  const fsx = require('node:fs'), px = require('node:path'), osx = require('node:os');
+  const root = fsx.mkdtempSync(px.join(osx.tmpdir(), 'stf-rt-cap-'));
+  fsx.mkdirSync(px.join(root, '.spectoflow'));
+  const rt = { messages: Array.from({ length: 620 }, (_, i) => ({ id: 'm' + i, text: String(i) })), agents: Array.from({ length: 130 }, (_, i) => ({ id: 'r' + i })) };
+  store.writeRuntime(root, rt);
+  const back = store.readRuntime(root);
+  assert.strictEqual(back.messages.length, 500);
+  assert.strictEqual(back.messages[0].id, 'm120');
+  assert.strictEqual(back.messages[499].id, 'm619');
+  assert.strictEqual(back.agents.length, 100);
+  assert.strictEqual(back.agents[99].id, 'r129');
+  assert.ok(!fsx.readdirSync(px.join(root, '.spectoflow')).some((f) => f.endsWith('.tmp')), 'no temp file left behind');
+});

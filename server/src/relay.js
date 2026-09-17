@@ -18,7 +18,7 @@ const REPLY_TIMEOUT_MS = Number(process.env.SPECTOFLOW_RELAY_REPLY_TIMEOUT_MS) |
 const OP_PERMISSIONS = {
   'project.read': 'project.read', 'agentfile.read': 'project.read', 'files.tree': 'project.read', 'files.read': 'project.read',
   'files.write': 'project.write', 'files.mkdir': 'project.write', 'task.add': 'project.write', 'task.update': 'project.write',
-  'task.comment': 'project.write', 'workflow.toggle': 'project.write', 'workflow.suggest': 'project.read', 'workflow.apply': 'project.write', 'run.start': 'project.write', 'chat.summarize': 'project.write',
+  'task.comment': 'project.write', 'workflow.toggle': 'project.write', 'workflow.suggest': 'project.read', 'workflow.apply': 'project.write', 'run.start': 'project.write', 'run.stop': 'project.write', 'chat.summarize': 'project.write',
   'chat.clear': 'project.write', 'orchestrate.start': 'project.write', 'orchestrate.approve': 'project.write',
   'settings.save': 'project.manage_settings',
   'attention.add': 'project.write', 'attention.promote': 'project.write', 'attention.update': 'project.write', 'attention.remove': 'project.write',

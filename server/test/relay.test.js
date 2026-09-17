@@ -186,6 +186,8 @@ test('the second brain is never reachable online: brain routes 404 even for the 
       authedFetch(`/api/brain/b1?p=${serverId}`, { method: 'DELETE' }),
       // allowing a custom agent command is local-only too (D76): online it would let a member approve code execution
       authedFetch(`/api/runners/trust?p=${serverId}`, { method: 'POST', headers: json, body: JSON.stringify({ agent: 'claude' }) }),
+      // so is updating a project's framework files (D77)
+      authedFetch(`/api/project/update?p=${serverId}`, { method: 'POST', headers: json, body: '{}' }),
     ];
     // The routes exist in the shared table (so the 404s below come from the relay refusing them, not from a missing route).
     const { findRoute } = require('../../lib/dashboard/routes');

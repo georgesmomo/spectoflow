@@ -517,6 +517,11 @@ async function startDashboard() {
   const boardUrl = (p) => (entry ? `http://localhost:${p}/p/${entry.id}/board` : `http://localhost:${p}/`);
   const info = workspace.readLock();
   if (info && info.port && await probeDashboard(info.port)) {
+    // A hub started by an older spectoflow keeps running that old code: replace it (D77).
+    if (info.version !== VERSION) {
+      console.log(`${c.cy('↻')} the running hub is ${info.version ? 'spectoflow v' + info.version : 'an older spectoflow'} — restarting it on v${VERSION}`);
+      return restartDashboard();
+    }
     console.log(`${c.g('●')} hub already running → ${c.bold(boardUrl(info.port))}`);
     await printOnlineLine(info.port, true);
     return printDashboardCommands();
