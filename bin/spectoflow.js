@@ -374,6 +374,26 @@ function configCmd() {
   } catch (e) { console.log(`${c.y('!')} ${e.message}`); process.exitCode = 1; }
 }
 
+// ---- workflow: show it, or suggest the steps that fit the project now (D75) ----
+function workflowCmd() {
+  if (argv[1] !== 'suggest') { console.log(wordmark()); printWorkflow(false); return; }
+  const root = process.cwd();
+  if (!fs.existsSync(path.join(root, '.spectoflow', 'workflow.md'))) { console.log('No spectoflow project here. Run: spectoflow init'); process.exitCode = 1; return; }
+  const wd = require('../lib/workflow-detect');
+  const cfg = store.readConfig(root);
+  const s = wd.suggest(root, { projectType: cfg.projectType });
+  const apply = argv.includes('--apply');
+  console.log(wordmark());
+  console.log(`  ${c.bold('spectoflow workflow suggest')}${apply ? c.dim('   (apply)') : ''}`);
+  console.log(`  ${c.dim('detected:')} ${s.projectType} project · ${s.phase === 'design' ? 'design phase (no code yet)' : 'has code'}${s.truncated ? c.dim('  (large project: scan stopped early)') : ''}\n`);
+  if (!s.changes.length) { console.log(`  ${c.g('✓')} The workflow already matches the project.\n`); return; }
+  const w = Math.max(...s.changes.map((ch) => ch.name.length));
+  for (const ch of s.changes) console.log(`  ${ch.to ? c.g('●') : c.dim('○')} ${ch.name.padEnd(w)}  ${ch.from ? 'on' : 'off'} ${c.amber('→')} ${ch.to ? c.g('on ') : c.y('off')}  ${c.dim(wd.REASONS[ch.reason])}`);
+  if (!apply) { console.log(`\n  ${c.dim('apply them:')} ${c.g('spectoflow workflow suggest --apply')}   ${c.dim('— or pick in the dashboard: Workflow → Analyze the project')}\n`); return; }
+  const changed = wd.applySteps(root, Object.fromEntries(s.changes.map((ch) => [ch.name, ch.to])));
+  console.log(`\n  ${c.g('✓')} ${changed.length} step(s) updated in .spectoflow/workflow.md\n`);
+}
+
 // ---- brain: the user's second brain (~/.spectoflow/brain.md), shared by every project ----
 function brainCmd() {
   const brain = require('../lib/brain');
@@ -699,7 +719,7 @@ const HELP = {
   (or the bundled kit when run outside a project) at a glance.`,
   agents: `${c.bold('spectoflow agents')}\n  List the stable team personas (name · capability · role).`,
   skills: `${c.bold('spectoflow skills')}\n  List the evolving procedures (name · capability · what it does).`,
-  workflow: `${c.bold('spectoflow workflow')}\n  Show the pipeline steps, marking which are enabled (●) or disabled (○).`,
+  workflow: `${c.bold('spectoflow workflow')} ${c.dim('[suggest [--apply]]')}\n  Show the pipeline steps, marking which are enabled (●) or disabled (○).\n    ${c.g('suggest')}          look at the project (is there code yet? tests? an E2E setup? infra or data?) and\n                     list the steps worth switching on or off, with the reason — nothing is written\n    ${c.g('suggest --apply')}  apply them (only those lines of .spectoflow/workflow.md change)`,
   brain: `${c.bold('spectoflow brain')} ${c.dim('[setup [--dry-run]]')}\n
   Your second brain — what spectoflow has learned about you (profile, preferences, working style,
   things to avoid), in ${c.dim('~/.spectoflow/brain.md')}, shared by all your projects and editable in the
@@ -727,7 +747,7 @@ const fns = {
   brain: brainCmd,
   agents: () => { console.log(wordmark()); printAgents(false); },
   skills: () => { console.log(wordmark()); printSkills(false); },
-  workflow: () => { console.log(wordmark()); printWorkflow(false); },
+  workflow: workflowCmd,
   skill: () => runCustomize('skill'),
   agent: () => runCustomize('agent'),
 };

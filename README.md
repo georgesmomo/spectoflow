@@ -101,6 +101,7 @@ spectoflow list                                agents, skills and the workflow a
 spectoflow agents                              list the team personas
 spectoflow skills                              list the procedures
 spectoflow workflow                            show the enabled pipeline steps
+spectoflow workflow suggest [--apply]          which steps fit the project now (code yet? tests? E2E? infra/data?)
 
 spectoflow --version   (-v)                    print the version
 spectoflow --help      (-h)                    show help   (append -h to any command for its help)
@@ -280,6 +281,8 @@ off by default):
   noted yourself — edit / resolve / delete, or **validate → task**.
 - **Backlog** — a flat sortable/filterable, paginated table of every task, defaulting to open work.
 - **Workflow** — the pipeline as step cards; click one to enable/disable it, which edits `workflow.md`.
+  **Analyze the project** proposes the steps that fit it now, each with its reason — you apply the ones you
+  tick (see [A workflow that fits the project](#a-workflow-that-fits-the-project)).
 - **Agents & Skills** — enriched cards that open a full-body markdown drawer.
 - **Files** — a project file tree with read / write / create, syntax-highlighted (self-hosted Prism.js).
 - **Bloc note** *(off by default)* — a per-project post-it Markdown scratchpad.
@@ -397,6 +400,26 @@ agents then read and grow your second brain through that server: nothing is copi
   (`server/` refuses them for everyone, the project owner included), and not other machines or websites.
   A run started from either of those can't write into it, and a learned fact never goes into a project's chat
   log.
+
+## A workflow that fits the project
+
+The workflow (`.spectoflow/workflow.md`) isn't one-size-fits-all anymore.
+
+- **At `init`**, spectoflow looks at the files: is there code yet, tests, an end-to-end setup (Playwright,
+  Cypress), infrastructure (Terraform, Helm) or data (dbt, notebooks)? A project still in design gets
+  Brainstorm, Analysis, Spec and Plan — and *Develop*, *Unit tests* and *Review* stay off until there is code.
+  Integration and end-to-end tests are switched on only if the project already has them. `init` tells you
+  what it switched off and why. An existing `workflow.md` is never touched.
+- **At the first session**, your agent reviews it with you: a file scan can't tell a prototype from a
+  product, the agent can, from your docs, specs and plans.
+- **As the project moves on**, when a request needs a step that is off (asked to write code while *Develop*
+  is off…), the agent asks you first — or, with Personalize → *Let the agent enable workflow steps when
+  needed* (`workflowAutoEnable` in `config.json`), it enables the step itself and tells you. It never
+  disables a step on its own.
+- **For a project initialized before this**, run `spectoflow workflow suggest` (add `--apply` to apply), or
+  use Workflow → **Analyze the project** in the dashboard and tick the changes you want.
+
+You can still switch any step on or off by hand, anytime.
 
 ## Agents vs skills
 

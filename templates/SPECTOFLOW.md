@@ -85,7 +85,9 @@ whole file. This lets the dashboard and you co-edit without clobbering. Reflect 
 4. **Gate** — by `mode` (`.spectoflow/config.json`): **autopilot** proceeds · **semi** (default)
    confirms if ambiguous/borderline/risky **and always for a Major** · **manual** confirms each step.
 5. **Load** — read the enabled steps from `.spectoflow/workflow.md` (single source of truth), plus the
-   `.spectoflow/skills/` needed for those steps. Load only what this task needs.
+   `.spectoflow/skills/` needed for those steps. Load only what this task needs. **If the request needs a
+   step that is disabled** (asked to implement while *Develop* is off, writing code while *Unit tests* is
+   off…), see *Keep the workflow in step with the project* below — never silently skip it.
 6. **Run** — execute. A **policy gate** (`.spectoflow/policy.md`) can interrupt at any point, any mode.
 
 ## New / empty project → Intake
@@ -127,6 +129,25 @@ clarifying question there.
 
 - The **active workflow** is `.spectoflow/workflow.md` — a checklist of enabled steps, editable (also
   from the dashboard). It is the single source; do not restate workflows elsewhere.
+
+### Keep the workflow in step with the project
+
+`init` fitted `workflow.md` to what the files showed (is there code yet, tests, an E2E setup, infra or data).
+A file scan can't tell a prototype from a product, or a project still in design from one being built — you
+can, from the docs, specs and plans. Enable or disable a step by changing only its checkbox line.
+
+- **First review** — when `.spectoflow/config.json` → `workflowReview` is `"pending"`: early in the session,
+  compare the enabled steps with what you understand of the project (phase, type, what the user is doing
+  now). Propose the changes that fit, one line of reason each; apply what the user accepts; then set
+  `workflowReview` to `"done"`. If nothing needs changing, just say it looks right and set it to `"done"`.
+- **As the project moves on** — when a request needs a step that is disabled:
+  - `workflowAutoEnable` is `false` (default): tell the user which step and why, and ask before doing that
+    part of the work;
+  - `workflowAutoEnable` is `true`: enable that step yourself and tell the user you did.
+- You may **enable** a step on your own only under `workflowAutoEnable: true`. **Disabling** a step always
+  goes through the user, whatever the setting.
+- `spectoflow workflow suggest` (and the dashboard's Workflow → *Analyze the project*) re-runs the file
+  analysis; point the user to it when the project changed a lot.
 - **Capabilities** (`.spectoflow/capabilities.md`) are a palette; the project type selects the active ones.
 - **Agents** (`.spectoflow/agents/`) are stable team personas (Developer, QA Engineer, …). **Skills**
   (`.spectoflow/skills/`) are the evolving procedures. A workflow step → a capability → its agent →

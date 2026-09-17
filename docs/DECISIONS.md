@@ -2008,3 +2008,46 @@
   dashboard ouvert normalement ; QA navigateur du dashboard 29/29 ; suite 431/432 (le seul échec est le test
   connu qui détecte le hub réel de l'utilisateur sur 4319), serveur 117/117.
 - **Fichiers :** `lib/dashboard/{hub-server,handlers}.js`, `test/{hub-server,ops-brain}.test.js`, `README.md`.
+
+### D75 — 0.31.0 : un workflow adapté au projet, dès l'init et au fil du projet
+
+- **Contexte.** Retour d'usage : un `init` sur un projet encore en phase d'analyse/conception activait
+  *Unit tests*, *Develop*, *Review*… `init` copiait le même `workflow.md` partout ; `capabilities.md` décrivait
+  une adaptation par type de projet que rien n'appliquait. Design : `docs/workflow-autoconfig-design.md`.
+- **Distinction clé.** Le **type** de projet (app / infra / data) est stable ; la **phase** (conception sans
+  code, puis construction) change : une étape désactivée à l'`init` doit pouvoir revenir.
+- **ACTÉ — choix de l'utilisateur.**
+  1. Les deux : détection déterministe à l'`init` (sans agent), puis **revue par l'agent à la première session**
+     (`config.json → workflowReview: "pending"` → `"done"`), qui sait distinguer un prototype d'un produit.
+  2. Quand le projet avance et qu'une demande a besoin d'une étape désactivée : **l'agent demande** par défaut ;
+     le réglage projet **`workflowAutoEnable`** (Personnaliser → *Agent et automatisation*) l'autorise à
+     **activer** l'étape lui-même en le disant. **Désactiver passe toujours par l'utilisateur.**
+  3. Projets existants : **réanalyse** proposée, appliquée ou non par l'utilisateur —
+     `spectoflow workflow suggest [--apply]` et le bouton **Analyser le projet** de l'onglet Workflow.
+- **Détection** (`lib/workflow-detect.js`, zéro dépendance) : parcours borné (profondeur 4, 5 000 entrées,
+  `node_modules`/`.git`/sorties de build ignorés) → code (fichiers source ou manifeste réel — le
+  `package.json` par défaut de npm ne compte pas), tests unitaires, setup E2E, tests d'intégration, infra, data.
+  Conception → *Develop*, *Unit tests*, *Review* (et intégration/E2E) désactivés ; construction → cœur activé,
+  intégration/E2E seulement s'ils existent, infra sans tests → tests unitaires désactivés, data → tests de
+  qualité des données. Chaque décision porte un code de raison affiché (CLI, `init`, dashboard, 6 langues).
+  Un projet qui n'a que des documents n'est pas deviné « contenu » : c'est l'agent qui tranche. Les étapes
+  ajoutées par l'utilisateur ne sont jamais touchées ; un `workflow.md` existant non plus ; écritures
+  granulaires (seule la case change, CRLF conservé).
+- **Rappel dans les fichiers racine** (`CLAUDE.md`/`AGENTS.md`/`GEMINI.md`), comme pour Clarify (D31) et le
+  second brain (D73) — test réel à l'appui : avec `workflowAutoEnable: true`, sur une demande directe (« fais-le
+  directement »), Claude Code écrivait le code sans activer *Develop* ; avec le rappel, il l'active et le dit.
+- **API** : `GET /api/workflow/suggest`, `POST /api/workflow/apply` `{ names }` (recalculé côté serveur) ; en
+  ligne : `project.read` / `project.write`.
+- **Vérifié** : détection sur arborescences réelles (vide, docs seules, placeholder npm, Node + Jest/Playwright/
+  Cypress, Go/Python/Java/Ruby, Terraform, dbt/notebooks/Airflow, dossiers ignorés, bornes) ; `init`
+  (conception, infra, `workflow.md` existant intact) ; ops/CLI ; QA navigateur de l'onglet Workflow et du
+  réglage (14/14, console/orbit, fr, 400 px) ; **Claude Code réel** sur un projet en cadrage : revue à la
+  première session (workflow jugé adapté, `workflowReview` passé à `done`), demande de code avec
+  `workflowAutoEnable: false` → rien écrit, accord demandé ; avec `true` → *Develop* activé et annoncé, rien
+  d'autre changé. Suite 443/444 (le seul échec est le test connu qui détecte le hub réel sur 4319), serveur
+  117/117. Le test `orchestrate-loop` crée désormais un projet avec du code (un dossier vide est en phase de
+  conception).
+- **Fichiers :** `lib/{workflow-detect,init,adapters}.js`, `lib/dashboard/{ops,routes}.js`,
+  `lib/dashboard/public/{app.js,index.html,styles.css,i18n.js}`, `bin/spectoflow.js`,
+  `templates/{SPECTOFLOW.md,config.json}`, `server/src/relay.js`, tests `test/workflow-detect.test.js` +
+  `ops`/`init-detect`/`orchestrate-loop`, `README.md`, `docs/workflow-autoconfig-design.md`.

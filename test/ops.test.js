@@ -222,3 +222,32 @@ test('every op named in the spec table exists', () => {
   for (const name of ['project.read', 'agentfile.read', 'files.tree', 'files.read', 'files.write', 'files.mkdir', 'task.add', 'task.update', 'task.comment', 'workflow.toggle', 'run.start', 'chat.summarize', 'chat.clear', 'orchestrate.start', 'orchestrate.approve', 'settings.save', 'attention.add', 'attention.promote', 'attention.update', 'attention.remove'])
     assert.strictEqual(typeof ops[name], 'function', name);
 });
+
+test('workflow.suggest lists what fits the project now; workflow.apply writes only the picked steps and emits a change', async () => {
+  const root = project();
+  // a fresh init of an empty folder is fitted to the design phase; code arrives afterwards
+  fs.mkdirSync(path.join(root, 'src'), { recursive: true });
+  fs.writeFileSync(path.join(root, 'src', 'index.js'), 'x');
+  const s = await ops['workflow.suggest'](root, {}, ctx());
+  assert.strictEqual(s.phase, 'build');
+  assert.deepStrictEqual(s.changes.map((c) => [c.name, c.to, c.reason]), [['Develop', true, 'has-code'], ['Unit tests', true, 'has-code'], ['Review', true, 'has-code']]);
+  assert.strictEqual(s.reasons['has-code'], 'the project has code');
+
+  const c = ctx();
+  const r = await ops['workflow.apply'](root, { names: ['Develop', 'Review', 'Not a suggested step'] }, c);
+  assert.deepStrictEqual(r.changed, ['Develop', 'Review']);
+  assert.deepStrictEqual(c.events, [{ type: 'change' }]);
+  const steps = store.readWorkflow(root);
+  assert.deepStrictEqual(['Develop', 'Unit tests', 'Review'].map((n) => steps.find((x) => x.name === n).enabled), [true, false, true]);
+
+  const none = ctx();
+  assert.deepStrictEqual((await ops['workflow.apply'](root, { names: ['Develop'] }, none)).changed, [], 'already applied');
+  assert.deepStrictEqual(none.events, [], 'no change emitted');
+  await assert.rejects(() => ops['workflow.apply'](root, { names: 'Develop' }, ctx()), (e) => e instanceof OpError && e.status === 400);
+});
+
+test('settings.save accepts workflowAutoEnable as a boolean only', async () => {
+  const root = project();
+  assert.strictEqual((await ops['settings.save'](root, { workflowAutoEnable: true }, ctx())).config.workflowAutoEnable, true);
+  assert.strictEqual((await ops['settings.save'](root, { workflowAutoEnable: 'yes' }, ctx())).config.workflowAutoEnable, true, 'a non-boolean is ignored');
+});

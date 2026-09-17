@@ -1,8 +1,8 @@
 {
-  "version": "0.29.0",
+  "version": "0.31.0",
   "files": {
     "README.md": "613430eff483fbc4ef57a6e3c668283967e720f408f673be910a6079cc7d9ba6",
-    "SPECTOFLOW.md": "2ef47828ba24e64ede4ea0f9d8ef96a51d9a7f44be47543240ebfc7c95543447",
+    "SPECTOFLOW.md": "84d716dbe05361e4d5aafaeabda2ef3bc0264353fc2475079d9de6a7b73651c8",
     "agents/architect.md": "fd6286cec817844d22ef49ff649332b596b1a37e923dcc60d466dbb2440ef1f8",
     "agents/business-analyst.md": "7eca0d0151db1d1bc20751ffa585dbe43a9bd907552bc1617165c3974bb08af2",
     "agents/code-reviewer.md": "e8f002389464326072613909ac3cfe333d86302bf65e8077cc5c090592193aef",

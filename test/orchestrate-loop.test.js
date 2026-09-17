@@ -9,8 +9,10 @@ const store = require('../lib/store');
 const { runOrchestration } = require('../lib/dashboard/orchestrator');
 
 const BIN = path.resolve(__dirname, '..', 'bin', 'spectoflow.js');
+// A project with code: init keeps the full default pipeline (an empty folder is fitted to the design phase, D75).
 function project() {
   const d = fs.mkdtempSync(path.join(os.tmpdir(), 'stf-loop-'));
+  fs.mkdirSync(path.join(d, 'src')); fs.writeFileSync(path.join(d, 'src', 'index.js'), '');
   execFileSync('node', [BIN, 'init', d], { stdio: 'pipe' });
   return d;
 }

@@ -5,6 +5,18 @@ framework with a real-time local control plane. This file orients you to **build
 (it is not a spectoflow-managed project). Read `docs/` before making changes:
 `docs/ARCHITECTURE.md`, `docs/DECISIONS.md` (the full rationale, D1–D23), `docs/ROADMAP.md` (what's next).
 
+## What exists (v0.31.0 — see DECISIONS D75)
+
+**A workflow fitted to the project.** `init` no longer copies one `workflow.md` for all: `lib/workflow-detect.js`
+(zero-dep, bounded file scan) detects code / unit tests / E2E setup / integration tests / infra / data → type
+(app, infra, data) + phase (design = no code, build) → which kit steps are on, each with a reason code. Applied
+only to a freshly copied `workflow.md` (never an existing one, never a user-added step); sets `projectType` and
+`workflowReview: "pending"`. The agent (templates/SPECTOFLOW.md "Keep the workflow in step" + a reminder in the
+root shims) reviews it at the first session, and when a request needs a disabled step asks first — or enables
+it itself if `config.json → workflowAutoEnable` is true (never disables alone). Existing projects:
+`spectoflow workflow suggest [--apply]`, `GET /api/workflow/suggest` + `POST /api/workflow/apply`, Workflow tab →
+Analyze the project; Personalize toggle for `workflowAutoEnable`. Verified with real Claude Code sessions.
+
 ## What exists (v0.30.0 — see DECISIONS D74)
 
 **The hub answers this machine only.** It launches agents and writes project files, and it used to listen on

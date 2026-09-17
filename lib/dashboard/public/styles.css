@@ -659,6 +659,31 @@ body.booting .ring-svg circle:last-of-type { transform-origin:center; animation:
 .attn-edit { width:100%; min-height:64px; font-family:inherit; font-size:14px; padding:8px; border:1px solid var(--cool); border-radius:8px; background:var(--surface-2); color:var(--ink); box-sizing:border-box; }
 .attn-actions { display:flex; flex-wrap:wrap; gap:8px; margin-top:11px; }
 
+/* ---- Workflow → Analyze the project ---- */
+.wf-analyze { display:flex; flex-direction:column; align-items:flex-start; gap:10px; margin:2px 0 16px; }
+.wf-suggest { align-self:stretch; border:1px solid var(--line); border-left:3px solid var(--signal); border-radius:var(--radius); background:var(--surface); padding:12px 14px; display:flex; flex-direction:column; gap:10px; max-width:820px; }
+.wf-suggest[hidden] { display:none; }
+.wf-suggest-head { display:flex; align-items:center; justify-content:space-between; gap:10px; }
+.wf-suggest-detected { font-size:13px; font-weight:600; }
+.wf-suggest-close { border:none; background:none; color:var(--muted); font-size:18px; line-height:1; cursor:pointer; padding:0 4px; }
+.wf-suggest-close:hover { color:var(--ink); }
+.wf-suggest-ok, .wf-suggest-note { font-size:13px; color:var(--muted); }
+.wf-suggest-list { display:flex; flex-direction:column; gap:6px; }
+.wf-suggest-row { display:grid; grid-template-columns:auto minmax(110px,max-content) auto 1fr; align-items:center; gap:6px 12px; font-size:13px; cursor:pointer; padding:6px 8px; border-radius:8px; background:var(--surface-2); }
+.wf-suggest-row input { accent-color:var(--signal); margin:0; }
+.wf-suggest-name { font-weight:600; }
+.wf-suggest-change { font-family:var(--mono); font-size:11px; border:1px solid var(--line); border-radius:999px; padding:1px 8px; white-space:nowrap; }
+.wf-suggest-change.is-on { color:var(--s-done); border-color:color-mix(in srgb,var(--s-done) 45%,var(--line)); }
+.wf-suggest-change.is-off { color:var(--muted); }
+.wf-suggest-reason { color:var(--muted); font-size:12.5px; }
+.wf-suggest-actions { display:flex; gap:8px; }
+@media (max-width:620px){ .wf-suggest-row { grid-template-columns:auto 1fr; } .wf-suggest-change, .wf-suggest-reason { grid-column:2; } }
+.settings-check { display:flex; align-items:flex-start; gap:9px; cursor:pointer; }
+.settings-check input { accent-color:var(--signal); width:15px; height:15px; margin:2px 0 0; flex:none; }
+.settings-check-text { display:flex; flex-direction:column; gap:3px; }
+.settings-check-label { font-size:13px; font-weight:600; }
+.settings-check-hint { font-size:12px; color:var(--muted); }
+
 /* ---- Second brain ---- */
 .brain-wrap { max-width:1080px; margin:0 auto; padding:20px 22px 32px; }
 .brain-bar { display:flex; flex-wrap:wrap; align-items:center; gap:6px 14px; margin:4px 0 10px; }

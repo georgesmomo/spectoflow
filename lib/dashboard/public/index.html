@@ -217,6 +217,10 @@
       <div class="wf-wrap">
         <h2 class="panel-title" data-i18n="workflow.title">Active workflow</h2>
         <p class="panel-sub" data-i18n-html="workflow.sub">The pipeline your requests flow through — from idea to shipped, spec-driven. <strong>Click a step</strong> to see what it does and turn it on or off (this edits <code>.spectoflow/workflow.md</code>). Enabled steps run in order; the orchestrator gates each one by your <em>mode</em> and <em>policy</em>. Optional steps stay off until you switch them on.</p>
+        <div class="wf-analyze">
+          <button class="btn" id="wfAnalyzeBtn" type="button" data-i18n="workflow.analyze" data-i18n-title="workflow.analyzeTitle" title="Look at the project and suggest which steps fit it now">Analyze the project</button>
+          <div class="wf-suggest" id="wfSuggest" hidden></div>
+        </div>
         <div class="wf-diagram" id="wfDiagram"></div>
       </div>
     </section>
@@ -396,6 +400,13 @@
                 <option value="semi" data-i18n="mode.semi.desc">semi — autopilot + policy approvals</option>
                 <option value="manual" data-i18n="mode.manual.desc">manual — approve every step</option>
               </select>
+            </label>
+            <label class="settings-check">
+              <input type="checkbox" id="setWorkflowAuto">
+              <span class="settings-check-text">
+                <span class="settings-check-label" data-i18n="settings.workflowAuto">Let the agent enable workflow steps when needed</span>
+                <span class="settings-check-hint" data-i18n="settings.workflowAutoHint">Off: it asks you first. It never disables a step on its own.</span>
+              </span>
             </label>
           </div>
           <div class="settings-card">

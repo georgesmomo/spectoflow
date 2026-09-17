@@ -3,6 +3,7 @@
   "language": "en",
   "agent": "claude",
   "projectType": "app",
+  "workflowAutoEnable": false,
   "plansDir": null,
   "specsDir": null,
   "dashboard": { "autostart": true },

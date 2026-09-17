@@ -42,3 +42,30 @@ test('nothing detected falls back to claude + codex', () => {
   assert.ok(fs.existsSync(path.join(proj, 'CLAUDE.md')));
   assert.ok(fs.existsSync(path.join(proj, 'AGENTS.md')));
 });
+
+test('init fits a fresh workflow to the project, sets projectType and asks the agent to review it; an existing workflow.md is untouched', () => {
+  const { execFileSync } = require('node:child_process');
+  const BIN = require('node:path').join(__dirname, '..', 'bin', 'spectoflow.js');
+  const read = (p) => require('node:fs').readFileSync(p, 'utf8');
+  const fsx = require('node:fs'), px = require('node:path'), osx = require('node:os');
+
+  const empty = fsx.mkdtempSync(px.join(osx.tmpdir(), 'stf-init-wf-'));
+  const out = execFileSync('node', [BIN, 'init', empty, '--agent=claude'], { encoding: 'utf8', env: { ...process.env, NO_COLOR: '1' } });
+  assert.match(out, /Workflow fitted to the project \(design phase\) — off: Develop, Unit tests, Review \(no code yet\)/);
+  assert.match(read(px.join(empty, '.spectoflow', 'workflow.md')), /- \[ \] Develop[\s\S]*- \[ \] Unit tests[\s\S]*- \[ \] Review/);
+  const cfg = JSON.parse(read(px.join(empty, '.spectoflow', 'config.json')));
+  assert.deepStrictEqual([cfg.projectType, cfg.workflowReview, cfg.workflowAutoEnable], ['app', 'pending', false]);
+
+  const tf = fsx.mkdtempSync(px.join(osx.tmpdir(), 'stf-init-wf-'));
+  fsx.writeFileSync(px.join(tf, 'main.tf'), 'x');
+  execFileSync('node', [BIN, 'init', tf, '--agent=claude'], { stdio: 'pipe' });
+  assert.strictEqual(JSON.parse(read(px.join(tf, '.spectoflow', 'config.json'))).projectType, 'infra');
+
+  const existing = fsx.mkdtempSync(px.join(osx.tmpdir(), 'stf-init-wf-'));
+  fsx.mkdirSync(px.join(existing, '.spectoflow'));
+  fsx.writeFileSync(px.join(existing, '.spectoflow', 'workflow.md'), '- [x] Develop {cap:implementation skill:implement}\n');
+  const out2 = execFileSync('node', [BIN, 'init', existing, '--agent=claude'], { encoding: 'utf8' });
+  assert.ok(!/Workflow fitted/.test(out2));
+  assert.strictEqual(read(px.join(existing, '.spectoflow', 'workflow.md')), '- [x] Develop {cap:implementation skill:implement}\n');
+  assert.strictEqual(JSON.parse(read(px.join(existing, '.spectoflow', 'config.json'))).workflowReview, undefined);
+});
