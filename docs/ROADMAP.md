@@ -13,12 +13,13 @@ Every item below is judged against that: it ships only if it removes work or ris
 optional when it adds a concept, and it never adds a mandatory step, a new file to maintain by hand, or a
 command you must remember.
 
-## Where things stand (0.33)
+## Where things stand (0.34)
 
 Details in `docs/DECISIONS.md`. In short: markdown specs and plans; an intent router with modes and policy
 gates; stable agents and evolving skills; 13 coding-agent CLIs; an orchestrator; a real-time dashboard for all
 your projects (local-only hub) plus an optional online relay with accounts and sharing; a personal second
-brain reached through MCP and a project memory committed with the code; a workflow fitted to each project at `init` and kept in step by the agent; slash
+brain reached through MCP and a project memory committed with the code; tasks worked on in isolation
+(git worktree), reviewed as a diff, merged or opened as a pull request; a workflow fitted to each project at `init` and kept in step by the agent; slash
 commands; custom dashboards, skills and agents generated on request.
 
 ## Next
@@ -34,12 +35,11 @@ Ordered by value for the user. Sizes are rough: S (days), M (a week or two), L (
 - Windows: run agent CLIs installed as `.cmd` shims reliably, and add a Windows CI job (M)
 
 ### 2. The delivery loop
-What every serious agent tool now has, kept to one path (design in `docs/delivery-loop-design.md`, awaiting
-approval):
-- one git worktree per task, so two runs never step on each other (L);
-- review the diff in the dashboard, approve or send comments back to the agent (M);
-- turn an approved task into a branch and a pull request through `gh` (M);
-- a checkpoint before each run, one-click rollback (S–M).
+What every serious agent tool now has, kept to one path (`docs/delivery-loop-design.md`, D79):
+- ~~one git worktree per task, so two runs never step on each other~~
+- ~~review the diff in the dashboard, approve or send comments back to the agent~~
+- ~~turn an approved task into a branch and a pull request through `gh`~~
+- ~~a checkpoint before each run, one-click rollback~~ — the isolated copy is the checkpoint, *Discard* the rollback
 
 ### 3. Specs you can trust
 - `spectoflow validate`: spec ↔ plan ↔ tasks consistency, JSON output for CI (M);

@@ -190,6 +190,9 @@ test('the second brain is never reachable online: brain routes 404 even for the 
       authedFetch(`/api/project/update?p=${serverId}`, { method: 'POST', headers: json, body: '{}' }),
       // moving a fact between the project memory and the personal brain touches the brain (D78)
       authedFetch(`/api/memory/move?p=${serverId}`, { method: 'POST', headers: json, body: JSON.stringify({ from: 'project', id: 'm1', category: 'profile' }) }),
+      // merging isolated work or opening a pull request changes the owner's branches or pushes (D79)
+      authedFetch(`/api/task/T-001/isolate/merge?p=${serverId}`, { method: 'POST', headers: json, body: '{}' }),
+      authedFetch(`/api/task/T-001/isolate/pr?p=${serverId}`, { method: 'POST', headers: json, body: '{}' }),
     ];
     // The routes exist in the shared table (so the 404s below come from the relay refusing them, not from a missing route).
     const { findRoute } = require('../../lib/dashboard/routes');

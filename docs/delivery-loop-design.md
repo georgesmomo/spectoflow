@@ -1,6 +1,6 @@
 # Delivery loop — design
 
-**Status:** draft, pending user approval (2026-09-17). Roadmap lot 2.
+**Status:** approved (2026-09-17), implemented in 0.34.0 (D79). Roadmap lot 2.
 
 ## Problem
 
@@ -36,18 +36,22 @@ A task already has a status (`to do → in progress → to validate → done`). 
 
 ## Details
 
-- **Worktree location:** `.git/spectoflow/worktrees/<task-id>` — inside `.git`, so no tool, watcher or search
-  in the project sees it, and it disappears with the repository. Branch: `spectoflow/<task-id>`, created from the
-  current `HEAD`.
-- **Starting point:** the worktree is a clean checkout of `HEAD`. If the working tree has uncommitted changes
-  (including to `specs/` or `plans/`), the dashboard says the agent won't see them and offers to continue anyway.
+- **Worktree location:** `~/.spectoflow/worktrees/<repo>-<hash>/<task-id>` — outside the project, so no tool,
+  watcher, search or test runner in it sees a second copy of the code. (First designed inside `.git/`: a real
+  Claude Code run showed agents refuse to write there.) Branch: `spectoflow/<task-id>`, created from the current
+  `HEAD`. The project may sit in a sub-folder of the repository; the agent then works in the same sub-folder.
+- **Starting point:** the worktree is a clean checkout of `HEAD`. If the working tree has uncommitted changes, the
+  drawer says how many aren't in the copy (the plans folder and `config.json`, which the dashboard writes itself,
+  are not counted). No extra confirmation step.
 - **The run:** the configured agent (same runner, same trust check as D76) with the prompt "Work on task
-  <id>: <title>", cwd = the worktree. Output goes to the task drawer, not the shared chat.
+  <id>: <title>", cwd = the worktree. It doesn't make the chat busy; its messages still appear in the chat, and the
+  tail of its plain output is shown in the drawer. Starting from the dashboard is the user's go-ahead: the agent
+  may enable a workflow step the task needs (visible in the diff).
 - **Dependencies:** a worktree has no `node_modules` and no build output. The agent installs what it needs; the
   drawer says so the first time. No copying or symlinking magic.
-- **Merge:** `git merge --no-ff spectoflow/<id>` in the working tree. Refused with a clear message if the working
-  tree has uncommitted changes. On conflict: `git merge --abort`, nothing changed, the drawer says so and offers
-  "Send feedback" ("rebase on the current branch").
+- **Merge:** `git merge --no-ff spectoflow/<id>` in the working tree. Uncommitted changes only block it when git
+  would overwrite them. On any failure (conflict included): `git merge --abort`, nothing changed, the drawer shows
+  git's reason; the worktree stays for feedback.
 - **Pull request:** shown only if `gh` is installed and authenticated and a remote exists. Push, then
   `gh pr create --fill`; the PR URL is added to the task as a comment line.
 - **Send feedback:** runs the agent again in the same worktree with the review comment appended to the task.

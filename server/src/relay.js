@@ -23,6 +23,9 @@ const OP_PERMISSIONS = {
   'settings.save': 'project.manage_settings',
   'attention.add': 'project.write', 'attention.promote': 'project.write', 'attention.update': 'project.write', 'attention.remove': 'project.write',
   // The project memory is the project's; `memory.move` is not listed (it touches the owner's second brain).
+  // A task worked on in isolation (D79); `worktree.merge` and `worktree.pr` are not listed: they change the owner's
+  // branches or push from their machine.
+  'worktree.start': 'project.write', 'worktree.feedback': 'project.write', 'worktree.diff': 'project.read', 'worktree.stop': 'project.write', 'worktree.discard': 'project.write',
   'memory.read': 'project.read', 'memory.add': 'project.write', 'memory.update': 'project.write', 'memory.remove': 'project.write', 'memory.confirm': 'project.write',
 };
 

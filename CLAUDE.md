@@ -5,6 +5,22 @@ framework with a real-time local control plane. This file orients you to **build
 (it is not a spectoflow-managed project). Read `docs/` before making changes:
 `docs/ARCHITECTURE.md`, `docs/DECISIONS.md` (the full rationale, D1–D23), `docs/ROADMAP.md` (what's next).
 
+## What exists (v0.34.0 — see DECISIONS D79)
+
+**The delivery loop** (`docs/delivery-loop-design.md`). A task can be worked on in isolation: `lib/worktree.js`
+(zero-dep git/gh via execFileSync, never a shell; task ids validated) creates a worktree on branch
+`spectoflow/<id>` under `~/.spectoflow/worktrees/<repo>-<hash>/<id>` — NOT inside `.git/` (a real Claude Code run
+refused to write there). `lib/dashboard/isolation.js` drives it: start (agent runs with `cwd` = worktree, same
+sub-folder for a monorepo project), on close commit leftovers (`--no-verify`) and keep the tail of the agent's
+plain output, diff, feedback (comment + rerun), merge (`--no-ff`, aborted on failure → nothing changed), pr
+(push + `gh pr create`), discard (the rollback), stop, boot reconcile. State in `runtime.worktrees[id]`; task
+status follows (in_progress → to_validate → done/todo). `runner.startRun` gained `task`/`cwd`; runs are tracked
+per group (`chat` vs `task:<id>`) so the chat Stop never stops isolated work and isolated run events don't make
+the chat busy. Ops `worktree.start/feedback/diff/stop/discard` (relayed) and `worktree.merge/pr` (local only,
+absent from the relay). Task drawer section *Isolated work* + a chip on task cards; `project.read` → `git`.
+The prompt tells the agent that starting from the dashboard is the user's go-ahead (it may enable a disabled
+workflow step, visible in the diff).
+
 ## What exists (v0.33.0 — see DECISIONS D78)
 
 **Project memory, next to the second brain** (`docs/project-memory-design.md`). Facts about one project
@@ -16,8 +32,7 @@ are its two instances. Agents write the file directly (rules in `templates/SPECT
 `memory.read/add/update/remove/confirm` (relayed online, `project.read`/`project.write`) and `memory.move`
 {from:'user'|'project', id, category} (local only, absent from the relay). The Second brain tab renders both
 memories with one renderer (`MEMORIES` in `app.js`, `[data-memory]` sections): *You* hidden online, *This
-project* visible; *Move to…* local only. Lot 2 (delivery loop) design written in `docs/delivery-loop-design.md`,
-awaiting approval.
+project* visible; *Move to…* local only.
 
 ## What exists (v0.32.0 — see DECISIONS D77)
 

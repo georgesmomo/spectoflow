@@ -2154,3 +2154,40 @@
   « ticket = cas de support » → Glossaire de `.spectoflow/memory.md`. Suite 467/467, serveur 117/117.
 - **Design du lot 2 écrit** (`docs/delivery-loop-design.md`, worktree par tâche, relecture du diff, fusion ou
   PR, abandon = retour arrière) — en attente de validation, rien d'implémenté.
+
+### D79 — 0.34.0 : la boucle de livraison — travailler une tâche en isolation, relire, fusionner
+
+- **Contexte.** Lot 2 de la feuille de route, design validé (`docs/delivery-loop-design.md`). Tous les runs
+  écrivaient dans le dossier de travail : deux runs se marchaient dessus, rien ne séparait le changement de l'agent
+  de ce qui existait, impossible de relire, renvoyer ou jeter proprement. Consigne rappelée : un seul chemin, sans
+  lourdeur.
+- **ACTÉ.**
+  - **Un bouton sur la tâche** (projet git uniquement) : *Travailler en isolation* → worktree git sur la branche
+    `spectoflow/<tâche>`, l'agent y travaille. Le statut de la tâche porte la boucle : en cours → à valider →
+    fait (fusion) ou à faire (abandon). Aucune commande, aucun réglage, rien de changé pour le chat et
+    l'orchestration.
+  - **Relecture dans le panneau de la tâche** : fichiers modifiés, diff, dernier message de l'agent. Actions :
+    **Fusionner** (`--no-ff` ; en cas d'échec, `merge --abort`, rien ne change, la raison de git est affichée),
+    **Ouvrir une PR** (seulement si `gh` est installé et connecté et qu'il y a un remote), **Renvoyer un
+    commentaire** (ajouté à la tâche, l'agent reprend dans la même copie), **Abandonner** (double clic ; c'est le
+    retour arrière — pas de mécanisme de sauvegarde séparé).
+  - **Emplacement des copies : `~/.spectoflow/worktrees/<dépôt>-<hash>/<tâche>`.** Le design disait `.git/` ; une
+    vraie session Claude Code a refusé d'y écrire (dossier protégé). Hors du projet aussi, pour qu'aucun outil,
+    recherche ou lanceur de tests ne voie une seconde copie du code.
+  - **Plusieurs tâches en parallèle** : les runs sont suivis par groupe (`chat` / `task:<id>`) ; le bouton Arrêter
+    du chat n'arrête pas un travail isolé et un travail isolé ne bloque pas le chat.
+  - **Le prompt** donne la tâche, la branche, les règles (ne pas toucher la ligne de la tâche, ne pas pousser) et
+    dit que lancer depuis le dashboard vaut accord : l'agent peut activer une étape de workflow désactivée — le
+    changement apparaît dans le diff. Trouvé en réel : sans cela, dans un projet encore « en conception », l'agent
+    s'arrêtait pour demander, et sa réponse était perdue (d'où aussi l'affichage de son dernier message).
+  - **Ce que l'agent laisse non commité est commité sur la branche** (`--no-verify` : la copie n'a pas les
+    dépendances pour les hooks, et tout est relu avant d'arriver). git et gh sont appelés sans shell ; les ids de
+    tâche sont validés.
+  - **En ligne** : démarrer, relire, commenter, arrêter, abandonner (droits projet) ; fusionner et ouvrir une PR
+    restent sur la machine du propriétaire (absents du relais, refusés si `ctx.remote`).
+- **Vérifié** : tests contre de vrais dépôts git (copie isolée, dossier de travail intact, diff, commentaire,
+  fusion et nettoyage, conflit annulé sans rien changer, abandon, run en échec, projet dans un sous-dossier,
+  refus, arrêt par groupe, reconciliation au démarrage, routes et relais) ; QA navigateur 22/22 ; vraie session
+  Claude Code : `greet.js` créé dans la copie, dossier de travail intact, diff relu, fusion, code exécuté.
+  Suite 477/477, serveur 117/117. **Non testé en réel** : l'ouverture d'une PR sur GitHub (cela aurait créé une
+  vraie PR) — couvert par la détection de `gh`/remote et le chemin de code.

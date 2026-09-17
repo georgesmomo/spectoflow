@@ -340,6 +340,34 @@ drawer is served by the one read-only endpoint, `GET /api/agentfile?path=` (scop
 `.spectoflow/agents/**` + `.spectoflow/skills/**`, path-traversal-safe) — the framework's only other
 server surface is unchanged.
 
+### Isolated work on a task
+
+In a git project, open a task and click **Work on it in isolation**. The agent works in its own copy of the
+repository — a git worktree on the branch `spectoflow/<task>` — so your working tree stays untouched, and several
+tasks can run at once without stepping on each other or blocking the chat.
+
+```
+  task T-012 ── Work on it in isolation ──►  its own copy, branch spectoflow/T-012   (task: in progress)
+                                                    │  the agent finishes
+                                                    ▼
+                                   task drawer: what changed + the diff             (task: to validate)
+                                   ├─ Merge          into your current branch, copy removed    → done
+                                   ├─ Open a PR      push + gh pr create                        → link on the task
+                                   ├─ Send feedback  the agent works again on the same copy
+                                   └─ Discard        copy and branch removed — the rollback     → to do
+```
+
+- **Nothing to learn:** no command, no setting. Chat runs and orchestration keep working as before.
+- **The agent's last message** shows in the drawer, so a run that changed nothing still says why.
+- **Merge never half-happens:** on a conflict it is aborted, nothing changes, and the drawer shows git's reason —
+  send feedback to the agent, or resolve it yourself.
+- **Open a PR** appears when `gh` is installed and signed in and the repository has a remote.
+- The copies live in `~/.spectoflow/worktrees/`, outside your project (no tool sees a second copy of the code) and
+  outside `.git` (agents refuse to write there). Uncommitted changes in your working tree aren't in the copy; the
+  drawer tells you how many.
+- **Online:** members with write access can start, review, send feedback and discard; merging and opening a pull
+  request stay on the owner's machine.
+
 ### Slash commands
 
 Type `/` in either chat surface to open an autocomplete of reusable **prompt macros** — pick one,
