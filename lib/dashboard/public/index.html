@@ -283,21 +283,39 @@
       </div>
     </section>
 
-    <!-- SECOND BRAIN — what spectoflow has learned about the user, shared by all their projects.
-         Lives in ~/.spectoflow/brain.md (never in a project); agents reach it through `spectoflow mcp`. -->
+    <!-- SECOND BRAIN — two memories on one page. "You": what spectoflow has learned about the user, shared by
+         all their projects, in ~/.spectoflow/brain.md (never in a project; agents reach it through
+         `spectoflow mcp`; hidden online). "This project": facts about this project, .spectoflow/memory.md,
+         committed with it. Both sections share one renderer (app.js, MEMORIES). -->
     <section class="panel" data-panel="brain">
       <div class="brain-wrap">
-        <h2 class="panel-title"><span data-i18n="nav.brain">Second brain</span> <span class="count" id="brainCount">0</span></h2>
-        <p class="panel-sub" data-i18n="brain.sub">What spectoflow has learned about you, shared by all your projects and given to your agent in every session. Add or fix anything.</p>
-        <div class="brain-bar">
-          <label class="brain-auto"><input type="checkbox" id="brainAutoAdd"> <span data-i18n="brain.autoAdd">Add what the agent learns directly</span></label>
-          <span class="brain-auto-hint" id="brainAutoHint"></span>
+        <h2 class="panel-title"><span data-i18n="nav.brain">Second brain</span></h2>
+        <p class="panel-sub" data-i18n="brain.sub">What your agent knows: about you, in every project — and about this project, for everyone who works on it. Add or fix anything.</p>
+        <div class="brain-section" data-memory="user">
+          <h3 class="brain-section-title"><span data-i18n="brain.you">You</span> <span class="count mem-count">0</span></h3>
+          <p class="brain-section-sub" data-i18n="brain.youSub">Private, shared by all your projects: your role, preferences, how you like to work.</p>
+          <div class="brain-bar">
+            <label class="brain-auto"><input type="checkbox" class="mem-auto"> <span data-i18n="brain.autoAdd">Add what the agent learns directly</span></label>
+            <span class="brain-auto-hint mem-auto-hint"></span>
+          </div>
+          <div class="brain-agents mem-agents"></div>
+          <div class="brain-notice mem-notice" hidden></div>
+          <div class="brain-pending mem-pending" hidden></div>
+          <div class="brain-grid mem-grid"></div>
+          <p class="brain-path mem-path"></p>
         </div>
-        <div class="brain-agents" id="brainAgents"></div>
-        <div class="brain-notice" id="brainNotice" hidden></div>
-        <div class="brain-pending" id="brainPending" hidden></div>
-        <div class="brain-grid" id="brainGrid"></div>
-        <p class="brain-path" id="brainPath"></p>
+        <div class="brain-section" data-memory="project">
+          <h3 class="brain-section-title"><span data-i18n="brain.project">This project</span> <span class="count mem-count">0</span></h3>
+          <p class="brain-section-sub" data-i18n="brain.projectSub">Committed with the project, so your team and their agents share it. Nothing personal here.</p>
+          <div class="brain-bar">
+            <label class="brain-auto"><input type="checkbox" class="mem-auto"> <span data-i18n="brain.autoAdd">Add what the agent learns directly</span></label>
+            <span class="brain-auto-hint mem-auto-hint"></span>
+          </div>
+          <div class="brain-notice mem-notice" hidden></div>
+          <div class="brain-pending mem-pending" hidden></div>
+          <div class="brain-grid mem-grid"></div>
+          <p class="brain-path mem-path"></p>
+        </div>
       </div>
     </section>
 

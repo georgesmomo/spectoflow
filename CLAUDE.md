@@ -5,6 +5,20 @@ framework with a real-time local control plane. This file orients you to **build
 (it is not a spectoflow-managed project). Read `docs/` before making changes:
 `docs/ARCHITECTURE.md`, `docs/DECISIONS.md` (the full rationale, D1–D23), `docs/ROADMAP.md` (what's next).
 
+## What exists (v0.33.0 — see DECISIONS D78)
+
+**Project memory, next to the second brain** (`docs/project-memory-design.md`). Facts about one project
+(conventions, pitfalls, glossary, constraints) live in `.spectoflow/memory.md`, committed, not shipped by the kit
+(created on first write, never touched by `update`). `lib/memory-store.js` is the generic store (fidelity-first
+parser, lock, write-then-rename, To confirm) — `lib/brain.js` (user, global) and `lib/project-memory.js` (project)
+are its two instances. Agents write the file directly (rules in `templates/SPECTOFLOW.md`, the root shims in
+`lib/adapters.js`, and `brain_learn`'s description). Per-project `config.memoryAutoAdd` (default true). Ops
+`memory.read/add/update/remove/confirm` (relayed online, `project.read`/`project.write`) and `memory.move`
+{from:'user'|'project', id, category} (local only, absent from the relay). The Second brain tab renders both
+memories with one renderer (`MEMORIES` in `app.js`, `[data-memory]` sections): *You* hidden online, *This
+project* visible; *Move to…* local only. Lot 2 (delivery loop) design written in `docs/delivery-loop-design.md`,
+awaiting approval.
+
 ## What exists (v0.32.0 — see DECISIONS D77)
 
 **Foundations, kept simple** (see the "What we deliberately don't do" section of `docs/ROADMAP.md`, rewritten):

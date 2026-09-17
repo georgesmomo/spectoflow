@@ -13,12 +13,12 @@ Every item below is judged against that: it ships only if it removes work or ris
 optional when it adds a concept, and it never adds a mandatory step, a new file to maintain by hand, or a
 command you must remember.
 
-## Where things stand (0.31)
+## Where things stand (0.33)
 
 Details in `docs/DECISIONS.md`. In short: markdown specs and plans; an intent router with modes and policy
 gates; stable agents and evolving skills; 13 coding-agent CLIs; an orchestrator; a real-time dashboard for all
 your projects (local-only hub) plus an optional online relay with accounts and sharing; a personal second
-brain reached through MCP; a workflow fitted to each project at `init` and kept in step by the agent; slash
+brain reached through MCP and a project memory committed with the code; a workflow fitted to each project at `init` and kept in step by the agent; slash
 commands; custom dashboards, skills and agents generated on request.
 
 ## Next
@@ -34,7 +34,8 @@ Ordered by value for the user. Sizes are rough: S (days), M (a week or two), L (
 - Windows: run agent CLIs installed as `.cmd` shims reliably, and add a Windows CI job (M)
 
 ### 2. The delivery loop
-What every serious agent tool now has, kept to one path:
+What every serious agent tool now has, kept to one path (design in `docs/delivery-loop-design.md`, awaiting
+approval):
 - one git worktree per task, so two runs never step on each other (L);
 - review the diff in the dashboard, approve or send comments back to the agent (M);
 - turn an approved task into a branch and a pull request through `gh` (M);
@@ -43,8 +44,8 @@ What every serious agent tool now has, kept to one path:
 ### 3. Specs you can trust
 - `spectoflow validate`: spec ↔ plan ↔ tasks consistency, JSON output for CI (M);
 - acceptance criteria in a light WHEN/THEN form, linked to tasks and tests, coverage shown in the dashboard (M);
-- **project memory** — facts about the project (conventions, pitfalls, glossary, constraints) committed with the
-  code, next to the personal second brain (M, design in `docs/project-memory-design.md`);
+- ~~**project memory** — facts about the project (conventions, pitfalls, glossary, constraints) committed with the
+  code, next to the personal second brain (D78)~~
 - onboarding an existing codebase into that project memory (M).
 
 ### 4. Integrations

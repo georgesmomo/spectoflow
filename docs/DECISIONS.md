@@ -2121,3 +2121,36 @@
   ancien redémarré de bout en bout par la CLI, mise à jour refusée à distance et appliquée en local, relais :
   `project.update` → 404 en ligne) ; QA navigateur (bandeau de version, mise à jour en un clic, bouton Arrêter
   qui libère le chat). Suite 456/456, serveur 117/117.
+
+### D78 — 0.33.0 : la mémoire projet, à côté du second brain
+
+- **Contexte.** Tout ce qu'un agent apprenait allait dans le second brain global (D73), chargé dans tous les
+  projets. Un fait vrai pour un seul projet (« on utilise PostgreSQL », « ticket = cas de support ») polluait
+  les autres et pouvait s'appliquer là où il est faux. Remarque de l'utilisateur, design validé
+  (`docs/project-memory-design.md`).
+- **ACTÉ.**
+  - **La règle : de quoi parle le fait.** De l'utilisateur (vrai quel que soit le projet) → second brain,
+    global et privé, inchangé. Du projet (vrai quel que soit qui y travaille) → **mémoire projet**,
+    `.spectoflow/memory.md`, **commitée** : c'est un savoir d'équipe qui suit l'historique du projet. Jamais
+    rien de personnel dedans, jamais de secret nulle part, et pas de doublon de ce qui a déjà sa place
+    (specs, plans, décisions).
+  - **Quatre catégories** : Conventions · Pièges · Glossaire · Contraintes. Même format markdown, même parseur
+    fidèle, même verrou que le second brain : `lib/brain.js` est devenu une instance d'une petite fabrique
+    (`lib/memory-store.js`), `lib/project-memory.js` est la seconde.
+  - **Pas livré par le kit**, créé à la première écriture : `spectoflow update` n'y touche jamais.
+  - **L'agent lit et écrit le fichier directement** (il est dans le projet) : pas de MCP, pas de permission,
+    ça marche aussi pour les agents en sandbox. La règle « quelle mémoire ? » est écrite dans
+    `SPECTOFLOW.md`, dans les fichiers d'entrée à la racine et dans la description de l'outil `brain_learn`.
+  - **Validation** : même mécanisme que le global, réglage **par projet** (`config.json → memoryAutoAdd`, vrai
+    par défaut, commité donc partagé par l'équipe). Faux → l'agent écrit sous `## To confirm`.
+  - **Une page, deux sections** : l'onglet Second brain montre **Vous** (masqué en ligne) et **Ce projet**
+    (visible en ligne, droits `project.read`/`project.write`). **Déplacer vers…** sur chaque fait, quand
+    l'agent s'est trompé de mémoire : ajouté à la cible d'abord, retiré de la source ensuite (un échec ne
+    perd rien). `memory.move` est local uniquement : il touche le second brain personnel, absent du relais.
+- **Vérifié** : tests (fabrique, fidélité, `memoryAutoAdd`, ops, déplacement dans les deux sens, refus à
+  distance, routes et permissions du relais, `update` n'y touche pas) ; QA navigateur 17/17 (deux sections,
+  confirmer, ajouter, déplacer, réglage par projet, mise à jour en direct quand le fichier change, vue en ligne,
+  400 px, Orbit clair en français) ; vraie session Claude Code : « commits en anglais » → second brain,
+  « ticket = cas de support » → Glossaire de `.spectoflow/memory.md`. Suite 467/467, serveur 117/117.
+- **Design du lot 2 écrit** (`docs/delivery-loop-design.md`, worktree par tâche, relecture du diff, fusion ou
+  PR, abandon = retour arrière) — en attente de validation, rien d'implémenté.

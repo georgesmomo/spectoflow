@@ -307,8 +307,9 @@ off by default):
 - **Info** — a project-at-a-glance summary.
 - **Documentation** — the live supported-agents table (your own install status + links) plus the CLI
   command reference.
-- **Second brain** — what spectoflow has learned about you, shared by all your projects: read, add, fix,
-  confirm (see [Second brain](#second-brain)). Local only.
+- **Second brain** — two sections: **You** (what spectoflow has learned about you, shared by all your projects,
+  local only) and **This project** (the project memory, committed). Read, add, fix, confirm, move a fact to the
+  other one (see [Second brain](#second-brain)).
 - **Personalize** — autonomy mode, language, design, the active agent, **navigation tabs**, **slash
   commands**, and **Extend spectoflow** (see *Customize* below).
 
@@ -412,10 +413,36 @@ agents then read and grow your second brain through that server: nothing is copi
   `::spectoflow learn category=… msg=…` line instead. Those always wait in *To confirm*, whatever the setting:
   that output also carries command output and file contents, so a line hidden in a repository can't slip
   in unseen.
-- **Private:** the Second brain tab and its API answer this machine only — not the online dashboard
+- **Private:** the *You* section and its API answer this machine only — not the online dashboard
   (`server/` refuses them for everyone, the project owner included), and not other machines or websites.
   A run started from either of those can't write into it, and a learned fact never goes into a project's chat
   log.
+
+### Project memory
+
+Some facts aren't about you but about **one project**: its conventions, what breaks, its vocabulary, its
+constraints. Those go in `.spectoflow/memory.md`, **committed with the code**, so your team and their agents
+share them — and your other projects don't inherit them.
+
+```markdown
+# Project memory
+
+## Conventions
+- Tests run with `npm test -- --runInBand` (shared DB fixtures)
+
+## Glossary
+- "Ticket" means a customer support case, never a Jira issue
+```
+
+- **Four categories:** Conventions, Pitfalls, Glossary, Constraints.
+- **The agent reads and writes the file directly** — no setup. About you → second brain; about the project →
+  this file. Never anything personal in it.
+- **Facts the agent adds land directly by default.** To review them first, untick *Add what the agent learns
+  directly* in the *This project* section: that sets `memoryAutoAdd: false` in `.spectoflow/config.json`, for
+  the whole team.
+- **Wrong memory?** *Move to…* on any fact sends it to the other one, in the category you pick (local dashboard
+  only).
+- Created on the first fact; `spectoflow update` never touches it.
 
 ## A workflow that fits the project
 

@@ -4,6 +4,7 @@
   "agent": "claude",
   "projectType": "app",
   "workflowAutoEnable": false,
+  "memoryAutoAdd": true,
   "plansDir": null,
   "specsDir": null,
   "dashboard": { "autostart": true },

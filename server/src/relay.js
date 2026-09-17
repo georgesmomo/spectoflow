@@ -22,6 +22,8 @@ const OP_PERMISSIONS = {
   'chat.clear': 'project.write', 'orchestrate.start': 'project.write', 'orchestrate.approve': 'project.write',
   'settings.save': 'project.manage_settings',
   'attention.add': 'project.write', 'attention.promote': 'project.write', 'attention.update': 'project.write', 'attention.remove': 'project.write',
+  // The project memory is the project's; `memory.move` is not listed (it touches the owner's second brain).
+  'memory.read': 'project.read', 'memory.add': 'project.write', 'memory.update': 'project.write', 'memory.remove': 'project.write', 'memory.confirm': 'project.write',
 };
 
 function registerRelay(app, { db, registry }) {
