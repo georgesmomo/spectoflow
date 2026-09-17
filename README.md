@@ -205,6 +205,11 @@ that another website sent — a malicious page, a DNS-rebinding trick, or a tunn
 machine can't drive it. Clicking a link to it from another site still opens it. To reach your projects from
 another device, use the online dashboard ([below](#going-online-optional-local-hub-vs-relay-server)).
 
+**A custom agent command needs your OK.** `config.json → runners` sets the command that launches each agent,
+and that file is committed — it can come from a cloned repository or a teammate's change. A command other than
+the agent's default only runs once you allow it on this machine: Personalize → *Agent & automation* → **Allow
+on this machine**, or `spectoflow runners allow <agent>`. Change the command and it asks again.
+
 ### One hub, every project
 
 There is only ever **one dashboard process on your machine**, no matter how many projects you have.

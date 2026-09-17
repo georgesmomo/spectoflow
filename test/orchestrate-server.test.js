@@ -1,6 +1,7 @@
 'use strict';
 const { test } = require('node:test');
 const assert = require('node:assert');
+const { allowRunners } = require('./helpers/allow-runners');
 const fs = require('node:fs');
 const os = require('node:os');
 const path = require('node:path');
@@ -22,7 +23,7 @@ function project() {
   cfg.mode = 'autopilot';
   cfg.agent = 'claude';
   cfg.runners = { claude: `node ${FIXTURE}` };
-  fs.writeFileSync(cfgP, JSON.stringify(cfg, null, 2) + '\n');
+  fs.writeFileSync(cfgP, JSON.stringify(cfg, null, 2) + '\n'); allowRunners(d);
   // Single enabled step: minimizes how many child processes this test spawns, which minimizes
   // exposure to intermittent Windows AV/EDR interception of freshly-spawned node.exe processes.
   // Multi-step ordering is already covered by the orchestrator unit tests (Task 3).
@@ -44,6 +45,7 @@ let currentId = null;
 const withP = (p) => p + (p.includes('?') ? '&' : '?') + 'p=' + currentId;
 function startServer(root, port, extraEnv = {}) {
   const home = fs.mkdtempSync(path.join(os.tmpdir(), 'stf-home-'));
+  allowRunners(root, home);
   currentId = registry.addProject(root, path.join(home, 'dashboard')).id;
   return new Promise((resolve) => {
     const srv = spawn('node', [HUB], { env: { ...process.env, ...extraEnv, SPECTOFLOW_HOME: home, SPECTOFLOW_PORT: String(port) } });

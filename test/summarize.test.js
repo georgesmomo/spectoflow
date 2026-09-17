@@ -1,6 +1,7 @@
 'use strict';
 const { test } = require('node:test');
 const assert = require('node:assert');
+const { allowRunners } = require('./helpers/allow-runners');
 const fs = require('node:fs');
 const os = require('node:os');
 const path = require('node:path');
@@ -19,7 +20,7 @@ function installWithStub() {
   const cfg = JSON.parse(fs.readFileSync(cfgPath, 'utf8'));
   cfg.agent = 'claude';
   cfg.runners = { claude: `node ${SUMMARY_FIXTURE}` };
-  fs.writeFileSync(cfgPath, JSON.stringify(cfg, null, 2) + '\n');
+  fs.writeFileSync(cfgPath, JSON.stringify(cfg, null, 2) + '\n'); allowRunners(proj);
   return proj;
 }
 function seedMessages(proj, entries) {

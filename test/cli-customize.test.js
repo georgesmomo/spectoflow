@@ -4,6 +4,7 @@
 // asserts on the exact prompt it logs, mirroring lib/dashboard/public/app.js's CZ_KINDS.
 const { test } = require('node:test');
 const assert = require('node:assert');
+const { allowRunners } = require('./helpers/allow-runners');
 const fs = require('node:fs');
 const os = require('node:os');
 const path = require('node:path');
@@ -21,7 +22,7 @@ function installWithStub(extraRunners) {
   const cfg = JSON.parse(fs.readFileSync(cfgPath, 'utf8'));
   cfg.agent = 'claude';
   cfg.runners = Object.assign({ claude: `node ${FIXTURE}` }, extraRunners || {});
-  fs.writeFileSync(cfgPath, JSON.stringify(cfg, null, 2) + '\n');
+  fs.writeFileSync(cfgPath, JSON.stringify(cfg, null, 2) + '\n'); allowRunners(proj);
   return proj;
 }
 function run(proj, args) {
@@ -119,7 +120,7 @@ test('the CLI exits with the agent run\'s own exit code', () => {
   const cfgPath = path.join(proj, '.spectoflow', 'config.json');
   const cfg = JSON.parse(fs.readFileSync(cfgPath, 'utf8'));
   cfg.runners.claude = 'node -e process.exit(1)';
-  fs.writeFileSync(cfgPath, JSON.stringify(cfg, null, 2) + '\n');
+  fs.writeFileSync(cfgPath, JSON.stringify(cfg, null, 2) + '\n'); allowRunners(proj);
   const r = run(proj, ['skill', 'create', 'x']);
   assert.strictEqual(r.status, 1);
 });

@@ -394,6 +394,30 @@ function workflowCmd() {
   console.log(`\n  ${c.g('✓')} ${changed.length} step(s) updated in .spectoflow/workflow.md\n`);
 }
 
+// ---- runners: the commands that launch agents, and which custom ones are allowed on this machine (D76) ----
+function runnersCmd() {
+  const root = process.cwd();
+  if (!fs.existsSync(path.join(root, '.spectoflow', 'config.json'))) { console.log('No spectoflow project here. Run: spectoflow init'); process.exitCode = 1; return; }
+  const trust = require('../lib/runner-trust');
+  const runners = store.readConfig(root).runners || {};
+  if (argv[1] === 'allow') {
+    const which = argv[2];
+    if (!which || typeof runners[which] !== 'string') { console.log(`${c.y('!')} Usage: spectoflow runners allow <agent>   ${c.dim('— one of: ' + (Object.keys(runners).join(', ') || 'none'))}`); process.exitCode = 1; return; }
+    if (trust.isDefault(which, runners[which])) { console.log(`${c.dim('·')} ${which} uses the default command — nothing to allow.`); return; }
+    trust.trust(root, which, runners[which]);
+    console.log(`${c.g('✓')} allowed on this machine for this project: ${c.bold(which)} → ${runners[which]}`);
+    return;
+  }
+  console.log(wordmark());
+  const w = Math.max(4, ...Object.keys(runners).map((k) => k.length));
+  for (const [which, cmd] of Object.entries(runners)) {
+    const state = trust.isDefault(which, cmd) ? c.dim('default') : trust.isTrusted(root, which, cmd) ? c.g('allowed') : c.y('needs your OK');
+    console.log(`  ${which.padEnd(w)}  ${state.padEnd(24)}  ${cmd}`);
+  }
+  if (!Object.keys(runners).length) console.log(c.dim('  (no runners in config.json)'));
+  if (trust.untrusted(root, { runners }).length) console.log(`\n  ${c.dim('a custom command only runs once allowed:')} ${c.g('spectoflow runners allow <agent>')}\n`);
+}
+
 // ---- brain: the user's second brain (~/.spectoflow/brain.md), shared by every project ----
 function brainCmd() {
   const brain = require('../lib/brain');
@@ -728,6 +752,7 @@ const HELP = {
     ${c.g('brain setup')}    register the MCP server in each installed agent's USER-level config (once
                    per machine; never touches an existing entry; Goose gets a snippet to paste)
   Learned facts are added directly by default: ${c.g('spectoflow config set brain.autoAdd false')} to confirm them first.`,
+  runners: `${c.bold('spectoflow runners')} ${c.dim('[allow <agent>]')}\n\n  The commands that launch each agent (${c.dim('.spectoflow/config.json → runners')}). A command other than the\n  agent's default only runs once you allow it on this machine — config.json is committed, so it can come\n  from a cloned repository, a teammate, or an agent's edit.\n    ${c.g('runners')}                list them: default · allowed · needs your OK\n    ${c.g('runners allow <agent>')}  allow that agent's current command, for this project, on this machine`,
   stop: `${c.bold('spectoflow stop')}\n  Stop the running dashboard (alias for ${c.g('spectoflow dashboard stop')}).`,
   config: `${c.bold('spectoflow config')} ${c.dim('[get <key> | set <key> <value>]')}\n
   Global settings that apply to every project on this machine, stored in ${c.dim('~/.spectoflow/config.json')}:
@@ -745,6 +770,7 @@ const fns = {
   config: configCmd,
   mcp: () => require('../lib/mcp-server').serve({ version: VERSION }),
   brain: brainCmd,
+  runners: runnersCmd,
   agents: () => { console.log(wordmark()); printAgents(false); },
   skills: () => { console.log(wordmark()); printSkills(false); },
   workflow: workflowCmd,

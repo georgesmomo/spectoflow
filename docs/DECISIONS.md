@@ -2051,3 +2051,38 @@
   `lib/dashboard/public/{app.js,index.html,styles.css,i18n.js}`, `bin/spectoflow.js`,
   `templates/{SPECTOFLOW.md,config.json}`, `server/src/relay.js`, tests `test/workflow-detect.test.js` +
   `ops`/`init-detect`/`orchestrate-loop`, `README.md`, `docs/workflow-autoconfig-design.md`.
+
+### D76 — 0.31.1 : faille corrigée — exécution de commandes via la commande d'agent de `config.json`
+
+- **Contexte.** Trouvé par l'audit interne (vérifié dans le code avant correction). `files.write` ne protégeait
+  que `.git`. Un membre du dashboard en ligne ayant `project.write` pouvait réécrire `.spectoflow/config.json`,
+  remplacer `runners.claude` par n'importe quelle commande, puis lancer un run : le hub l'exécutait sur la machine
+  du propriétaire. Même vecteur en local : un dépôt cloné (ou une modification d'un coéquipier, ou un agent
+  poussé à éditer `config.json`) avec une commande piégée s'exécutait au premier « Run ». `settings.save`
+  refusait déjà de toucher `runners`, mais l'onglet Fichiers le contournait.
+- **ACTÉ — deux mesures simples, complémentaires.**
+  1. **Verrou des écritures distantes** (`files.js`, `ctx.remote`) sur les fichiers qui font lancer des commandes
+     aux outils eux-mêmes : `.spectoflow/config.json`, `.spectoflow/hooks`, `.spectoflow/lib`, `.claude/`,
+     `.mcp.json`, `.cursor/`, `.codex/`, `.gemini/`, `.kiro/`, `.vscode/`, `.idea/`, `.husky/` (en plus de
+     `.git`). En local, rien ne change.
+  2. **Une commande d'agent personnalisée doit être autorisée une fois sur la machine** (`lib/runner-trust.js`) :
+     toute commande différente de celle du registre pour cet agent est refusée avant tout lancement (run,
+     orchestration, résumé, réunion). L'autorisation est stockée hors du projet
+     (`~/.spectoflow/trusted-runners.json`, mode 0600), liée au projet, à l'agent et à la commande exacte :
+     la changer redemande. Les commandes par défaut ne demandent jamais rien. Autorisation : Personnaliser →
+     *Agent et automatisation* → **Autoriser sur cette machine**, ou `spectoflow runners allow <agent>`
+     (`spectoflow runners` liste : par défaut · autorisée · attend votre accord). L'op `runners.trust` est locale
+     uniquement (absente de l'`OP_PERMISSIONS` du relais, refusée avec `ctx.remote`).
+- **Au passage** : un lancement refusé (commande non autorisée, pas de runner…) était silencieux dans le chat —
+  il y est maintenant affiché ; l'échec d'une étape d'orchestration pour la même raison est enregistré dans le
+  journal au lieu d'être perdu.
+- **Limite assumée, documentée** (`server/README.md`) : un membre qui peut écrire peut lancer des agents sur la
+  machine du propriétaire — c'est la nature du relais ; donner ce droit seulement à des personnes de confiance.
+- **Vérifié** : tests (commande par défaut jamais bloquée, commande piégée refusée sans rien lancer ni écrire,
+  autorisation liée à la commande exacte et au projet, refus distant de l'autorisation, écritures distantes
+  bloquées y compris variantes de casse et de séparateur, écritures locales intactes, message d'orchestration
+  enregistré, CLI) ; relais : `runners.trust` → 404 en ligne même pour le propriétaire ; QA navigateur réelle
+  (commande piégée → rien ne s'exécute, le chat explique, Personnaliser propose d'autoriser, après autorisation
+  la commande s'exécute). Les tests qui lancent un faux agent l'autorisent désormais comme un utilisateur, dans
+  un `SPECTOFLOW_HOME` temporaire (`test/helpers/allow-runners.js`). Suite 450/451 (échec connu : hub réel sur
+  4319), serveur 117/117.

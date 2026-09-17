@@ -1,6 +1,7 @@
 'use strict';
 const { test } = require('node:test');
 const assert = require('node:assert');
+const { allowRunners } = require('./helpers/allow-runners');
 const fs = require('node:fs');
 const os = require('node:os');
 const path = require('node:path');
@@ -17,7 +18,7 @@ function project() {
   const cfg = JSON.parse(fs.readFileSync(cfgP, 'utf8'));
   cfg.agent = 'claude';
   cfg.runners = { claude: `node ${FIXTURE}` };   // runners are keyed by TOOL, not by role
-  fs.writeFileSync(cfgP, JSON.stringify(cfg, null, 2) + '\n');
+  fs.writeFileSync(cfgP, JSON.stringify(cfg, null, 2) + '\n'); allowRunners(d);
   return d;
 }
 

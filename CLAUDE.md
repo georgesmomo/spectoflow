@@ -5,6 +5,15 @@ framework with a real-time local control plane. This file orients you to **build
 (it is not a spectoflow-managed project). Read `docs/` before making changes:
 `docs/ARCHITECTURE.md`, `docs/DECISIONS.md` (the full rationale, D1–D23), `docs/ROADMAP.md` (what's next).
 
+## What exists (v0.31.1 — see DECISIONS D76)
+
+**Security fix: agent commands.** `config.json → runners` is committed and was writable online through the Files
+tab, so a member with write access (or a cloned repo) could make the hub run any command. Now: online writes to
+exec-config files are refused (`files.js` `EXEC_CONFIG`, `ctx.remote`), and any runner other than the registry
+default must be allowed once per machine (`lib/runner-trust.js`, `~/.spectoflow/trusted-runners.json`, checked in
+`runner.js`/`summarize.js`/`meeting.js` before spawning; allow via Personalize or `spectoflow runners allow`;
+`runners.trust` is local-only). Tests allow their stub runners via `test/helpers/allow-runners.js`.
+
 ## What exists (v0.31.0 — see DECISIONS D75)
 
 **A workflow fitted to the project.** `init` no longer copies one `workflow.md` for all: `lib/workflow-detect.js`

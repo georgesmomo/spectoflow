@@ -1,6 +1,7 @@
 'use strict';
 const { test } = require('node:test');
 const assert = require('node:assert');
+const { allowRunners } = require('./helpers/allow-runners');
 const fs = require('node:fs');
 const os = require('node:os');
 const path = require('node:path');
@@ -19,7 +20,7 @@ function installWithStub() {
   const cfg = JSON.parse(fs.readFileSync(cfgPath, 'utf8'));
   cfg.agent = 'claude';
   cfg.runners = { claude: `node ${FIXTURE}` };
-  fs.writeFileSync(cfgPath, JSON.stringify(cfg, null, 2) + '\n');
+  fs.writeFileSync(cfgPath, JSON.stringify(cfg, null, 2) + '\n'); allowRunners(proj);
   return proj;
 }
 // Run one agent to completion, collecting emitted events.
@@ -144,7 +145,7 @@ test('a `::spectoflow learn` line lands in "To confirm" (whatever brain.autoAdd 
     const cfgPath = path.join(proj, '.spectoflow', 'config.json');
     const cfg = JSON.parse(fs.readFileSync(cfgPath, 'utf8'));
     cfg.runners = { claude: `node ${path.join(KIT, 'test', 'fixtures', 'learn-agent.js').split(path.sep).join('/')}` };
-    fs.writeFileSync(cfgPath, JSON.stringify(cfg, null, 2) + '\n');
+    fs.writeFileSync(cfgPath, JSON.stringify(cfg, null, 2) + '\n'); allowRunners(proj);
     assert.strictEqual(require('../lib/brain').autoAdd(), true, 'autoAdd is on');
     const events = await runOnce(proj, 'go');
     const text = fs.readFileSync(path.join(process.env.SPECTOFLOW_HOME, 'brain.md'), 'utf8');
@@ -167,7 +168,7 @@ test('a run started with learn:false (a remote caller) never writes into the sec
     const cfgPath = path.join(proj, '.spectoflow', 'config.json');
     const cfg = JSON.parse(fs.readFileSync(cfgPath, 'utf8'));
     cfg.runners = { claude: `node ${path.join(KIT, 'test', 'fixtures', 'learn-agent.js').split(path.sep).join('/')}` };
-    fs.writeFileSync(cfgPath, JSON.stringify(cfg, null, 2) + '\n');
+    fs.writeFileSync(cfgPath, JSON.stringify(cfg, null, 2) + '\n'); allowRunners(proj);
     const events = await new Promise((resolve) => {
       const ev = []; startRun(proj, { prompt: 'go', agent: 'claude', learn: false }, (e) => { ev.push(e); if (e.type === 'run-end') resolve(ev); });
     });

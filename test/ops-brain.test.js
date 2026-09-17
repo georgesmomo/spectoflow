@@ -1,6 +1,7 @@
 'use strict';
 const { test } = require('node:test');
 const assert = require('node:assert');
+const { allowRunners } = require('./helpers/allow-runners');
 const fs = require('node:fs');
 const os = require('node:os');
 const path = require('node:path');
@@ -79,7 +80,7 @@ test('a run or an orchestration started by a remote caller cannot write into the
   const cfgPath = path.join(root, '.spectoflow', 'config.json');
   const cfg = JSON.parse(fs.readFileSync(cfgPath, 'utf8'));
   cfg.runners = { claude: `node ${path.join(__dirname, 'fixtures', 'learn-agent.js').split(path.sep).join('/')}` };
-  fs.writeFileSync(cfgPath, JSON.stringify(cfg, null, 2) + '\n');
+  fs.writeFileSync(cfgPath, JSON.stringify(cfg, null, 2) + '\n'); allowRunners(root);
   const brainFile = path.join(process.env.SPECTOFLOW_HOME, 'brain.md');
   const before = fs.existsSync(brainFile) ? fs.readFileSync(brainFile, 'utf8') : '';
   const runAndWait = (ctxRemote) => new Promise((resolve) => {

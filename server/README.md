@@ -102,6 +102,11 @@ Project sharing (inviting other accounts onto a project, with roles/permissions)
 dashboard itself once a project is published, or via `/api/projects/:id/invite`; see
 `../docs/online-dashboard-accounts-design.md`.
 
+**Give write access only to people you trust.** A member who can write to a project can launch agents on the
+owner's machine. What they can't do: edit the files that make tools run commands on their own (`config.json`,
+hooks, MCP and editor configs — refused online), allow a custom agent command (local only), or touch the owner's
+second brain.
+
 ## Deployment
 
 Two guides, depending on what your host gives you:

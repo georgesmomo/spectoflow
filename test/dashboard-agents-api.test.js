@@ -1,6 +1,7 @@
 'use strict';
 const { test } = require('node:test');
 const assert = require('node:assert');
+const { allowRunners } = require('./helpers/allow-runners');
 const fs = require('node:fs');
 const os = require('node:os');
 const path = require('node:path');
@@ -22,7 +23,7 @@ function project() {
   const cfg = JSON.parse(fs.readFileSync(cfgP, 'utf8'));
   cfg.agent = 'claude';
   cfg.runners = { claude: `node ${CHAT_FIXTURE}`, opencode: `node ${SUMMARY_FIXTURE}` };
-  fs.writeFileSync(cfgP, JSON.stringify(cfg, null, 2) + '\n');
+  fs.writeFileSync(cfgP, JSON.stringify(cfg, null, 2) + '\n'); allowRunners(d);
   return d;
 }
 // A fake binary on an otherwise-empty PATH — enough for binOnPath to consider it installed, and
@@ -53,6 +54,7 @@ let currentId = null;
 const withP = (p) => p + (p.includes('?') ? '&' : '?') + 'p=' + currentId;
 function startServer(root, port, extraEnv = {}) {
   const home = fs.mkdtempSync(path.join(os.tmpdir(), 'stf-home-'));
+  allowRunners(root, home);
   currentId = registry.addProject(root, path.join(home, 'dashboard')).id;
   return new Promise((resolve) => {
     const srv = spawn('node', [HUB], { env: { ...process.env, ...extraEnv, SPECTOFLOW_HOME: home, SPECTOFLOW_PORT: String(port) } });
@@ -128,7 +130,7 @@ test('POST /api/chat/summarize appends a summary message from the configured age
   const cfgP = path.join(d, '.spectoflow', 'config.json');
   const cfg = JSON.parse(fs.readFileSync(cfgP, 'utf8'));
   cfg.agent = 'opencode'; // routed to summary-agent.js via runners.opencode above
-  fs.writeFileSync(cfgP, JSON.stringify(cfg, null, 2) + '\n');
+  fs.writeFileSync(cfgP, JSON.stringify(cfg, null, 2) + '\n'); allowRunners(d);
   const rt = store.readRuntime(d); rt.messages = [{ id: 'm1', role: 'user', kind: 'message', text: 'add login', at: new Date().toISOString() }];
   store.writeRuntime(d, rt);
   const port = 4500 + Math.floor(Math.random() * 200);
